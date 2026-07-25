@@ -16,47 +16,25 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   late int _index = widget.initialIndex;
-  int _prev = 0;
 
   static const _tabs = [TasksTab(), WishesTab(), MeTab()];
 
   void _go(int i) {
     if (i == _index) return;
     HapticFeedback.selectionClick();
-    setState(() {
-      _prev = _index;
-      _index = i;
-    });
+    setState(() => _index = i);
   }
 
   @override
   Widget build(BuildContext context) {
-    final forward = _index >= _prev;
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
       body: Stack(
         children: [
           const Positioned.fill(child: AuroraBg()),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 340),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeIn,
-            transitionBuilder: (child, anim) {
-              final slide = Tween<Offset>(
-                begin: Offset(forward ? .06 : -.06, 0),
-                end: Offset.zero,
-              ).animate(anim);
-              return FadeTransition(
-                opacity: anim,
-                child: SlideTransition(position: slide, child: child),
-              );
-            },
-            child: KeyedSubtree(
-              key: ValueKey(_index),
-              child: _tabs[_index],
-            ),
-          ),
+          // 切换无动画（瞬间切，保留各页状态）
+          IndexedStack(index: _index, children: _tabs),
         ],
       ),
       bottomNavigationBar: ClipRect(
