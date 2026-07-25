@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'home.dart';
-
+import 'pages/splash_page.dart';
 import 'theme.dart';
 
 void main() => runApp(const XinyuanApp());
@@ -30,7 +29,7 @@ class XinyuanApp extends StatelessWidget {
         fontFamily: 'MiSans',
         fontFamilyFallback: const ['PingFang SC', 'sans-serif'],
       ),
-      home: const HomeShell(initialIndex: 1),
+      home: const SplashPage(),
     );
   }
 }
