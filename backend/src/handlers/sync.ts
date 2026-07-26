@@ -6,6 +6,11 @@ import { PushBody } from '../types';
 export async function pull(req: Req, uid: string) {
   const since = Number(req.query.since ?? '0') || 0;
   const result = await getDb().pull(uid, since);
+  // 绝不把 passwordHash 返回客户端
+  if (result.profile) {
+    const { passwordHash, ...safe } = result.profile as any;
+    result.profile = safe;
+  }
   return ok(result);
 }
 

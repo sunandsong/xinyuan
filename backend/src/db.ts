@@ -5,6 +5,8 @@ import { COL, ENV_ID, IS_MOCK } from './config';
 import { PullResult, Share, Task, UserProfile, Wish } from './types';
 
 export interface Db {
+  getUserByEmail(email: string): Promise<UserProfile | null>;
+  createUser(user: UserProfile): Promise<void>;
   getProfile(uid: string): Promise<UserProfile | null>;
   upsertProfile(uid: string, patch: Partial<UserProfile>): Promise<UserProfile>;
 
@@ -26,6 +28,13 @@ class MockDb implements Db {
   private tasks: Task[] = [];
   private shares: Share[] = [];
 
+  async getUserByEmail(email: string) {
+    for (const u of this.profiles.values()) if (u.email === email && !u.deleted) return u;
+    return null;
+  }
+  async createUser(user: UserProfile) {
+    this.profiles.set(user._id, user);
+  }
   async getProfile(uid: string) {
     return this.profiles.get(uid) ?? null;
   }
@@ -91,6 +100,12 @@ class MockDb implements Db {
   }
 }
 
+// CloudBase 文档库不允许 payload 含 _id（它是文档主键）
+function noId<T extends Record<string, any>>(o: T): Omit<T, '_id'> {
+  const { _id, ...rest } = o;
+  return rest;
+}
+
 // ---------------- cloud（CloudBase 文档库）----------------
 // 说明：CloudBase Node SDK 的 database API —— db.collection(x).where(...).get()/update()/add()，
 // db.command 作比较运算。以下为标准写法；首次部署后按控制台实际返回微调即可。
@@ -105,6 +120,13 @@ class CloudDb implements Db {
     this.cmd = this.db.command;
   }
 
+  async getUserByEmail(email: string): Promise<UserProfile | null> {
+    const r = await this.db.collection(COL.users).where({ email }).limit(1).get();
+    return r.data?.[0] ?? null;
+  }
+  async createUser(user: UserProfile) {
+    await this.db.collection(COL.users).doc(user._id).set(noId(user));
+  }
   async getProfile(uid: string): Promise<UserProfile | null> {
     const r = await this.db.collection(COL.users).doc(uid).get();
     return r.data?.[0] ?? null;
@@ -121,11 +143,11 @@ class CloudDb implements Db {
         createdAt: now,
         updatedAt: now,
       };
-      await this.db.collection(COL.users).doc(uid).set(doc);
+      await this.db.collection(COL.users).doc(uid).set(noId(doc));
       return doc;
     }
     const next = { ...exist, ...patch, _id: uid, updatedAt: now };
-    await this.db.collection(COL.users).doc(uid).update({ ...patch, updatedAt: now });
+    await this.db.collection(COL.users).doc(uid).update(noId({ ...patch, updatedAt: now }));
     return next;
   }
   async pull(uid: string, since: number): Promise<PullResult> {
@@ -141,9 +163,9 @@ class CloudDb implements Db {
       const cur = await this.db.collection(COL.wishes).doc(it._id).get();
       const exist: Wish | undefined = cur.data?.[0];
       if (!exist) {
-        await this.db.collection(COL.wishes).doc(it._id).set({ ...it, uid });
+        await this.db.collection(COL.wishes).doc(it._id).set(noId({ ...it, uid }));
       } else if (exist.uid === uid && it.updatedAt >= exist.updatedAt) {
-        await this.db.collection(COL.wishes).doc(it._id).update({ ...it, uid });
+        await this.db.collection(COL.wishes).doc(it._id).update(noId({ ...it, uid }));
       }
     }
   }
@@ -152,14 +174,14 @@ class CloudDb implements Db {
       const cur = await this.db.collection(COL.tasks).doc(it._id).get();
       const exist: Task | undefined = cur.data?.[0];
       if (!exist) {
-        await this.db.collection(COL.tasks).doc(it._id).set({ ...it, uid });
+        await this.db.collection(COL.tasks).doc(it._id).set(noId({ ...it, uid }));
       } else if (exist.uid === uid && it.updatedAt >= exist.updatedAt) {
-        await this.db.collection(COL.tasks).doc(it._id).update({ ...it, uid });
+        await this.db.collection(COL.tasks).doc(it._id).update(noId({ ...it, uid }));
       }
     }
   }
   async createShare(share: Share) {
-    await this.db.collection(COL.shares).doc(share._id).set(share);
+    await this.db.collection(COL.shares).doc(share._id).set(noId(share));
   }
   async getShareByCode(code: string): Promise<Share | null> {
     const r = await this.db.collection(COL.shares).where({ code }).limit(1).get();

@@ -193,8 +193,8 @@ EdgeOne 更接近腾讯版 Cloudflare：
 - App 本地安全存储 token（`flutter_secure_storage`），每次请求带 `Authorization`。
 - 有效期 30 天；找回密码要自己配邮件服务。
 
-> 起步选 **A**：最快、少踩坑；等要脱离 CloudBase 或做复杂登录再切 B。
-> 注销账号：CloudBase 删除/停用该账号 + 业务数据级联 `deleted=true`。
+> **实际采用 B**：CloudBase 官方 Flutter 客户端 SDK 支持不稳，改用后端自管邮箱+密码+JWT，App 直接调 `/api/auth/register|login`，无需 CloudBase 客户端 SDK，完全可控、可移植。密码用 Node scrypt 哈希、JWT 用 HS256（`backend/src/{password,jwt,auth}.ts`）。
+> 注销账号：业务数据级联 `deleted=true`（`DELETE /api/auth/account`）。
 
 ---
 

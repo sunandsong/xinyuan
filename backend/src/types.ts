@@ -1,8 +1,9 @@
 // 数据模型类型（与 App 端 lib/data.dart 对应；详见 docs/backend-design.md §3）
 
 export interface UserProfile {
-  _id: string; // = CloudBase uid
+  _id: string; // uid
   email: string;
+  passwordHash?: string; // 仅服务端；绝不返回给客户端
   nickname: string;
   avatarEmoji: string | null;
   createdAt: number;

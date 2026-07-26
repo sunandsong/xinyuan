@@ -1,5 +1,6 @@
 // 汇总路由 + 鉴权：public 先匹配，其余需登录。
 import { getUid } from './auth';
+import * as auth from './handlers/auth';
 import * as me from './handlers/me';
 import * as share from './handlers/share';
 import * as sync from './handlers/sync';
@@ -8,6 +9,8 @@ import { dispatch, notFound, ok, Req, Res, route, unauthorized } from './http';
 // 路由不带 /api 前缀：CloudBase HTTP 服务会剥掉 /api；本地请求也统一剥掉后匹配。
 const publicRoutes = [
   route('GET', '/health', async () => ok({ ok: true })),
+  route('POST', '/auth/register', (r) => auth.register(r)),
+  route('POST', '/auth/login', (r) => auth.login(r)),
   route('GET', '/share/:code', (req, p) => share.getShare(req, p.code)),
 ];
 
