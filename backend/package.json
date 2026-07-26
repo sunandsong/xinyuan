@@ -1,0 +1,21 @@
+{
+  "name": "renshengqingdan-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "人生清单 后端 · CloudBase 云函数（TypeScript）",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "dev": "MODE=mock ts-node src/local-server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  }
+}
