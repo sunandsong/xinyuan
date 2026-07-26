@@ -524,9 +524,11 @@ class HeroMedals extends StatelessWidget {
 
 /// ───────────────── F · 年度报告大数据 ─────────────────
 class HeroWrapped extends StatefulWidget {
-  const HeroWrapped({super.key, required this.done, this.maxH = 280});
+  const HeroWrapped(
+      {super.key, required this.done, this.maxH = 280, this.minH = 96});
   final List<Wish> done;
   final double maxH;
+  final double minH;
   @override
   State<HeroWrapped> createState() => _HeroWrappedState();
 }
@@ -550,10 +552,14 @@ class _HeroWrappedState extends State<HeroWrapped>
     return LayoutBuilder(builder: (context, cons) {
       final h = cons.maxHeight;
       final topInset = MediaQuery.paddingOf(context).top;
-      // 展开→折叠 进度 t：1=展开 0=折叠
-      final t = ((h / widget.maxH - 0.55) / 0.45).clamp(0.0, 1.0);
-      // 展开时把内容压到刘海下方；折叠时可进入刘海区（挡住无妨）
+      // 展开→折叠 进度 t：1=展开(大图) 0=收成顶部摘要条（不消失）
+      final range = widget.maxH - widget.minH;
+      final t = range <= 0 ? 1.0 : ((h - widget.minH) / range).clamp(0.0, 1.0);
       final pad = topInset * t;
+      final pct = (frac * 100).round();
+      final bigOp = ((t - 0.35) / 0.55).clamp(0.0, 1.0); // 展开态可见
+      final barOp = ((0.45 - t) / 0.45).clamp(0.0, 1.0); // 收起态可见
+      final barH = (widget.minH - topInset).clamp(40.0, 72.0);
       return ClipRect(
         child: Stack(children: [
           // 流动网格光晕背景（始终满宽满高、含刘海区）
@@ -563,44 +569,78 @@ class _HeroWrappedState extends State<HeroWrapped>
               builder: (_, __) => CustomPaint(painter: _MeshPainter(_c.value)),
             ),
           ),
-          // 内容在「刘海下方~底部」区域内居中，原大小不缩字
+          // 大内容（展开态）——随收起淡出，刘海下方居中
           Positioned(
             top: pad,
             left: 0,
             right: 0,
             bottom: 0,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: SizedBox(
-                width: 240,
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Stack(alignment: Alignment.center, children: [
-                    SizedBox(
-                      width: 190,
-                      height: 190,
-                      child: CustomPaint(painter: _RingPainter(frac)),
-                    ),
-                    Column(mainAxisSize: MainAxisSize.min, children: [
-                      Text('$n',
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: bigOp,
+                child: Center(
+                  child: OverflowBox(
+                    minHeight: 0,
+                    maxHeight: double.infinity,
+                    alignment: Alignment.center,
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Stack(alignment: Alignment.center, children: [
+                        SizedBox(
+                          width: 190,
+                          height: 190,
+                          child: CustomPaint(painter: _RingPainter(frac)),
+                        ),
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          Text('$n',
+                              style: const TextStyle(
+                                  fontSize: 72,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1,
+                                  color: Colors.white)),
+                          const SizedBox(height: 2),
+                          Text('已实现 · 共 $total',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white.withValues(alpha: .8))),
+                        ]),
+                      ]),
+                      const SizedBox(height: 16),
+                      Text('完成度 $pct%',
                           style: const TextStyle(
-                              fontSize: 72,
-                              fontWeight: FontWeight.w800,
-                              height: 1,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: .5,
                               color: Colors.white)),
-                      const SizedBox(height: 2),
-                      Text('已实现 · 共 $total',
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.white.withValues(alpha: .8))),
                     ]),
-                  ]),
-                  const SizedBox(height: 16),
-                  Text('完成度 ${(frac * 100).round()}%',
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 顶部摘要条（收起态）——随收起淡入，常驻不消失（右侧让出 + 按钮）
+          Positioned(
+            top: topInset,
+            left: 22,
+            right: 74,
+            height: barH,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: barOp,
+                child: Row(children: [
+                  const Icon(Icons.check_circle_rounded,
+                      color: Colors.white, size: 22),
+                  const SizedBox(width: 9),
+                  Text('已实现 $n / $total',
                       style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: .5,
                           color: Colors.white)),
+                  const Spacer(),
+                  Text('完成度 $pct%',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: .9))),
                 ]),
               ),
             ),

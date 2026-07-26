@@ -23,17 +23,19 @@ class WishesTab extends StatelessWidget {
         return Stack(
           children: [
             LayoutBuilder(builder: (context, cons) {
-            // 黄金分割：主视觉 38.2%，心愿列表 61.8%；上划头部变小、下滑变大
+            // 黄金分割：主视觉 38.2%，心愿列表 61.8%
             final treeH = cons.maxHeight * 0.382;
+            // 收起后的顶部摘要条高度（含刘海安全区）
+            final barH = topInset + 56;
             return CustomScrollView(
               slivers: [
                 if (done.isNotEmpty)
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _HeroHeader(
-                      child: _hero(done, treeH),
+                      child: _hero(done, treeH, barH),
                       maxH: treeH,
-                      minH: treeH * 0.55,
+                      minH: barH,
                     ),
                   ),
                 SliverPadding(
@@ -64,6 +66,10 @@ class WishesTab extends StatelessWidget {
                     ),
                   ),
                 ),
+                // 底部留白：略大于折叠幅度，保证能滚动到头部收成摘要条
+                SliverToBoxAdapter(
+                  child: SizedBox(height: treeH - barH + 40),
+                ),
               ],
             );
             }),
@@ -82,7 +88,7 @@ class WishesTab extends StatelessWidget {
   // 上半部分主视觉方案：
   // 0=星空 1=登顶 2=星愿罐 3=记忆卡墙 4=金色奖章 5=年度报告 6=宇宙轨道 7=全息卡
   static const int heroVariant = 5;
-  Widget _hero(List<Wish> done, double maxH) {
+  Widget _hero(List<Wish> done, double maxH, double minH) {
     switch (heroVariant) {
       case 1:
         return HeroSummit(done: done);
@@ -93,7 +99,7 @@ class WishesTab extends StatelessWidget {
       case 4:
         return HeroMedals(done: done);
       case 5:
-        return HeroWrapped(done: done, maxH: maxH);
+        return HeroWrapped(done: done, maxH: maxH, minH: minH);
       case 6:
         return HeroOrbit(done: done);
       case 7:
