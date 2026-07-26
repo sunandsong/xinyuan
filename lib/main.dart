@@ -11,7 +11,7 @@ class XinyuanApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '心愿',
+      title: '人生清单',
       debugShowCheckedModeBanner: false,
       locale: const Locale('zh'),
       localizationsDelegates: const [

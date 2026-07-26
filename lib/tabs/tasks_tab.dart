@@ -40,13 +40,13 @@ class _TasksTabState extends State<TasksTab> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF6C8DFF), Color(0xFF4772FA), Color(0xFF3A5CE0)],
+          colors: [Color(0xFF4B84DB), Color(0xFF4FA394), Color(0xFF5EB87C)],
           stops: [0, .55, 1],
         ),
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-              color: Color(0x334772FA),
+              color: Color(0x333EA983),
               blurRadius: 20,
               offset: Offset(0, 8)),
         ],

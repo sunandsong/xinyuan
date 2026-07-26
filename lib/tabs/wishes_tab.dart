@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import '../data.dart';
+import 'hero_variants.dart';
 import '../pages/wish_pages.dart';
 import '../sheets.dart';
 import '../theme.dart';
@@ -21,48 +22,51 @@ class WishesTab extends StatelessWidget {
         final done = AppData.I.doneWishes;
         return Stack(
           children: [
-            Column(
-              children: [
-                // 上半部分 —— 满铺蜡笔插画（到顶、到边、无框）
-                if (done.isNotEmpty) _Tree(done: done),
-                // 下方 —— 想做的事
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(13, 16, 13, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4, right: 8, bottom: 8),
-                          child: Text('所有远方，都始于此刻的一步',
-                              style: TextStyle(
-                                  fontSize: 15,
-                                  height: 1.3,
-                                  fontWeight: FontWeight.w600,
-                                  color: T.muted)),
-                        ),
-                        Expanded(
-                          child: SheetCard(
-                            child: ListView(
-                              padding: EdgeInsets.zero,
-                              children: [
-                                for (var i = 0; i < active.length; i++) ...[
-                                  if (i > 0)
-                                    const Divider(
-                                        height: 1, color: T.field, thickness: 1),
-                                  _activeRow(context, active[i]),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
+            LayoutBuilder(builder: (context, cons) {
+            // 黄金分割：主视觉 38.2%，心愿列表 61.8%；上划头部变小、下滑变大
+            final treeH = cons.maxHeight * 0.382;
+            return CustomScrollView(
+              slivers: [
+                if (done.isNotEmpty)
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _HeroHeader(
+                      child: _hero(done, treeH),
+                      maxH: treeH,
+                      minH: treeH * 0.8,
+                    ),
+                  ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(13, 16, 13, 10),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, i) {
+                        if (i == 0) {
+                          return const Padding(
+                            padding:
+                                EdgeInsets.only(left: 4, right: 8, bottom: 8),
+                            child: Text('不留遗憾，活成自己想要的样子',
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    height: 1.3,
+                                    fontWeight: FontWeight.w600,
+                                    color: T.muted)),
+                          );
+                        }
+                        final idx = i - 1;
+                        return Padding(
+                          padding: EdgeInsets.only(
+                              bottom: idx == active.length - 1 ? 0 : 10),
+                          child: _activeCard(context, active[idx]),
+                        );
+                      },
+                      childCount: active.length + 1,
                     ),
                   ),
                 ),
               ],
-            ),
+            );
+            }),
             // 悬浮加号
             Positioned(
               top: topInset + 8,
@@ -75,22 +79,91 @@ class WishesTab extends StatelessWidget {
     );
   }
 
-  Widget _activeRow(BuildContext context, Wish w) {
-    return TapRow(
-      padding: const EdgeInsets.symmetric(vertical: 11),
+  // 上半部分主视觉方案：
+  // 0=星空 1=登顶 2=星愿罐 3=记忆卡墙 4=金色奖章 5=年度报告 6=宇宙轨道 7=全息卡
+  static const int heroVariant = 5;
+  Widget _hero(List<Wish> done, double maxH) {
+    switch (heroVariant) {
+      case 1:
+        return HeroSummit(done: done);
+      case 2:
+        return HeroJar(done: done);
+      case 3:
+        return HeroWall(done: done);
+      case 4:
+        return HeroMedals(done: done);
+      case 5:
+        return HeroWrapped(done: done, maxH: maxH);
+      case 6:
+        return HeroOrbit(done: done);
+      case 7:
+        return HeroFoilCard(done: done);
+      default:
+        return HeroConstellation(done: done);
+    }
+  }
+
+  // 独立白卡 + 左侧竖色条 + 加粗标题
+  Widget _activeCard(BuildContext context, Wish w) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.push(
           context, MaterialPageRoute(builder: (_) => WishDetailPage(wish: w))),
-      child: Row(
-        children: [
-          WDot(w.color),
-          const SizedBox(width: 11),
-          Expanded(
-              child: Text(w.title, style: const TextStyle(fontSize: 18))),
-          const Icon(Icons.chevron_right, size: 18, color: T.faint),
-        ],
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+        decoration: BoxDecoration(
+          color: T.card,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: T.shadowCard,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 5,
+              height: 24,
+              decoration: BoxDecoration(
+                color: w.color,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(w.title,
+                  style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: T.ink)),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, size: 20, color: T.faint),
+          ],
+        ),
       ),
     );
   }
+}
+
+/// 可折叠头部：上划整体缩小、下滑放大（等比缩放，顶部对齐）
+class _HeroHeader extends SliverPersistentHeaderDelegate {
+  _HeroHeader({required this.child, required this.maxH, required this.minH});
+  final Widget child;
+  final double maxH;
+  final double minH;
+
+  @override
+  double get maxExtent => maxH;
+  @override
+  double get minExtent => minH;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
+    // 背景通栏满宽，仅高度变化；内容缩放由 hero 内部按高度处理
+    return ClipRect(child: SizedBox.expand(child: child));
+  }
+
+  @override
+  bool shouldRebuild(_HeroHeader old) =>
+      old.maxH != maxH || old.minH != minH || old.child != child;
 }
 
 /// 玻璃照片卡墙 —— 已完成心愿是一张张凭证卡片

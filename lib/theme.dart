@@ -10,8 +10,8 @@ class T {
   static const faint = Color(0xFFA2A4AE);
   static const line = Color(0xFFE6E7EC);
   static const field = Color(0xFFF1F2F6);
-  static const accent = Color(0xFF4772FA);
-  static const accentSoft = Color(0xFFE7E9FB);
+  static const accent = Color(0xFF3EA983); // 蓝绿主题（偏绿松石）
+  static const accentSoft = Color(0xFFE2F1EA);
   static const holiday = Color(0xFF35A46B);
 
   // 心愿色板（一个心愿一个颜色，灰 = 杂事）
@@ -38,7 +38,7 @@ class T {
   static const plusGrad = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF6C8DFF), Color(0xFF3D63E8)],
+    colors: [Color(0xFF4B84DB), Color(0xFF5EB87C)],
   );
   static const goldGrad = LinearGradient(
     begin: Alignment.topLeft,

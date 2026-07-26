@@ -56,7 +56,7 @@ class _HomeShellState extends State<HomeShell> {
                     _item(0, Icons.calendar_today_outlined,
                         Icons.calendar_month_rounded, '任务'),
                     _item(1, Icons.star_outline_rounded, Icons.star_rounded,
-                        '心愿'),
+                        '人生清单'),
                     _item(2, Icons.person_outline_rounded,
                         Icons.person_rounded, '我的'),
                   ],

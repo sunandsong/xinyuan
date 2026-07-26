@@ -196,7 +196,7 @@ class PlusBtn extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [
             BoxShadow(
-                color: Color(0x804772FA), blurRadius: 10, offset: Offset(0, 4)),
+                color: Color(0x803EA983), blurRadius: 10, offset: Offset(0, 4)),
           ],
         ),
         child: const Icon(Icons.add, size: 22, color: Colors.white),
