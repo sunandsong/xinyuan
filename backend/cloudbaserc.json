@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "$schema": "https://framework-1258016615.tcloudbaseapp.com/schema/latest.json",
-  "envId": "",
+  "envId": "renshengqingdan-d8feva5q55d12bab",
   "functionRoot": "./cloudfunctions",
   "functions": [
     {

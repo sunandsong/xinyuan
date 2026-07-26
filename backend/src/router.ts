@@ -5,31 +5,35 @@ import * as share from './handlers/share';
 import * as sync from './handlers/sync';
 import { dispatch, notFound, ok, Req, Res, route, unauthorized } from './http';
 
+// 路由不带 /api 前缀：CloudBase HTTP 服务会剥掉 /api；本地请求也统一剥掉后匹配。
 const publicRoutes = [
-  route('GET', '/api/health', async () => ok({ ok: true })),
-  route('GET', '/api/share/:code', (req, p) => share.getShare(req, p.code)),
+  route('GET', '/health', async () => ok({ ok: true })),
+  route('GET', '/share/:code', (req, p) => share.getShare(req, p.code)),
 ];
 
 function protectedRoutes(uid: string) {
   return [
-    route('GET', '/api/me', (r) => me.getMe(r, uid)),
-    route('PATCH', '/api/me', (r) => me.patchMe(r, uid)),
-    route('DELETE', '/api/auth/account', (r) => me.deleteAccount(r, uid)),
-    route('GET', '/api/sync/pull', (r) => sync.pull(r, uid)),
-    route('POST', '/api/sync/push', (r) => sync.push(r, uid)),
-    route('POST', '/api/share', (r) => share.createShare(r, uid)),
+    route('GET', '/me', (r) => me.getMe(r, uid)),
+    route('PATCH', '/me', (r) => me.patchMe(r, uid)),
+    route('DELETE', '/auth/account', (r) => me.deleteAccount(r, uid)),
+    route('GET', '/sync/pull', (r) => sync.pull(r, uid)),
+    route('POST', '/sync/push', (r) => sync.push(r, uid)),
+    route('POST', '/share', (r) => share.createShare(r, uid)),
   ];
 }
 
 export async function handle(req: Req): Promise<Res> {
   try {
-    const pub = await dispatch(publicRoutes, req);
+    // 统一剥掉可能的 /api 前缀（本地带、云端已剥）
+    const norm: Req = { ...req, path: req.path.replace(/^\/api(?=\/|$)/, '') || '/' };
+
+    const pub = await dispatch(publicRoutes, norm);
     if (pub) return pub;
 
-    const uid = await getUid(req);
+    const uid = await getUid(norm);
     if (!uid) return unauthorized();
 
-    const prot = await dispatch(protectedRoutes(uid), req);
+    const prot = await dispatch(protectedRoutes(uid), norm);
     return prot ?? notFound();
   } catch (e: any) {
     return { statusCode: 500, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ error: 'internal_error', message: String(e?.message ?? e) }) };
