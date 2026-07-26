@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'api/api.dart';
+import 'session.dart';
 import 'theme.dart';
 
 DateTime dOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -187,16 +189,51 @@ class AppData extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 登录态（演示，无后端）
-  bool signedIn = true;
-  void signIn() {
-    signedIn = true;
+  // 登录态（接后端）
+  bool signedIn = false;
+  String? email;
+
+  /// 启动时装回本地会话
+  Future<void> initSession() async {
+    await Session.load();
+    signedIn = Session.isLoggedIn;
+    email = await Session.email();
+    final nick = await Session.nick();
+    if (nick != null && nick.isNotEmpty) nickname = nick;
     notifyListeners();
   }
 
-  void signOut() {
-    signedIn = false;
+  /// 邮箱登录 / 注册；成功后置登录态并存 token
+  Future<void> loginOrRegister(String email, String password,
+      {bool register = false}) async {
+    final res = register
+        ? await AuthApi.register(email, password)
+        : await AuthApi.login(email, password);
+    final token = res['token'] as String?;
+    if (token == null) throw ApiException(0, '登录失败');
+    final profile = res['profile'] as Map<String, dynamic>?;
+    final nick = profile?['nickname'] as String?;
+    await Session.save(token: token, email: email, nick: nick);
+    this.email = email;
+    if (nick != null && nick.isNotEmpty) nickname = nick;
+    signedIn = true;
     notifyListeners();
+    // TODO(下一步)：登录后 pullFromCloud() 拉取云端心愿
+  }
+
+  Future<void> logout() async {
+    await Session.clear();
+    signedIn = false;
+    email = null;
+    notifyListeners();
+  }
+
+  /// 注销账号（远端软删除 + 本地清会话）
+  Future<void> deleteAccountRemote() async {
+    try {
+      await AuthApi.deleteAccount();
+    } catch (_) {}
+    await logout();
   }
 
   // 我的页统计（演示口径）

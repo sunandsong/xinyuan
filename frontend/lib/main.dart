@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'data.dart';
 import 'pages/splash_page.dart';
 import 'theme.dart';
 
-void main() => runApp(const XinyuanApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppData.I.initSession();
+  runApp(const XinyuanApp());
+}
 
 class XinyuanApp extends StatelessWidget {
   const XinyuanApp({super.key});
