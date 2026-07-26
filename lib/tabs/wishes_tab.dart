@@ -33,7 +33,7 @@ class WishesTab extends StatelessWidget {
                     delegate: _HeroHeader(
                       child: _hero(done, treeH),
                       maxH: treeH,
-                      minH: treeH * 0.8,
+                      minH: treeH * 0.55,
                     ),
                   ),
                 SliverPadding(

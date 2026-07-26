@@ -551,7 +551,7 @@ class _HeroWrappedState extends State<HeroWrapped>
       final h = cons.maxHeight;
       final topInset = MediaQuery.paddingOf(context).top;
       // 展开→折叠 进度 t：1=展开 0=折叠
-      final t = ((h / widget.maxH - 0.8) / 0.2).clamp(0.0, 1.0);
+      final t = ((h / widget.maxH - 0.55) / 0.45).clamp(0.0, 1.0);
       // 展开时把内容压到刘海下方；折叠时可进入刘海区（挡住无妨）
       final pad = topInset * t;
       return ClipRect(
@@ -569,11 +569,10 @@ class _HeroWrappedState extends State<HeroWrapped>
             left: 0,
             right: 0,
             bottom: 0,
-            child: Center(
-              child: OverflowBox(
-                minHeight: 0,
-                maxHeight: double.infinity,
-                alignment: Alignment.center,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SizedBox(
+                width: 240,
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Stack(alignment: Alignment.center, children: [
                     SizedBox(
