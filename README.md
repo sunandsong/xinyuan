@@ -1,16 +1,17 @@
-# xinyuan
+# 人生清单
 
-A new Flutter project.
+不留遗憾，活成自己想要的样子。
 
-## Getting Started
+## 目录结构
 
-This project is a starting point for a Flutter application.
+```
+frontend/   Flutter App（iOS / Android）
+backend/    CloudBase 云函数（TypeScript）后端
+docs/       设计文档
+```
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **frontend/** — Flutter 客户端。见 [frontend/README.md](frontend/README.md)（Flutter 默认说明）。
+  开发：`cd frontend && flutter run`。
+- **backend/** — 后端 API（账号 / 云同步 / 分享）。见 [backend/README.md](backend/README.md)。
+  本地开发（不耗云额度）：`cd backend && npm install && npm run dev`。
+- **docs/** — [backend-design.md](docs/backend-design.md) 等设计文档。
