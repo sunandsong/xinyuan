@@ -8,7 +8,9 @@
     "build": "tsc",
     "watch": "tsc -w",
     "dev": "MODE=mock ts-node src/local-server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "stage": "rm -rf cloudfunctions/api && tsc && mkdir -p cloudfunctions/api && cp -r dist/* cloudfunctions/api/ && cp deploy/func-package.json cloudfunctions/api/package.json",
+    "deploy": "npm run stage && tcb fn deploy api --force"
   },
   "dependencies": {
     "@cloudbase/node-sdk": "^3.6.0"
