@@ -13,7 +13,12 @@
       "memorySize": 256,
       "envVariables": {
         "MODE": "cloud",
-        "JWT_SECRET": "<run: openssl rand -hex 32>"
+        "JWT_SECRET": "<run: openssl rand -hex 32>",
+        "SMTP_HOST": "<如 smtp.exmail.qq.com>",
+        "SMTP_PORT": "465",
+        "SMTP_USER": "<发信邮箱账号>",
+        "SMTP_PASS": "<发信邮箱密码/授权码>",
+        "SMTP_FROM": "<发件人，留空则用 SMTP_USER>"
       }
     }
   ]

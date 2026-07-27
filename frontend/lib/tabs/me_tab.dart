@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../api/api.dart';
 import '../data.dart';
@@ -430,15 +431,51 @@ class _LoginSheet extends StatefulWidget {
 class _LoginSheetState extends State<_LoginSheet> {
   final _email = TextEditingController();
   final _pwd = TextEditingController();
+  final _code = TextEditingController();
   bool _register = false;
   bool _loading = false;
+  bool _sendingCode = false;
+  int _cooldown = 0;
+  Timer? _timer;
   String? _error;
 
   @override
   void dispose() {
     _email.dispose();
     _pwd.dispose();
+    _code.dispose();
+    _timer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _sendCode() async {
+    final email = _email.text.trim();
+    if (email.isEmpty) {
+      setState(() => _error = '请先填写邮箱');
+      return;
+    }
+    setState(() {
+      _sendingCode = true;
+      _error = null;
+    });
+    try {
+      await AuthApi.sendCode(email);
+      if (!mounted) return;
+      snack(context, '验证码已发送，请查收邮箱');
+      setState(() => _cooldown = 60);
+      _timer?.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) return t.cancel();
+        setState(() => _cooldown--);
+        if (_cooldown <= 0) t.cancel();
+      });
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } catch (_) {
+      setState(() => _error = '出错了，请重试');
+    } finally {
+      if (mounted) setState(() => _sendingCode = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -448,8 +485,8 @@ class _LoginSheetState extends State<_LoginSheet> {
       _error = null;
     });
     try {
-      await AppData.I
-          .loginOrRegister(_email.text.trim(), _pwd.text, register: _register);
+      await AppData.I.loginOrRegister(_email.text.trim(), _pwd.text,
+          register: _register, code: _code.text.trim());
       if (!mounted) return;
       Navigator.pop(context);
       snack(context, _register ? '注册成功' : '登录成功');
@@ -481,6 +518,29 @@ class _LoginSheetState extends State<_LoginSheet> {
     );
   }
 
+  Widget _codeField() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+            child: _field(_code, '邮箱验证码', kb: TextInputType.number)),
+        const SizedBox(width: 10),
+        SizedBox(
+          height: 46,
+          child: OutlinedButton(
+            onPressed: (_sendingCode || _cooldown > 0) ? null : _sendCode,
+            style: OutlinedButton.styleFrom(
+                foregroundColor: T.accent,
+                side: const BorderSide(color: T.accent)),
+            child: Text(
+                _cooldown > 0 ? '$_cooldown s' : (_sendingCode ? '发送中…' : '发送验证码'),
+                style: const TextStyle(fontSize: 13)),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -498,6 +558,10 @@ class _LoginSheetState extends State<_LoginSheet> {
         _field(_email, '邮箱', kb: TextInputType.emailAddress),
         const SizedBox(height: 10),
         _field(_pwd, '密码（至少 6 位）', obscure: true),
+        if (_register) ...[
+          const SizedBox(height: 10),
+          _codeField(),
+        ],
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 10),

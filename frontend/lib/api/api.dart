@@ -64,6 +64,16 @@ class ApiClient {
         return '邮箱或密码错误';
       case 'unauthorized':
         return '登录已过期，请重新登录';
+      case 'code_required':
+        return '请输入验证码';
+      case 'code_expired':
+        return '验证码已过期，请重新获取';
+      case 'invalid_code':
+        return '验证码不正确';
+      case 'code_too_many_attempts':
+        return '验证码错误次数过多，请重新获取';
+      case 'code_rate_limited':
+        return '发送太频繁，请稍后再试';
       default:
         return code;
     }
@@ -86,11 +96,19 @@ class ApiClient {
 
 /// 账号相关接口
 class AuthApi {
-  static Future<Map<String, dynamic>> register(String email, String password,
+  static Future<Map<String, dynamic>> sendCode(String email,
+      {String purpose = 'register'}) {
+    return ApiClient.I
+        .post('/auth/send-code', {'email': email, 'purpose': purpose});
+  }
+
+  static Future<Map<String, dynamic>> register(
+      String email, String password, String code,
       {String? nickname}) {
     return ApiClient.I.post('/auth/register', {
       'email': email,
       'password': password,
+      'code': code,
       if (nickname != null) 'nickname': nickname,
     });
   }

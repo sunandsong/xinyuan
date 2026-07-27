@@ -40,6 +40,9 @@ curl -XPOST http://127.0.0.1:8787/api/sync/push -H 'x-mock-uid: u_dev' \
 | 方法 | 路径 | 鉴权 | 说明 |
 |------|------|------|------|
 | GET | `/api/health` | 否 | 健康检查 |
+| POST | `/api/auth/send-code` | 否 | 发送邮箱验证码（注册用，60s 一次，10 分钟有效） |
+| POST | `/api/auth/register` | 否 | 邮箱注册（需校验验证码） + 签发 JWT |
+| POST | `/api/auth/login` | 否 | 邮箱登录，签发 JWT |
 | GET | `/api/me` | 是 | 获取资料（无则自动建） |
 | PATCH | `/api/me` | 是 | 改昵称/头像 |
 | DELETE | `/api/auth/account` | 是 | 注销（软删除 + 级联） |
@@ -48,16 +51,18 @@ curl -XPOST http://127.0.0.1:8787/api/sync/push -H 'x-mock-uid: u_dev' \
 | POST | `/api/share` | 是 | 生成心愿分享短码 |
 | GET | `/api/share/:code` | 否 | 公开读取分享快照 + 计数 |
 
-> 账号的注册/登录/找回用 **CloudBase 内置邮箱认证**，不在本函数里；App 端用 CloudBase SDK 登录后带令牌调用（见设计文档 §5 方案 A）。
+> 账号体系自管（邮箱 + scrypt 密码哈希 + JWT），不依赖 CloudBase 内置认证。注册前需先调 `send-code` 拿到邮箱验证码，`register` 会校验该验证码，防止用他人邮箱抢注。验证码发送用 SMTP（见下方部署环境变量），`MODE=mock` 时不真实发信，直接打印到控制台方便本地联调。
 
 ## 部署到 CloudBase
 1. 装 CLI：`npm i -g @cloudbase/cli`，`tcb login`。
-2. 控制台开环境，开启**邮箱认证**，建集合 `users/wishes/tasks/shares` 与索引（见设计文档 §3）。
+2. 控制台开环境，建集合 `users/wishes/tasks/shares/email_codes` 与索引（见设计文档 §3）。
 3. 构建：`npm install && npm run build`（产物在 `dist/`）。
 4. 部署云函数（Node.js），入口 `index.main`，开启 **HTTP 访问服务**；环境变量：
    - `MODE=cloud`
    - `CLOUDBASE_ENV_ID=<你的环境ID>`
-5. 联调：把 App 的 API base 指向云函数 HTTP 地址，注册→登录→同步跑通。
+   - `JWT_SECRET=<openssl rand -hex 32>`
+   - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM`：发验证码邮件用的 SMTP 账号（腾讯企业邮箱、阿里云邮件推送等均可）。不配置时 `send-code` 在 cloud 模式下会报 `smtp_not_configured`。
+5. 联调：把 App 的 API base 指向云函数 HTTP 地址，发验证码→注册→登录→同步跑通。
 6. 二期：接 EdgeOne，`/api/*` 回源到该地址，`/s/:code` 分享页用边缘函数。
 
 ## 待接入 CloudBase 时需确认的点

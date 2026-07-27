@@ -16,4 +16,17 @@ export const COL = {
   wishes: 'wishes',
   tasks: 'tasks',
   shares: 'shares',
+  emailCodes: 'email_codes',
 } as const;
+
+// 邮箱验证码规则
+export const CODE_TTL_MS = 10 * 60 * 1000; // 有效期 10 分钟
+export const CODE_RESEND_INTERVAL_MS = 60 * 1000; // 重发间隔 60 秒
+export const CODE_MAX_ATTEMPTS = 5; // 最多允许验证失败次数
+
+// SMTP（发验证码邮件用；mock 模式不真正发信，直接打到控制台）
+export const SMTP_HOST = process.env.SMTP_HOST || '';
+export const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+export const SMTP_USER = process.env.SMTP_USER || '';
+export const SMTP_PASS = process.env.SMTP_PASS || '';
+export const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;

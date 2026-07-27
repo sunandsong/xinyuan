@@ -41,6 +41,16 @@ export interface Task {
   deleted: boolean;
 }
 
+export interface EmailCode {
+  _id: string;
+  email: string;
+  purpose: 'register';
+  code: string;
+  expiresAt: number;
+  attempts: number;
+  lastSentAt: number;
+}
+
 export interface Share {
   _id: string;
   code: string;

@@ -203,11 +203,11 @@ class AppData extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 邮箱登录 / 注册；成功后置登录态并存 token
+  /// 邮箱登录 / 注册；成功后置登录态并存 token（注册需先 AuthApi.sendCode 拿到验证码）
   Future<void> loginOrRegister(String email, String password,
-      {bool register = false}) async {
+      {bool register = false, String? code}) async {
     final res = register
-        ? await AuthApi.register(email, password)
+        ? await AuthApi.register(email, password, code ?? '')
         : await AuthApi.login(email, password);
     final token = res['token'] as String?;
     if (token == null) throw ApiException(0, '登录失败');

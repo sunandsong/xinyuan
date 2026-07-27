@@ -2,13 +2,17 @@
 // 同步统一用 Last-Write-Wins（updatedAt 大者胜），软删除用 deleted 传播。
 
 import { COL, ENV_ID, IS_MOCK } from './config';
-import { PullResult, Share, Task, UserProfile, Wish } from './types';
+import { EmailCode, PullResult, Share, Task, UserProfile, Wish } from './types';
 
 export interface Db {
   getUserByEmail(email: string): Promise<UserProfile | null>;
   createUser(user: UserProfile): Promise<void>;
   getProfile(uid: string): Promise<UserProfile | null>;
   upsertProfile(uid: string, patch: Partial<UserProfile>): Promise<UserProfile>;
+
+  getEmailCode(email: string, purpose: string): Promise<EmailCode | null>;
+  saveEmailCode(rec: EmailCode): Promise<void>;
+  deleteEmailCode(email: string, purpose: string): Promise<void>;
 
   pull(uid: string, since: number): Promise<PullResult>;
   upsertWishes(uid: string, items: Array<Partial<Wish> & { _id: string; updatedAt: number }>): Promise<void>;
@@ -27,6 +31,7 @@ class MockDb implements Db {
   private wishes: Wish[] = [];
   private tasks: Task[] = [];
   private shares: Share[] = [];
+  private emailCodes = new Map<string, EmailCode>();
 
   async getUserByEmail(email: string) {
     for (const u of this.profiles.values()) if (u.email === email && !u.deleted) return u;
@@ -53,6 +58,15 @@ class MockDb implements Db {
     const next = { ...cur, ...patch, _id: uid, updatedAt: now };
     this.profiles.set(uid, next);
     return next;
+  }
+  async getEmailCode(email: string, purpose: string) {
+    return this.emailCodes.get(`${purpose}:${email}`) ?? null;
+  }
+  async saveEmailCode(rec: EmailCode) {
+    this.emailCodes.set(`${rec.purpose}:${rec.email}`, rec);
+  }
+  async deleteEmailCode(email: string, purpose: string) {
+    this.emailCodes.delete(`${purpose}:${email}`);
   }
   async pull(uid: string, since: number): Promise<PullResult> {
     return {
@@ -149,6 +163,21 @@ class CloudDb implements Db {
     const next = { ...exist, ...patch, _id: uid, updatedAt: now };
     await this.db.collection(COL.users).doc(uid).update(noId({ ...patch, updatedAt: now }));
     return next;
+  }
+  async getEmailCode(email: string, purpose: string): Promise<EmailCode | null> {
+    const r = await this.db.collection(COL.emailCodes).where({ email, purpose }).limit(1).get();
+    return r.data?.[0] ?? null;
+  }
+  async saveEmailCode(rec: EmailCode) {
+    const exist = await this.getEmailCode(rec.email, rec.purpose);
+    if (exist) {
+      await this.db.collection(COL.emailCodes).where({ email: rec.email, purpose: rec.purpose }).update(noId(rec));
+    } else {
+      await this.db.collection(COL.emailCodes).add(noId(rec));
+    }
+  }
+  async deleteEmailCode(email: string, purpose: string) {
+    await this.db.collection(COL.emailCodes).where({ email, purpose }).remove();
   }
   async pull(uid: string, since: number): Promise<PullResult> {
     const [w, t, p] = await Promise.all([
