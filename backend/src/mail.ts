@@ -1,5 +1,5 @@
-// 发验证码邮件：mock 模式打到控制台（省额度、不需要真实 SMTP）；cloud 模式走 SMTP。
-import { IS_MOCK, SMTP_FROM, SMTP_HOST, SMTP_PASS, SMTP_PORT, SMTP_USER } from './config';
+// 发验证码邮件：mock 模式 / 没配 SMTP 时打到控制台（不阻断注册流程）；配好 SMTP 后才真发信。
+import { SMTP_FROM, SMTP_HOST, SMTP_PASS, SMTP_PORT, SMTP_USER } from './config';
 
 let _transporter: any = null;
 function transporter() {
@@ -16,12 +16,9 @@ function transporter() {
 }
 
 export async function sendVerificationCode(email: string, code: string) {
-  if (IS_MOCK) {
-    console.log(`[mock-mail] -> ${email} 验证码: ${code}（10 分钟内有效）`);
-    return;
-  }
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    throw new Error('smtp_not_configured');
+    console.log(`[mail-skipped，未配置 SMTP] -> ${email} 验证码: ${code}（10 分钟内有效）`);
+    return;
   }
   await transporter().sendMail({
     from: SMTP_FROM,
