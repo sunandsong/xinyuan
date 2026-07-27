@@ -2,7 +2,7 @@
 // 同步统一用 Last-Write-Wins（updatedAt 大者胜），软删除用 deleted 传播。
 
 import { COL, ENV_ID, IS_MOCK } from './config';
-import { EmailCode, PullResult, Share, Task, UserProfile, Wish } from './types';
+import { EmailCode, Letter, PullResult, Share, Task, UserProfile, Wish } from './types';
 
 export interface Db {
   getUserByEmail(email: string): Promise<UserProfile | null>;
@@ -17,6 +17,7 @@ export interface Db {
   pull(uid: string, since: number): Promise<PullResult>;
   upsertWishes(uid: string, items: Array<Partial<Wish> & { _id: string; updatedAt: number }>): Promise<void>;
   upsertTasks(uid: string, items: Array<Partial<Task> & { _id: string; updatedAt: number }>): Promise<void>;
+  upsertLetters(uid: string, items: Array<Partial<Letter> & { _id: string; updatedAt: number }>): Promise<void>;
 
   createShare(share: Share): Promise<void>;
   getShareByCode(code: string): Promise<Share | null>;
@@ -30,6 +31,7 @@ class MockDb implements Db {
   private profiles = new Map<string, UserProfile>();
   private wishes: Wish[] = [];
   private tasks: Task[] = [];
+  private letters: Letter[] = [];
   private shares: Share[] = [];
   private emailCodes = new Map<string, EmailCode>();
 
@@ -73,6 +75,7 @@ class MockDb implements Db {
       now: Date.now(),
       wishes: this.wishes.filter((w) => w.uid === uid && w.updatedAt > since),
       tasks: this.tasks.filter((t) => t.uid === uid && t.updatedAt > since),
+      letters: this.letters.filter((l) => l.uid === uid && l.updatedAt > since),
       profile: this.profiles.get(uid) ?? null,
     };
   }
@@ -96,6 +99,16 @@ class MockDb implements Db {
       }
     }
   }
+  async upsertLetters(uid: string, items: Array<Partial<Letter> & { _id: string; updatedAt: number }>) {
+    for (const it of items) {
+      const i = this.letters.findIndex((l) => l._id === it._id && l.uid === uid);
+      if (i < 0) {
+        this.letters.push({ ...(it as Letter), uid });
+      } else if (it.updatedAt >= this.letters[i].updatedAt) {
+        this.letters[i] = { ...this.letters[i], ...it, uid };
+      }
+    }
+  }
   async createShare(share: Share) {
     this.shares.push(share);
   }
@@ -111,6 +124,7 @@ class MockDb implements Db {
     if (p) p.deleted = true;
     this.wishes.forEach((w) => w.uid === uid && (w.deleted = true));
     this.tasks.forEach((t) => t.uid === uid && (t.deleted = true));
+    this.letters.forEach((l) => l.uid === uid && (l.deleted = true));
   }
 }
 
@@ -180,12 +194,13 @@ class CloudDb implements Db {
     await this.db.collection(COL.emailCodes).where({ email, purpose }).remove();
   }
   async pull(uid: string, since: number): Promise<PullResult> {
-    const [w, t, p] = await Promise.all([
+    const [w, t, l, p] = await Promise.all([
       this.db.collection(COL.wishes).where({ uid, updatedAt: this.cmd.gt(since) }).limit(1000).get(),
       this.db.collection(COL.tasks).where({ uid, updatedAt: this.cmd.gt(since) }).limit(1000).get(),
+      this.db.collection(COL.letters).where({ uid, updatedAt: this.cmd.gt(since) }).limit(1000).get(),
       this.getProfile(uid),
     ]);
-    return { now: Date.now(), wishes: w.data ?? [], tasks: t.data ?? [], profile: p };
+    return { now: Date.now(), wishes: w.data ?? [], tasks: t.data ?? [], letters: l.data ?? [], profile: p };
   }
   async upsertWishes(uid: string, items: Array<Partial<Wish> & { _id: string; updatedAt: number }>) {
     for (const it of items) {
@@ -209,6 +224,17 @@ class CloudDb implements Db {
       }
     }
   }
+  async upsertLetters(uid: string, items: Array<Partial<Letter> & { _id: string; updatedAt: number }>) {
+    for (const it of items) {
+      const cur = await this.db.collection(COL.letters).doc(it._id).get();
+      const exist: Letter | undefined = cur.data?.[0];
+      if (!exist) {
+        await this.db.collection(COL.letters).doc(it._id).set(noId({ ...it, uid }));
+      } else if (exist.uid === uid && it.updatedAt >= exist.updatedAt) {
+        await this.db.collection(COL.letters).doc(it._id).update(noId({ ...it, uid }));
+      }
+    }
+  }
   async createShare(share: Share) {
     await this.db.collection(COL.shares).doc(share._id).set(noId(share));
   }
@@ -224,6 +250,7 @@ class CloudDb implements Db {
       this.db.collection(COL.users).doc(uid).update({ deleted: true }),
       this.db.collection(COL.wishes).where({ uid }).update({ deleted: true, updatedAt: Date.now() }),
       this.db.collection(COL.tasks).where({ uid }).update({ deleted: true, updatedAt: Date.now() }),
+      this.db.collection(COL.letters).where({ uid }).update({ deleted: true, updatedAt: Date.now() }),
     ]);
   }
 }

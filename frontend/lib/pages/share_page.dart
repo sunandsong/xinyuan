@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import '../api/api.dart';
 import '../data.dart';
 import '../theme.dart';
 import '../ui.dart';
@@ -83,6 +85,10 @@ class _SharePageState extends State<SharePage>
                     bg: Colors.white.withValues(alpha: .1),
                     onTap: () => snack(context, '已保存到相册（演示）')),
                 const SizedBox(height: 9),
+                BigBtn('生成分享码',
+                    bg: Colors.white.withValues(alpha: .1),
+                    onTap: () => _shareLink(context)),
+                const SizedBox(height: 9),
                 const Text('竖版 9:16，适配朋友圈与小红书',
                     style:
                         TextStyle(fontSize: 15, color: T.darkMuted)),
@@ -92,6 +98,25 @@ class _SharePageState extends State<SharePage>
         ),
       ),
     );
+  }
+
+  Future<void> _shareLink(BuildContext context) async {
+    if (!AppData.I.signedIn) {
+      snack(context, '请先登录后再分享');
+      return;
+    }
+    try {
+      final path = await AppData.I.shareWish(widget.wish);
+      await Clipboard.setData(ClipboardData(text: path));
+      if (!context.mounted) return;
+      snack(context, '分享码已复制：$path');
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      snack(context, e.message);
+    } catch (_) {
+      if (!context.mounted) return;
+      snack(context, '生成分享码失败，请重试');
+    }
   }
 
   Widget _card(Wish w, int no, int total, int days) {

@@ -4,6 +4,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import '../data.dart';
 import 'hero_variants.dart';
+import '../pages/login_page.dart';
 import '../pages/wish_pages.dart';
 import '../sheets.dart';
 import '../theme.dart';
@@ -29,15 +30,14 @@ class WishesTab extends StatelessWidget {
             final barH = topInset + 56;
             return CustomScrollView(
               slivers: [
-                if (done.isNotEmpty)
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _HeroHeader(
-                      child: _hero(done, treeH, barH),
-                      maxH: treeH,
-                      minH: barH,
-                    ),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _HeroHeader(
+                    child: _hero(done, treeH, barH),
+                    maxH: treeH,
+                    minH: barH,
                   ),
+                ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(13, 16, 13, 10),
                   sliver: SliverList(
@@ -77,7 +77,10 @@ class WishesTab extends StatelessWidget {
             Positioned(
               top: topInset + 8,
               right: 13,
-              child: PlusBtn(onTap: () => showNewWishSheet(context)),
+              child: PlusBtn(
+                  onTap: () => AppData.I.signedIn
+                      ? showNewWishSheet(context)
+                      : showBlurDialog(context, const LoginForm())),
             ),
           ],
         );

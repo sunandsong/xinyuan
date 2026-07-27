@@ -15,6 +15,7 @@ export const COL = {
   users: 'users',
   wishes: 'wishes',
   tasks: 'tasks',
+  letters: 'letters',
   shares: 'shares',
   emailCodes: 'email_codes',
 } as const;

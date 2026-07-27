@@ -21,13 +21,15 @@ export async function push(req: Req, uid: string) {
 
   const wishes = (body.wishes ?? []).filter((w) => w && w._id && typeof w.updatedAt === 'number');
   const tasks = (body.tasks ?? []).filter((t) => t && t._id && typeof t.updatedAt === 'number');
+  const letters = (body.letters ?? []).filter((l) => l && l._id && typeof l.updatedAt === 'number');
 
-  if (wishes.length > 2000 || tasks.length > 2000) return bad('too_many_items');
+  if (wishes.length > 2000 || tasks.length > 2000 || letters.length > 2000) return bad('too_many_items');
 
   await db.upsertWishes(uid, wishes);
   await db.upsertTasks(uid, tasks);
+  await db.upsertLetters(uid, letters);
   if (body.profile) await db.upsertProfile(uid, body.profile);
 
   // 返回服务端最新时间，客户端存为下次 pull 的 since
-  return ok({ now: Date.now(), accepted: { wishes: wishes.length, tasks: tasks.length } });
+  return ok({ now: Date.now(), accepted: { wishes: wishes.length, tasks: tasks.length, letters: letters.length } });
 }

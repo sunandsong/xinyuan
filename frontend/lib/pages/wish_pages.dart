@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data.dart';
 import '../theme.dart';
 import '../ui.dart';
+import 'login_page.dart';
 import 'share_page.dart';
 
 /// 心愿详情（进行中）
@@ -92,6 +93,10 @@ class WishDetailPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   BigBtn('完成这个心愿', onTap: () {
+                    if (!AppData.I.signedIn) {
+                      showBlurDialog(context, const LoginForm());
+                      return;
+                    }
                     Navigator.push(
                         context,
                         MaterialPageRoute(

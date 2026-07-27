@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data.dart';
+import '../pages/login_page.dart';
 import '../sheets.dart';
 import '../theme.dart';
 import '../ui.dart';
@@ -99,7 +100,9 @@ class _TasksTabState extends State<TasksTab> {
           ),
         ),
         GestureDetector(
-          onTap: () => showNewTaskSheet(context, selected),
+          onTap: () => AppData.I.signedIn
+              ? showNewTaskSheet(context, selected)
+              : showBlurDialog(context, const LoginForm()),
           child: Container(
             width: 34,
             height: 34,

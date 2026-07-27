@@ -1,8 +1,25 @@
+import 'dart:async';
+import 'dart:math' show Random;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'api/api.dart';
+import 'presets.dart';
 import 'session.dart';
 import 'theme.dart';
+
+String _hex(Color c) =>
+    (c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase();
+Color _colorFromHex(String hex) =>
+    Color(int.parse('FF${hex.replaceFirst('#', '')}', radix: 16));
+String _dayStr(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+DateTime _dayParse(String s) {
+  final p = s.split('-');
+  return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+}
+int _ms(DateTime d) => d.millisecondsSinceEpoch;
+DateTime _fromMs(num? ms) =>
+    ms == null ? DateTime.now() : DateTime.fromMillisecondsSinceEpoch(ms.toInt());
 
 DateTime dOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 bool sameDay(DateTime a, DateTime b) =>
@@ -32,23 +49,60 @@ class Wish {
     required this.title,
     required this.color,
     required this.createdAt,
+    DateTime? updatedAt,
     this.done = false,
     this.doneAt,
     this.quote,
     this.location,
-    this.hero,
+    this.heroIndex,
     this.desc,
-  });
-  final int id;
+    this.deleted = false,
+  }) : updatedAt = updatedAt ?? createdAt;
+  final String id;
   String title;
   Color color;
   bool done;
   DateTime createdAt;
+  DateTime updatedAt; // 供云端 LWW 冲突判断
   DateTime? doneAt;
   String? quote;
   String? location;
-  List<Color>? hero; // 凭证照片（演示用渐变）
+  int? heroIndex; // 凭证照片渐变的下标（演示用）
   String? desc; // 描述
+  bool deleted;
+
+  List<Color>? get hero =>
+      heroIndex == null ? null : AppData.heroes[heroIndex! % AppData.heroes.length];
+
+  Map<String, dynamic> toJson() => {
+        '_id': id,
+        'title': title,
+        'color': _hex(color),
+        'desc': desc,
+        'done': done,
+        'doneAt': doneAt == null ? null : _ms(doneAt!),
+        'quote': quote,
+        'location': location,
+        'heroIndex': heroIndex,
+        'createdAt': _ms(createdAt),
+        'updatedAt': _ms(updatedAt),
+        'deleted': deleted,
+      };
+
+  factory Wish.fromJson(Map<String, dynamic> j) => Wish(
+        id: j['_id'] as String,
+        title: j['title'] as String? ?? '',
+        color: _colorFromHex(j['color'] as String? ?? 'A8B8F8'),
+        createdAt: _fromMs(j['createdAt'] as num?),
+        updatedAt: _fromMs(j['updatedAt'] as num?),
+        done: j['done'] as bool? ?? false,
+        doneAt: j['doneAt'] == null ? null : _fromMs(j['doneAt'] as num),
+        quote: j['quote'] as String?,
+        location: j['location'] as String?,
+        heroIndex: j['heroIndex'] as int?,
+        desc: j['desc'] as String?,
+        deleted: j['deleted'] as bool? ?? false,
+      );
 }
 
 class Task {
@@ -61,28 +115,211 @@ class Task {
     this.time,
     this.color,
     this.desc,
-  });
-  final int id;
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    this.deleted = false,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
+  final String id;
   String title;
   DateTime day;
-  int? wishId; // null = 杂事
+  String? wishId; // null = 杂事
   bool done;
   String? time;
   Color? color; // 任务自身颜色
   String? desc; // 描述
+  DateTime createdAt;
+  DateTime updatedAt; // 供云端 LWW 冲突判断
+  bool deleted;
+
+  Map<String, dynamic> toJson() => {
+        '_id': id,
+        'title': title,
+        'day': _dayStr(day),
+        'time': time,
+        'done': done,
+        'wishId': wishId,
+        if (color != null) 'color': _hex(color!),
+        'desc': desc,
+        'createdAt': _ms(createdAt),
+        'updatedAt': _ms(updatedAt),
+        'deleted': deleted,
+      };
+
+  factory Task.fromJson(Map<String, dynamic> j) => Task(
+        id: j['_id'] as String,
+        title: j['title'] as String? ?? '',
+        day: _dayParse(j['day'] as String? ?? _dayStr(DateTime.now())),
+        wishId: j['wishId'] as String?,
+        done: j['done'] as bool? ?? false,
+        time: j['time'] as String?,
+        color: (j['color'] is String && (j['color'] as String).isNotEmpty)
+            ? _colorFromHex(j['color'] as String)
+            : null,
+        desc: j['desc'] as String?,
+        createdAt: _fromMs(j['createdAt'] as num?),
+        updatedAt: _fromMs(j['updatedAt'] as num?),
+        deleted: j['deleted'] as bool? ?? false,
+      );
 }
 
-/// 全局死数据（内存态，可交互，不持久化）
+/// 时光胶囊：写给未来的信，到指定日期才能开启。
+/// 是否已开启是纯派生状态（见 AppData.isLetterOpen），不单独存 opened 字段。
+class Letter {
+  Letter({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.openAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    this.deleted = false,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
+  final String id;
+  String title;
+  String content;
+  DateTime openAt;
+  DateTime createdAt;
+  DateTime updatedAt;
+  bool deleted;
+
+  Map<String, dynamic> toJson() => {
+        '_id': id,
+        'title': title,
+        'content': content,
+        'openAt': _ms(openAt),
+        'createdAt': _ms(createdAt),
+        'updatedAt': _ms(updatedAt),
+        'deleted': deleted,
+      };
+
+  factory Letter.fromJson(Map<String, dynamic> j) => Letter(
+        id: j['_id'] as String,
+        title: j['title'] as String? ?? '',
+        content: j['content'] as String? ?? '',
+        openAt: _fromMs(j['openAt'] as num?),
+        createdAt: _fromMs(j['createdAt'] as num?),
+        updatedAt: _fromMs(j['updatedAt'] as num?),
+        deleted: j['deleted'] as bool? ?? false,
+      );
+}
+
+/// 全局状态（内存态，无本地磁盘持久化）：数据全部来自后端 API——
+/// 启动/登录即整体拉取云端数据，后续每次增删改会防抖批量推送云端；
+/// 未登录时「人生清单」显示本地预览（人生必做清单前 50 条，不同步），任务列表为空。
 class AppData extends ChangeNotifier {
   AppData._() {
-    _seed();
+    _fillLifeGoals();
   }
   static final AppData I = AppData._();
 
   final wishes = <Wish>[];
   final tasks = <Task>[];
-  int _nid = 1;
-  int nextId() => _nid++;
+  final letters = <Letter>[];
+  int _idSeq = 0;
+  String _newId(String prefix) {
+    _idSeq++;
+    return '${prefix}_${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}${_idSeq.toRadixString(36)}';
+  }
+
+  // 待推送到云端的变更（合并推送，避免批量导入时逐条打接口）
+  final Set<Wish> _dirtyWishes = {};
+  final Set<Task> _dirtyTasks = {};
+  final Set<Letter> _dirtyLetters = {};
+  Timer? _pushTimer;
+
+  void _touchWish(Wish w) {
+    w.updatedAt = DateTime.now();
+    if (!signedIn) return;
+    _dirtyWishes.add(w);
+    _scheduleFlush();
+  }
+
+  void _touchTask(Task t) {
+    t.updatedAt = DateTime.now();
+    if (!signedIn) return;
+    _dirtyTasks.add(t);
+    _scheduleFlush();
+  }
+
+  void _touchLetter(Letter l) {
+    l.updatedAt = DateTime.now();
+    if (!signedIn) return;
+    _dirtyLetters.add(l);
+    _scheduleFlush();
+  }
+
+  void _scheduleFlush() {
+    _pushTimer?.cancel();
+    _pushTimer = Timer(const Duration(milliseconds: 800), () {
+      unawaited(_flushPush());
+    });
+  }
+
+  Future<void> _flushPush() async {
+    if (_dirtyWishes.isEmpty && _dirtyTasks.isEmpty && _dirtyLetters.isEmpty) return;
+    final ws = _dirtyWishes.toList();
+    final ts = _dirtyTasks.toList();
+    final ls = _dirtyLetters.toList();
+    _dirtyWishes.clear();
+    _dirtyTasks.clear();
+    _dirtyLetters.clear();
+    try {
+      await SyncApi.push(
+        wishes: ws.isEmpty ? null : ws.map((w) => w.toJson()).toList(),
+        tasks: ts.isEmpty ? null : ts.map((t) => t.toJson()).toList(),
+        letters: ls.isEmpty ? null : ls.map((l) => l.toJson()).toList(),
+      );
+    } catch (_) {
+      // 静默失败：v1 无重试队列，下次该条目再变更时会带新 updatedAt 一并重推
+    }
+  }
+
+  /// 用云端数据整体替换本地（登录成功 / 已登录状态下启动时调用）
+  Future<void> _pullFromCloud() async {
+    try {
+      final res = await SyncApi.pull(0);
+      final ws = (res['wishes'] as List?) ?? [];
+      final ts = (res['tasks'] as List?) ?? [];
+      final ls = (res['letters'] as List?) ?? [];
+      _pushTimer?.cancel();
+      _dirtyWishes.clear();
+      _dirtyTasks.clear();
+      _dirtyLetters.clear();
+      wishes
+        ..clear()
+        ..addAll(ws
+            .map((j) => Wish.fromJson(j as Map<String, dynamic>))
+            .where((w) => !w.deleted));
+      tasks
+        ..clear()
+        ..addAll(ts
+            .map((j) => Task.fromJson(j as Map<String, dynamic>))
+            .where((t) => !t.deleted));
+      letters
+        ..clear()
+        ..addAll(ls
+            .map((j) => Letter.fromJson(j as Map<String, dynamic>))
+            .where((l) => !l.deleted));
+      final profile = res['profile'] as Map<String, dynamic>?;
+      if (profile != null) {
+        final nick = profile['nickname'] as String?;
+        if (nick != null && nick.isNotEmpty) nickname = nick;
+        avatarEmoji = profile['avatarEmoji'] as String?;
+        accountCreatedAt = _fromMs(profile['createdAt'] as num?);
+      }
+    } catch (_) {
+      // 拉取失败：保留当前本地数据，不阻断登录/启动流程
+    }
+  }
+
+  /// 为某个已完成心愿生成分享短码，返回短链路径（如 /s/AB12CD）
+  Future<String> shareWish(Wish w) async {
+    final res = await ShareApi.create(
+        wishId: w.id, title: w.title, quote: w.quote, color: _hex(w.color));
+    return (res['path'] as String?) ?? '';
+  }
 
   static const heroes = [
     [Color(0xFF8FB8D0), Color(0xFF4E7A96), Color(0xFF22364A)],
@@ -108,7 +345,7 @@ class AppData extends ChangeNotifier {
   List<Task> tasksOn(DateTime day) =>
       tasks.where((t) => sameDay(t.day, day)).toList();
 
-  List<Task> tasksOfWish(int wishId) =>
+  List<Task> tasksOfWish(String wishId) =>
       tasks.where((t) => t.wishId == wishId).toList()
         ..sort((a, b) => b.day.compareTo(a.day));
 
@@ -128,13 +365,14 @@ class AppData extends ChangeNotifier {
     if (t.done) {
       HapticFeedback.lightImpact();
     }
+    _touchTask(t);
     notifyListeners();
   }
 
   Task addTask(String title, DateTime day,
-      {int? wishId, Color? color, String? desc}) {
+      {String? wishId, Color? color, String? desc}) {
     final t = Task(
-      id: nextId(),
+      id: _newId('t'),
       title: title,
       day: dOnly(day),
       wishId: wishId,
@@ -142,20 +380,32 @@ class AppData extends ChangeNotifier {
       desc: desc,
     );
     tasks.add(t);
+    _touchTask(t);
     notifyListeners();
     return t;
   }
 
   Wish addWish(String title, Color color, {String? desc}) {
     final w = Wish(
-        id: nextId(),
+        id: _newId('w'),
         title: title,
         color: color,
         createdAt: DateTime.now(),
         desc: desc);
     wishes.add(w);
+    _touchWish(w);
     notifyListeners();
     return w;
+  }
+
+  /// 填入前 50 条「人生必做清单」：未登录时作为本地预览（不会同步，登录后被云端数据整体替换）；
+  /// 新注册账号在云端为空时也用它兜底，此时会正常同步上云
+  void _fillLifeGoals() {
+    final rand = Random();
+    final n = lifeGoals.length < 50 ? lifeGoals.length : 50;
+    for (var i = 0; i < n; i++) {
+      addWish(lifeGoals[i], T.wishPalette[rand.nextInt(T.wishPalette.length)]);
+    }
   }
 
   void completeWish(Wish w,
@@ -164,8 +414,9 @@ class AppData extends ChangeNotifier {
     w.doneAt = DateTime.now();
     w.quote = quote.isEmpty ? '这一天，终于到了。' : quote;
     w.location = (location == null || location.isEmpty) ? null : location;
-    w.hero = heroes[heroIndex % heroes.length];
+    w.heroIndex = heroIndex % heroes.length;
     HapticFeedback.mediumImpact();
+    _touchWish(w);
     notifyListeners();
   }
 
@@ -176,9 +427,23 @@ class AppData extends ChangeNotifier {
     return i < 0 ? list.length : i + 1;
   }
 
+  /// 写一封时光胶囊信，到 openAt 那天才能开启
+  Letter addLetter(String title, String content, DateTime openAt) {
+    final l = Letter(
+        id: _newId('l'), title: title, content: content, openAt: openAt);
+    letters.add(l);
+    _touchLetter(l);
+    notifyListeners();
+    return l;
+  }
+
+  /// 是否已到开启日期
+  bool isLetterOpen(Letter l) => !DateTime.now().isBefore(l.openAt);
+
   // 个人资料
   String nickname = '松之';
   String? avatarEmoji; // null = 用昵称首字
+  DateTime? accountCreatedAt; // 账号创建时间（后端 profile.createdAt），未登录时为 null
   void updateProfile({String? nickname, String? avatarEmoji, bool clearEmoji = false}) {
     if (nickname != null && nickname.isNotEmpty) this.nickname = nickname;
     if (clearEmoji) {
@@ -187,23 +452,41 @@ class AppData extends ChangeNotifier {
       this.avatarEmoji = avatarEmoji;
     }
     notifyListeners();
+    if (signedIn) {
+      unawaited(_pushProfile(
+          nickname: nickname,
+          avatarEmoji: clearEmoji ? null : avatarEmoji,
+          clearEmoji: clearEmoji));
+    }
+  }
+
+  Future<void> _pushProfile(
+      {String? nickname, String? avatarEmoji, bool clearEmoji = false}) async {
+    try {
+      await AuthApi.updateProfile(
+          nickname: nickname, avatarEmoji: avatarEmoji, clearEmoji: clearEmoji);
+    } catch (_) {
+      // 静默失败：资料改动仍留在本地，下次改资料时会一并再推
+    }
   }
 
   // 登录态（接后端）
   bool signedIn = false;
   String? email;
 
-  /// 启动时装回本地会话
+  /// 启动时装回本地会话；已登录则用云端数据整体替换本地演示数据
   Future<void> initSession() async {
     await Session.load();
     signedIn = Session.isLoggedIn;
     email = await Session.email();
     final nick = await Session.nick();
     if (nick != null && nick.isNotEmpty) nickname = nick;
+    if (signedIn) await _pullFromCloud();
     notifyListeners();
   }
 
-  /// 邮箱登录 / 注册；成功后置登录态并存 token（注册需先 AuthApi.sendCode 拿到验证码）
+  /// 邮箱登录 / 注册；成功后置登录态、存 token，并拉取云端数据（新注册账号会默认导入 50 个人生清单）
+  /// （注册需先 AuthApi.sendCode 拿到验证码）
   Future<void> loginOrRegister(String email, String password,
       {bool register = false, String? code}) async {
     final res = register
@@ -217,14 +500,25 @@ class AppData extends ChangeNotifier {
     this.email = email;
     if (nick != null && nick.isNotEmpty) nickname = nick;
     signedIn = true;
+    await _pullFromCloud();
+    if (register && wishes.isEmpty) _fillLifeGoals();
     notifyListeners();
-    // TODO(下一步)：登录后 pullFromCloud() 拉取云端心愿
   }
 
+  /// 退出登录：清会话、清云端数据，回到本地预览
   Future<void> logout() async {
     await Session.clear();
     signedIn = false;
     email = null;
+    accountCreatedAt = null;
+    _pushTimer?.cancel();
+    _dirtyWishes.clear();
+    _dirtyTasks.clear();
+    _dirtyLetters.clear();
+    wishes.clear();
+    tasks.clear();
+    letters.clear();
+    _fillLifeGoals();
     notifyListeners();
   }
 
@@ -236,99 +530,35 @@ class AppData extends ChangeNotifier {
     await logout();
   }
 
-  // 我的页统计（演示口径）
-  int get streakDays => 128;
-  int get totalDays => 1281;
-  int get pushedDaysThisYear => 84;
-  int get doneTaskCount => tasks.where((t) => t.done).length + 211;
+  // 我的页统计：全部由真实任务/账号数据算出，不再是假数字
+  int get totalDays => accountCreatedAt == null
+      ? 0
+      : dOnly(DateTime.now()).difference(dOnly(accountCreatedAt!)).inDays + 1;
 
-  void _seed() {
-    final today = dOnly(DateTime.now());
-    Wish aw(String title, int c, int yy, int mm) {
-      final w = Wish(
-          id: nextId(),
-          title: title,
-          color: T.wishPalette[c],
-          createdAt: DateTime(yy, mm, 1));
-      wishes.add(w);
-      return w;
+  /// 连续打卡天数：从今天往前数，每天至少完成一个任务，中断即止
+  int get streakDays {
+    final doneDays = tasks.where((t) => t.done).map((t) => dOnly(t.day)).toSet();
+    var streak = 0;
+    var day = dOnly(DateTime.now());
+    while (doneDays.contains(day)) {
+      streak++;
+      day = day.subtract(const Duration(days: 1));
     }
-
-    Wish dw(String title, int heroIdx, String quote, DateTime doneAt,
-        String? loc, int yy, int mm) {
-      final w = Wish(
-        id: nextId(),
-        title: title,
-        color: T.wishPalette[(heroIdx + 1) % T.wishPalette.length],
-        createdAt: DateTime(yy, mm, 1),
-        done: true,
-        doneAt: doneAt,
-        quote: quote,
-        location: loc,
-        hero: heroes[heroIdx % heroes.length],
-      );
-      wishes.add(w);
-      return w;
-    }
-
-    // 进行中
-    final dive = aw('学会自由潜水', 0, 2023, 4);
-    final ice = aw('去冰岛看极光', 1, 2024, 1);
-    final fam = aw('陪爸妈过 30 个周末', 2, 2023, 10);
-    aw('出版一本书', 3, 2025, 2);
-    aw('在海边住一年', 4, 2024, 6);
-    aw('学会弹一首完整的吉他曲', 0, 2025, 5);
-
-    // 已完成（6 颗金果）
-    dw('完成一次全程马拉松', 0, '最后两公里在哭', DateTime(2025, 11, 2), '上海',
-        2023, 2);
-    dw('学会做家乡菜', 1, '妈说火候还差点', DateTime(2024, 6, 18), '成都', 2023,
-        11);
-    dw('独自去一次远方', 2, '一个人也没那么难', DateTime(2023, 9, 30), '大理',
-        2023, 3);
-    dw('学会游泳', 3, '终于敢下深水区', DateTime(2023, 5, 11), '涛岛', 2022, 12);
-    dw('读完 100 本书', 1, '第 100 本是《活着》', DateTime(2024, 12, 31), null,
-        2022, 6);
-    dw('攒下第一个十万', 2, '原来我也可以', DateTime(2025, 6, 1), null, 2023, 1);
-
-    // 任务：以今天为锚点铺开
-    void tk(int offset, String title, Wish? w,
-        {bool done = false, String? time}) {
-      tasks.add(Task(
-        id: nextId(),
-        title: title,
-        day: today.add(Duration(days: offset)),
-        wishId: w?.id,
-        done: done,
-        time: time,
-      ));
-    }
-
-    // 今天
-    tk(0, '查 OW 考证机构', dive, time: '09:00');
-    tk(0, '存 2000 到旅行账户', ice, time: '12:30');
-    tk(0, '给妈打个电话', fam, time: '20:00');
-    tk(0, '洗衣服', null, done: true);
-    tk(0, '取快递', null, done: true);
-    // 未来
-    tk(1, '预约耳压体检', dive, time: '10:00');
-    tk(2, '试潜体验课', dive, time: '14:00');
-    tk(5, '订民宿', ice);
-    tk(8, '回家吃饭', fam, time: '18:30');
-    tk(11, '练憋气', dive);
-    // 过去
-    tk(-2, '存 2000 到旅行账户', ice, done: true);
-    tk(-3, '做饭', null, done: true);
-    tk(-5, '练憋气', dive, done: true);
-    tk(-8, '回家吃饭', fam, done: true);
-    tk(-10, '查机票', ice, done: true);
-    tk(-12, '交房租', null, done: true);
-    tk(-15, '做攻略', ice, done: true);
-    tk(-15, '洗衣服', null, done: true);
-    tk(-18, '给妈打个电话', fam, done: true);
-    tk(-21, '陪妈买菜', fam, done: true);
-    tk(-24, '大扫除', null, done: true);
+    return streak;
   }
+
+  /// 今年有完成任务的天数
+  int get pushedDaysThisYear {
+    final year = DateTime.now().year;
+    return tasks
+        .where((t) => t.done && t.day.year == year)
+        .map((t) => dOnly(t.day))
+        .toSet()
+        .length;
+  }
+
+  int get doneTaskCount => tasks.where((t) => t.done).length;
+
 }
 
 /// 点亮地图城市（演示坐标：0~1 分数位置）

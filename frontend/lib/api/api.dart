@@ -5,10 +5,10 @@ import 'package:http/http.dart' as http;
 class ApiConfig {
   static const String cloudBase =
       'https://renshengqingdan-d8feva5q55d12bab-1258070735.ap-shanghai.app.tcloudbase.com/api';
-  static const String localBase = 'http://127.0.0.1:8787/api';
+  static const String localBase = 'http://127.0.0.1:8799/api';
 
   // 切到 localBase 即用本地 mock 后端联调（不耗云额度）
-  static const String base = cloudBase;
+  static const String base = localBase;
 }
 
 class ApiException implements Exception {
@@ -74,6 +74,14 @@ class ApiClient {
         return '验证码错误次数过多，请重新获取';
       case 'code_rate_limited':
         return '发送太频繁，请稍后再试';
+      case 'nothing_to_update':
+        return '没有可更新的内容';
+      case 'too_many_items':
+        return '本次同步内容过多';
+      case 'wishId_and_title_required':
+        return '缺少心愿信息，无法生成分享';
+      case 'not_found':
+        return '内容不存在或已失效';
       default:
         return code;
     }
@@ -119,7 +127,54 @@ class AuthApi {
 
   static Future<Map<String, dynamic>> me() => ApiClient.I.get('/me');
 
+  static Future<Map<String, dynamic>> updateProfile(
+      {String? nickname, String? avatarEmoji, bool clearEmoji = false}) {
+    final body = <String, dynamic>{};
+    if (nickname != null) body['nickname'] = nickname;
+    if (clearEmoji) {
+      body['avatarEmoji'] = null;
+    } else if (avatarEmoji != null) {
+      body['avatarEmoji'] = avatarEmoji;
+    }
+    return ApiClient.I.patch('/me', body);
+  }
+
   static Future<void> deleteAccount() async {
     await ApiClient.I.delete('/auth/account');
+  }
+}
+
+/// 心愿/任务/时光胶囊云同步接口（增量拉取 / 批量上传，LWW）
+class SyncApi {
+  static Future<Map<String, dynamic>> pull(int since) =>
+      ApiClient.I.get('/sync/pull?since=$since');
+
+  static Future<Map<String, dynamic>> push({
+    List<Map<String, dynamic>>? wishes,
+    List<Map<String, dynamic>>? tasks,
+    List<Map<String, dynamic>>? letters,
+  }) {
+    return ApiClient.I.post('/sync/push', {
+      if (wishes != null) 'wishes': wishes,
+      if (tasks != null) 'tasks': tasks,
+      if (letters != null) 'letters': letters,
+    });
+  }
+}
+
+/// 心愿分享短码接口
+class ShareApi {
+  static Future<Map<String, dynamic>> create({
+    required String wishId,
+    required String title,
+    String? quote,
+    String? color,
+  }) {
+    return ApiClient.I.post('/share', {
+      'wishId': wishId,
+      'title': title,
+      if (quote != null) 'quote': quote,
+      if (color != null) 'color': color,
+    });
   }
 }

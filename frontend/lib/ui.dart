@@ -415,6 +415,53 @@ Future<void> showAppSheet(BuildContext context, Widget child) {
   );
 }
 
+/// 居中弹层外壳（背景高斯模糊 + 居中白卡），用于登录等需要专注的场景
+Future<void> showBlurDialog(BuildContext context, Widget child) {
+  return showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: '',
+    barrierColor: Colors.black.withValues(alpha: .18),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (context, _, __) => Material(
+      type: MaterialType.transparency,
+      child: Builder(builder: (context) {
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+                decoration: BoxDecoration(
+                  color: T.card,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: T.shadowCard,
+                ),
+                child: child,
+              ),
+            ),
+          ),
+        );
+      }),
+    ),
+    transitionBuilder: (context, anim, __, dialogChild) => BackdropFilter(
+      filter: ImageFilter.blur(
+          sigmaX: 18 * anim.value, sigmaY: 18 * anim.value),
+      child: FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: Tween(begin: .94, end: 1.0).animate(
+              CurvedAnimation(parent: anim, curve: Curves.easeOutBack)),
+          child: dialogChild,
+        ),
+      ),
+    ),
+  );
+}
+
 /// 输入框样式
 InputDecoration fieldDeco(String hint) => InputDecoration(
       hintText: hint,
