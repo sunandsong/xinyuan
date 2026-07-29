@@ -8,7 +8,7 @@ class ApiConfig {
   static const String localBase = 'http://127.0.0.1:8799/api';
 
   // 切到 localBase 即用本地 mock 后端联调（不耗云额度）
-  static const String base = localBase;
+  static const String base = cloudBase;
 }
 
 class ApiException implements Exception {
