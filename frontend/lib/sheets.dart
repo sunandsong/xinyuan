@@ -8,9 +8,10 @@ import 'ui.dart';
 final _rand = math.Random();
 Color _randomWishColor() => T.wishPalette[_rand.nextInt(T.wishPalette.length)];
 
-/// 新建任务（底部弹层）
-Future<void> showNewTaskSheet(BuildContext context, DateTime day) =>
-    showAppSheet(context, _TaskForm(day: day));
+/// 新建任务（底部弹层）；[wish] 非空时这个任务挂到该心愿名下，并继承心愿颜色
+Future<void> showNewTaskSheet(BuildContext context, DateTime day,
+        {Wish? wish}) =>
+    showAppSheet(context, _TaskForm(day: day, wish: wish));
 
 /// 编辑已有任务（整页）
 Future<void> showEditTaskPage(BuildContext context, Task task) => Navigator.push(
@@ -26,11 +27,13 @@ class NewTaskPage extends StatefulWidget {
     this.initialTitle,
     this.initialDesc,
     this.editing,
+    this.wish,
   });
   final DateTime day;
   final String? initialTitle;
   final String? initialDesc;
   final Task? editing;
+  final Wish? wish;
   @override
   State<NewTaskPage> createState() => _NewTaskPageState();
 }
@@ -89,6 +92,7 @@ class _NewTaskPageState extends State<NewTaskPage> {
                   initialTitle: widget.initialTitle,
                   initialDesc: widget.initialDesc,
                   editing: widget.editing,
+                  wish: widget.wish,
                   expandable: false,
                   asPage: true,
                 ),
@@ -108,6 +112,7 @@ class _TaskForm extends StatefulWidget {
     this.initialTitle,
     this.initialDesc,
     this.editing,
+    this.wish,
     this.expandable = true,
     this.asPage = false,
   });
@@ -115,6 +120,7 @@ class _TaskForm extends StatefulWidget {
   final String? initialTitle;
   final String? initialDesc;
   final Task? editing;
+  final Wish? wish; // 归属心愿（从心愿详情页进来时带上）
   final bool expandable;
   final bool asPage;
   @override
@@ -144,6 +150,7 @@ class _TaskFormState extends State<_TaskForm> {
           day: _day,
           initialTitle: _title.text,
           initialDesc: _desc.text,
+          wish: widget.wish,
         ),
       ),
     );
@@ -241,6 +248,10 @@ class _TaskFormState extends State<_TaskForm> {
               ),
             ),
           ),
+          if (widget.wish != null) ...[
+            const SizedBox(width: 8),
+            Flexible(child: _wishChip(widget.wish!)),
+          ],
           if (showExpand) ...[
             const SizedBox(width: 10),
             toolIconBtn(Icons.open_in_full_rounded, _expand),
@@ -264,6 +275,36 @@ class _TaskFormState extends State<_TaskForm> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// 归属心愿的小胶囊（只展示，不可改；要换心愿就从对应心愿详情页新建）
+  Widget _wishChip(Wish w) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: T.field,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          WDot(w.color, size: 8),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              w.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: T.muted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -297,7 +338,14 @@ class _TaskFormState extends State<_TaskForm> {
       editing.desc = desc;
       AppData.I.updateTask(editing);
     } else {
-      AppData.I.addTask(text, _day, color: _randomWishColor(), desc: desc);
+      final wish = widget.wish;
+      AppData.I.addTask(
+        text,
+        _day,
+        wishId: wish?.id,
+        color: wish?.color ?? _randomWishColor(),
+        desc: desc,
+      );
     }
     Navigator.pop(context);
   }
@@ -393,4 +441,222 @@ class _NewWishSheetState extends State<_NewWishSheet> {
     );
     Navigator.pop(context);
   }
+}
+
+/// 修改心愿（标题 / 描述 / 颜色）—— 心愿详情页和人生清单编辑页共用。
+/// 传了 [onDelete] 就在底部多一行「删除这个心愿」（弹层先关掉再回调）
+Future<void> showEditWishSheet(BuildContext context, Wish w,
+    {VoidCallback? onDelete}) {
+  final title = TextEditingController(text: w.title);
+  final desc = TextEditingController(text: w.desc ?? '');
+  Color picked = w.color;
+  return showAppSheet(
+    context,
+    StatefulBuilder(
+      builder: (context, setSheet) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 14),
+            child: Text(
+              '修改心愿',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          TextField(
+            controller: title,
+            autofocus: true,
+            decoration: fieldDeco('这辈子想做的一件事…'),
+            style: const TextStyle(fontSize: 18),
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: desc,
+            decoration: fieldDeco('为什么想做这件事？（可选）'),
+            style: const TextStyle(fontSize: 15),
+            maxLines: 3,
+            minLines: 1,
+          ),
+          const SizedBox(height: 14),
+          const Padding(
+            padding: EdgeInsets.only(left: 2, bottom: 10),
+            child: Text('颜色', style: TextStyle(fontSize: 14, color: T.muted)),
+          ),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (final c in _wishPaletteWith(w.color))
+                GestureDetector(
+                  onTap: () => setSheet(() => picked = c),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: c,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: picked.toARGB32() == c.toARGB32()
+                            ? T.accent
+                            : Colors.transparent,
+                        width: 2.5,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          BigBtn(
+            '保存',
+            onTap: () {
+              final t = title.text.trim();
+              if (t.isEmpty) return;
+              w.title = t;
+              w.desc = desc.text.trim().isEmpty ? null : desc.text.trim();
+              w.color = picked;
+              AppData.I.updateWish(w);
+              Navigator.pop(context);
+            },
+          ),
+          if (onDelete == null)
+            const SizedBox(height: 6)
+          else
+            Center(
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  onDelete();
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                  child: Text(
+                    '删除这个心愿',
+                    style: TextStyle(fontSize: 13.5, color: T.danger),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// 色板 + 当前颜色（自定义颜色在色板里没有对应项时补到最前）
+List<Color> _wishPaletteWith(Color current) {
+  final list = [...T.wishPalette];
+  if (!list.any((c) => c.toARGB32() == current.toARGB32())) {
+    list.insert(0, current);
+  }
+  return list;
+}
+
+/// 删除单个心愿的确认框；[after] 在真的删掉之后回调（比如把详情页 pop 掉）
+void confirmDeleteWish(BuildContext context, Wish w, {VoidCallback? after}) {
+  final related = AppData.I.tasksOfWish(w.id).length;
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('删除心愿'),
+      content: Text(
+        related == 0
+            ? '确定把「${w.title}」从清单里删掉吗？'
+            : '确定把「${w.title}」从清单里删掉吗？关联的 $related 个任务会变成杂事。',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            AppData.I.deleteWish(w);
+            snack(context, '已删除');
+            after?.call();
+          },
+          style: TextButton.styleFrom(foregroundColor: T.danger),
+          child: const Text('删除'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 通用文本弹层 —— 加一条里程碑、改一条里程碑、记一笔笔记都用它
+Future<void> showTextSheet(
+  BuildContext context, {
+  required String title,
+  required String hint,
+  String initial = '',
+  String okLabel = '保存',
+  int maxLines = 1,
+  required void Function(String text) onOk,
+  VoidCallback? onDelete,
+}) {
+  final ctrl = TextEditingController(text: initial);
+  return showAppSheet(
+    context,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: fieldDeco(hint),
+          style: const TextStyle(fontSize: 17),
+          maxLines: maxLines,
+          minLines: 1,
+          textInputAction:
+              maxLines == 1 ? TextInputAction.done : TextInputAction.newline,
+          onSubmitted: maxLines == 1
+              ? (v) {
+                  if (v.trim().isEmpty) return;
+                  Navigator.pop(context);
+                  onOk(v.trim());
+                }
+              : null,
+        ),
+        const SizedBox(height: 16),
+        BigBtn(
+          okLabel,
+          onTap: () {
+            final t = ctrl.text.trim();
+            if (t.isEmpty) return;
+            Navigator.pop(context);
+            onOk(t);
+          },
+        ),
+        if (onDelete == null)
+          const SizedBox(height: 6)
+        else
+          Center(
+            child: GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+                onDelete();
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                child: Text('删除',
+                    style: TextStyle(fontSize: 13.5, color: T.danger)),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
 }

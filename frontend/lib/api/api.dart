@@ -184,3 +184,23 @@ class ShareApi {
   }
 }
 
+
+/// 图片上传：客户端把图片压成 base64 传给云函数，云函数落云存储后回 https 链接
+class UploadApi {
+  static Future<String> image({
+    required String base64Data,
+    required String mime,
+    String? wishId,
+  }) async {
+    final r = await ApiClient.I.post('/upload', {
+      'data': base64Data,
+      'mime': mime,
+      if (wishId != null) 'wishId': wishId,
+    });
+    final url = r['url'] as String?;
+    if (url == null || url.isEmpty) {
+      throw ApiException(0, '上传失败，请重试');
+    }
+    return url;
+  }
+}

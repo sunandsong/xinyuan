@@ -6,6 +6,10 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>选择照片，作为心愿路上的记录和完成时的凭证</string>
+	<key>NSCameraUsageDescription</key>
+	<string>拍一张照片，作为心愿路上的记录和完成时的凭证</string>
 	<key>CFBundleDisplayName</key>
 	<string>人生清单</string>
 	<key>CFBundleExecutable</key>

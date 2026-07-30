@@ -44,6 +44,45 @@ const holidays = {
   '10-1': '国庆',
 };
 
+/// 心愿里程碑：把一个大心愿拆成几步，一步步勾掉
+class WishStep {
+  WishStep({required this.id, required this.title, this.done = false, this.doneAt});
+  final String id;
+  String title;
+  bool done;
+  DateTime? doneAt;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'done': done,
+        'doneAt': doneAt == null ? null : _ms(doneAt!),
+      };
+
+  factory WishStep.fromJson(Map<String, dynamic> j) => WishStep(
+        id: j['id'] as String? ?? '',
+        title: j['title'] as String? ?? '',
+        done: j['done'] as bool? ?? false,
+        doneAt: j['doneAt'] == null ? null : _fromMs(j['doneAt'] as num),
+      );
+}
+
+/// 心愿笔记：带时间戳的一句话，记录推进过程
+class WishNote {
+  WishNote({required this.id, required this.text, required this.at});
+  final String id;
+  String text;
+  DateTime at;
+
+  Map<String, dynamic> toJson() => {'id': id, 'text': text, 'at': _ms(at)};
+
+  factory WishNote.fromJson(Map<String, dynamic> j) => WishNote(
+        id: j['id'] as String? ?? '',
+        text: j['text'] as String? ?? '',
+        at: _fromMs(j['at'] as num?),
+      );
+}
+
 class Wish {
   Wish({
     required this.id,
@@ -57,8 +96,15 @@ class Wish {
     this.location,
     this.heroIndex,
     this.desc,
+    this.targetAt,
+    List<WishStep>? steps,
+    List<WishNote>? notes,
+    List<String>? photos,
     this.deleted = false,
-  }) : updatedAt = updatedAt ?? createdAt;
+  })  : updatedAt = updatedAt ?? createdAt,
+        steps = steps ?? [],
+        notes = notes ?? [],
+        photos = photos ?? [];
   final String id;
   String title;
   Color color;
@@ -68,12 +114,27 @@ class Wish {
   DateTime? doneAt;
   String? quote;
   String? location;
-  int? heroIndex; // 凭证照片渐变的下标（演示用）
+  int? heroIndex; // 凭证照片渐变的下标（没有真实照片时的兜底）
   String? desc; // 描述
+  DateTime? targetAt; // 想在这天之前做到（可空）
+  List<WishStep> steps; // 里程碑
+  List<WishNote> notes; // 过程笔记，新的在前
+  List<String> photos; // 真实照片（云存储 fileID / https 链接）
   bool deleted;
 
   List<Color>? get hero =>
       heroIndex == null ? null : AppData.heroes[heroIndex! % AppData.heroes.length];
+
+  int get doneStepCount => steps.where((s) => s.done).length;
+
+  /// 里程碑完成比例；没有里程碑时返回 null（调用方自己决定要不要显示进度）
+  double? get stepProgress =>
+      steps.isEmpty ? null : doneStepCount / steps.length;
+
+  /// 距目标日期还有几天：正数=还剩，负数=已超期，null=没设
+  int? get daysToTarget => targetAt == null
+      ? null
+      : dOnly(targetAt!).difference(dOnly(DateTime.now())).inDays;
 
   Map<String, dynamic> toJson() => {
         '_id': id,
@@ -85,6 +146,10 @@ class Wish {
         'quote': quote,
         'location': location,
         'heroIndex': heroIndex,
+        'targetAt': targetAt == null ? null : _ms(targetAt!),
+        'steps': [for (final s in steps) s.toJson()],
+        'notes': [for (final n in notes) n.toJson()],
+        'photos': photos,
         'createdAt': _ms(createdAt),
         'updatedAt': _ms(updatedAt),
         'deleted': deleted,
@@ -102,9 +167,21 @@ class Wish {
         location: j['location'] as String?,
         heroIndex: j['heroIndex'] as int?,
         desc: j['desc'] as String?,
+        targetAt: j['targetAt'] == null ? null : _fromMs(j['targetAt'] as num),
+        // 老数据没有这三个字段，一律兜底成空列表
+        steps: _listOf(j['steps'], WishStep.fromJson),
+        notes: _listOf(j['notes'], WishNote.fromJson),
+        photos: [
+          for (final p in (j['photos'] as List? ?? const [])) p.toString(),
+        ],
         deleted: j['deleted'] as bool? ?? false,
       );
 }
+
+List<R> _listOf<R>(dynamic raw, R Function(Map<String, dynamic>) from) => [
+      for (final e in (raw as List? ?? const []))
+        if (e is Map) from(Map<String, dynamic>.from(e)),
+    ];
 
 class Task {
   Task({
@@ -471,6 +548,106 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     _touchWish(w);
     notifyListeners();
     return w;
+  }
+
+  /// 心愿字段（标题/描述/颜色）改完之后调用，推送到云端并刷新界面
+  void updateWish(Wish w) {
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  /// 软删除心愿：本地立即消失，同时把删除标记同步给云端。
+  /// 关联任务保留（wishId 指向的心愿不在了，会当成杂事显示）
+  void deleteWish(Wish w) {
+    w.deleted = true;
+    _touchWish(w);
+    wishes.remove(w);
+    notifyListeners();
+  }
+
+  // ---------- 里程碑 ----------
+  WishStep addStep(Wish w, String title) {
+    final s = WishStep(id: _newId('s'), title: title);
+    w.steps.add(s);
+    _touchWish(w);
+    notifyListeners();
+    return s;
+  }
+
+  /// 一次性写入一组里程碑（用预置模板拆解时用）
+  void addSteps(Wish w, Iterable<String> titles) {
+    for (final t in titles) {
+      w.steps.add(WishStep(id: _newId('s'), title: t));
+    }
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  void toggleStep(Wish w, WishStep s) {
+    s.done = !s.done;
+    s.doneAt = s.done ? DateTime.now() : null;
+    if (s.done) HapticFeedback.lightImpact();
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  void renameStep(Wish w, WishStep s, String title) {
+    s.title = title;
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  void deleteStep(Wish w, WishStep s) {
+    w.steps.remove(s);
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  // ---------- 过程笔记 ----------
+  WishNote addNote(Wish w, String text) {
+    final n = WishNote(id: _newId('n'), text: text, at: DateTime.now());
+    w.notes.insert(0, n); // 新的在前
+    _touchWish(w);
+    notifyListeners();
+    return n;
+  }
+
+  void deleteNote(Wish w, WishNote n) {
+    w.notes.remove(n);
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  // ---------- 目标日期 ----------
+  void setWishTarget(Wish w, DateTime? day) {
+    w.targetAt = day == null ? null : dOnly(day);
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  // ---------- 照片 ----------
+  void addWishPhoto(Wish w, String url) {
+    w.photos.add(url);
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  void removeWishPhoto(Wish w, String url) {
+    w.photos.remove(url);
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  /// 批量软删除：整批打一次删除标记合并推云端，只刷一次界面
+  void deleteWishes(Iterable<Wish> list) {
+    final batch = list.toList();
+    if (batch.isEmpty) return;
+    for (final w in batch) {
+      w.deleted = true;
+      _touchWish(w);
+      wishes.remove(w);
+    }
+    notifyListeners();
   }
 
   /// 填入前 50 条「人生必做清单」：未登录时作为本地预览（不会同步，登录后被云端数据整体替换）；

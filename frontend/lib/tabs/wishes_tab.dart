@@ -4,9 +4,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import '../data.dart';
 import 'hero_variants.dart';
-import '../pages/login_page.dart';
 import '../pages/wish_pages.dart';
-import '../sheets.dart';
 import '../theme.dart';
 import '../ui.dart';
 
@@ -21,69 +19,56 @@ class WishesTab extends StatelessWidget {
       builder: (context, _) {
         final active = AppData.I.activeWishes;
         final done = AppData.I.doneWishes;
-        return Stack(
-          children: [
-            LayoutBuilder(builder: (context, cons) {
-            // 黄金分割：主视觉 38.2%，心愿列表 61.8%
-            final treeH = cons.maxHeight * 0.382;
-            // 收起后的顶部摘要条高度（含刘海安全区）
-            final barH = topInset + 56;
-            return CustomScrollView(
-              slivers: [
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _HeroHeader(
-                    child: _hero(done, treeH, barH),
-                    maxH: treeH,
-                    minH: barH,
-                  ),
+        return LayoutBuilder(builder: (context, cons) {
+          // 黄金分割：主视觉 38.2%，心愿列表 61.8%
+          final treeH = cons.maxHeight * 0.382;
+          // 收起后的顶部摘要条高度（含刘海安全区）
+          final barH = topInset + 56;
+          return CustomScrollView(
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _HeroHeader(
+                  child: _hero(done, treeH, barH),
+                  maxH: treeH,
+                  minH: barH,
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(13, 16, 13, 10),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, i) {
-                        if (i == 0) {
-                          return const Padding(
-                            padding:
-                                EdgeInsets.only(left: 4, right: 8, bottom: 8),
-                            child: Text('不留遗憾，活成自己想要的样子',
-                                style: TextStyle(
-                                    fontSize: 15,
-                                    height: 1.3,
-                                    fontWeight: FontWeight.w600,
-                                    color: T.muted)),
-                          );
-                        }
-                        final idx = i - 1;
-                        return Padding(
-                          padding: EdgeInsets.only(
-                              bottom: idx == active.length - 1 ? 0 : 10),
-                          child: _activeCard(context, active[idx]),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(13, 16, 13, 10),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) {
+                      if (i == 0) {
+                        return const Padding(
+                          padding:
+                              EdgeInsets.only(left: 4, right: 8, bottom: 8),
+                          child: Text('不留遗憾，活成自己想要的样子',
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  height: 1.3,
+                                  fontWeight: FontWeight.w600,
+                                  color: T.muted)),
                         );
-                      },
-                      childCount: active.length + 1,
-                    ),
+                      }
+                      final idx = i - 1;
+                      return Padding(
+                        padding: EdgeInsets.only(
+                            bottom: idx == active.length - 1 ? 0 : 10),
+                        child: _activeCard(context, active[idx]),
+                      );
+                    },
+                    childCount: active.length + 1,
                   ),
                 ),
-                // 底部留白：略大于折叠幅度，保证能滚动到头部收成摘要条
-                SliverToBoxAdapter(
-                  child: SizedBox(height: treeH - barH + 40),
-                ),
-              ],
-            );
-            }),
-            // 悬浮加号
-            Positioned(
-              top: topInset + 8,
-              right: 13,
-              child: PlusBtn(
-                  onTap: () => AppData.I.signedIn
-                      ? showNewWishSheet(context)
-                      : showBlurDialog(context, const LoginForm())),
-            ),
-          ],
-        );
+              ),
+              // 底部留白：略大于折叠幅度，保证能滚动到头部收成摘要条
+              SliverToBoxAdapter(
+                child: SizedBox(height: treeH - barH + 40),
+              ),
+            ],
+          );
+        });
       },
     );
   }
@@ -137,11 +122,21 @@ class WishesTab extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(w.title,
-                  style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: T.ink)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(w.title,
+                      style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: T.ink)),
+                  // 有里程碑或期限时，卡片上直接看得到进度
+                  if (w.steps.isNotEmpty || w.targetAt != null) ...[
+                    const SizedBox(height: 7),
+                    _cardMeta(w),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(width: 8),
             const Icon(Icons.chevron_right, size: 20, color: T.faint),
@@ -150,6 +145,42 @@ class WishesTab extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 卡片副行：里程碑进度条 + 期限倒数
+Widget _cardMeta(Wish w) {
+  final left = w.daysToTarget;
+  return Row(
+    children: [
+      if (w.steps.isNotEmpty) ...[
+        SizedBox(
+          width: 54,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: w.stepProgress,
+              minHeight: 4,
+              backgroundColor: T.field,
+              valueColor: AlwaysStoppedAnimation(w.color),
+            ),
+          ),
+        ),
+        const SizedBox(width: 7),
+        Text('${w.doneStepCount}/${w.steps.length}',
+            style: const TextStyle(fontSize: 12, color: T.muted)),
+      ],
+      if (w.steps.isNotEmpty && left != null)
+        const Text(' · ', style: TextStyle(fontSize: 12, color: T.faint)),
+      if (left != null)
+        Text(
+            left > 0
+                ? '还有 $left 天'
+                : left == 0
+                    ? '就是今天'
+                    : '已过期限',
+            style: const TextStyle(fontSize: 12, color: T.muted)),
+    ],
+  );
 }
 
 /// 可折叠头部：上划整体缩小、下滑放大（等比缩放，顶部对齐）

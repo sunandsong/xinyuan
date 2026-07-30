@@ -11,6 +11,19 @@ export interface UserProfile {
   deleted?: boolean;
 }
 
+export interface WishStep {
+  id: string;
+  title: string;
+  done: boolean;
+  doneAt: number | null;
+}
+
+export interface WishNote {
+  id: string;
+  text: string;
+  at: number;
+}
+
 export interface Wish {
   _id: string;
   uid: string;
@@ -22,6 +35,10 @@ export interface Wish {
   quote: string | null;
   location: string | null;
   heroIndex: number | null;
+  targetAt: number | null; // 想在这天之前做到
+  steps?: WishStep[]; // 里程碑
+  notes?: WishNote[]; // 过程笔记
+  photos?: string[]; // 云存储图片地址
   createdAt: number;
   updatedAt: number;
   deleted: boolean;

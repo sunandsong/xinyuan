@@ -5,10 +5,13 @@ import '../data.dart';
 import '../theme.dart';
 import '../ui.dart';
 
-/// 分享卡片：金箔描边、流光扫过、烫金标题、点亮入场动画
+/// 分享卡片：金箔描边、流光扫过、烫金标题、点亮入场动画。
+/// 两种形态：已完成 = 「已点亮」凭证；进行中 = 「我要去做」宣告卡（说出去更容易做到）。
 class SharePage extends StatefulWidget {
-  const SharePage({super.key, required this.wish});
+  SharePage({super.key, required this.wish, bool? declare})
+      : declare = declare ?? !wish.done;
   final Wish wish;
+  final bool declare;
   @override
   State<SharePage> createState() => _SharePageState();
 }
@@ -58,10 +61,10 @@ class _SharePageState extends State<SharePage>
                     DarkPill(
                         icon: Icons.close_rounded,
                         onTap: () => Navigator.pop(context)),
-                    const Expanded(
+                    Expanded(
                       child: Center(
-                        child: Text('已 点 亮',
-                            style: TextStyle(
+                        child: Text(widget.declare ? '我 要 去 做' : '已 点 亮',
+                            style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w500,
                                 letterSpacing: 4,
@@ -74,13 +77,15 @@ class _SharePageState extends State<SharePage>
                 const Spacer(),
                 _card(w, no, total, days),
                 const Spacer(),
-                BigBtn('生成点亮视频 · 3 秒',
-                    gradient: T.goldGrad,
-                    fg: const Color(0xFF3A2C10), onTap: () {
-                  _intro.duration = const Duration(milliseconds: 3000);
-                  _intro.forward(from: 0);
-                }),
-                const SizedBox(height: 9),
+                if (!widget.declare) ...[
+                  BigBtn('生成点亮视频 · 3 秒',
+                      gradient: T.goldGrad,
+                      fg: const Color(0xFF3A2C10), onTap: () {
+                    _intro.duration = const Duration(milliseconds: 3000);
+                    _intro.forward(from: 0);
+                  }),
+                  const SizedBox(height: 9),
+                ],
                 BigBtn('保存图片',
                     bg: Colors.white.withValues(alpha: .1),
                     onTap: () => snack(context, '已保存到相册（演示）')),
@@ -119,6 +124,10 @@ class _SharePageState extends State<SharePage>
     }
   }
 
+  /// 这条心愿写下来多少天了（宣告卡用）
+  int _wantDays(Wish w) =>
+      dOnly(DateTime.now()).difference(dOnly(w.createdAt)).inDays;
+
   Widget _card(Wish w, int no, int total, int days) {
     // 金箔描边框
     return Container(
@@ -154,7 +163,13 @@ class _SharePageState extends State<SharePage>
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: w.hero ?? AppData.heroes[0],
+                            // 进行中还没有凭证照片，用心愿自己的颜色压暗当底
+                            colors: widget.declare
+                                ? [
+                                    Color.lerp(w.color, T.darkCard, .25)!,
+                                    Color.lerp(w.color, T.darkCard, .72)!,
+                                  ]
+                                : (w.hero ?? AppData.heroes[0]),
                           ),
                         ),
                       ),
@@ -176,7 +191,10 @@ class _SharePageState extends State<SharePage>
                       Positioned(
                         top: 10,
                         right: 12,
-                        child: Text('No.$no / $total',
+                        child: Text(
+                            widget.declare
+                                ? '清 单 之 一 / $total'
+                                : 'No.$no / $total',
                             style: TextStyle(
                               fontSize: 14.5,
                               letterSpacing: 2,
@@ -208,7 +226,10 @@ class _SharePageState extends State<SharePage>
                             )),
                         const SizedBox(height: 7),
                         _fade(.55, .85,
-                            child: Text('「${w.quote ?? ''}」',
+                            child: Text(
+                                widget.declare
+                                    ? '「${(w.desc?.isNotEmpty ?? false) ? w.desc : '这件事，我一定会去做'}」'
+                                    : '「${w.quote ?? ''}」',
                                 style: const TextStyle(
                                     fontSize: 15,
                                     height: 1.8,
@@ -216,12 +237,22 @@ class _SharePageState extends State<SharePage>
                         const SizedBox(height: 8),
                         _fade(.65, .95,
                             child: Text(
-                              [
-                                if (w.doneAt != null) ymdDots(w.doneAt!),
-                                if (w.location != null) w.location!,
-                                '第 $no 个心愿',
-                                '$days 天',
-                              ].join(' · '),
+                              (widget.declare
+                                      ? [
+                                          '写下 ${_wantDays(w)} 天',
+                                          if (w.targetAt != null)
+                                            '${ymdDots(w.targetAt!)} 之前',
+                                          if (w.steps.isNotEmpty)
+                                            '里程碑 ${w.doneStepCount}/${w.steps.length}',
+                                        ]
+                                      : [
+                                          if (w.doneAt != null)
+                                            ymdDots(w.doneAt!),
+                                          if (w.location != null) w.location!,
+                                          '第 $no 个心愿',
+                                          '$days 天',
+                                        ])
+                                  .join(' · '),
                               style: const TextStyle(
                                 fontSize: 14.5,
                                 letterSpacing: 1.5,

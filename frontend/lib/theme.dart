@@ -24,6 +24,7 @@ class T {
   ];
   static const grey = Color(0xFFC9CBD6);
   static const greyBar = Color(0xFFE2E3E8);
+  static const danger = Color(0xFFE05A5A); // 删除等破坏性操作
 
   // 暗色（高光页）
   static const darkBg = Color(0xFF0B1120);

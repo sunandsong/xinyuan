@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import '../api/api.dart';
 import '../data.dart';
+import '../notify.dart';
+import '../photos.dart';
+import '../presets.dart';
+import '../sheets.dart';
 import '../theme.dart';
 import '../ui.dart';
 import 'login_page.dart';
@@ -20,6 +26,7 @@ class WishDetailPage extends StatelessWidget {
           child: ListenableBuilder(
             listenable: AppData.I,
             builder: (context, _) {
+              final tasks = AppData.I.tasksOfWish(wish.id);
               return Column(
                 children: [
                   Row(
@@ -30,7 +37,7 @@ class WishDetailPage extends StatelessWidget {
                       const Spacer(),
                       PillBtn(
                           icon: Icons.more_horiz_rounded,
-                          onTap: () => snack(context, '编辑 / 删除（v1 暂无）')),
+                          onTap: () => _showMore(context)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -38,56 +45,21 @@ class WishDetailPage extends StatelessWidget {
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
-                        SheetCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  WDot(wish.color),
-                                  const SizedBox(width: 11),
-                                  Expanded(
-                                    child: Text(wish.title,
-                                        style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w600)),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 5),
-                              Padding(
-                                padding: const EdgeInsets.only(left: 19),
-                                child: Text(
-                                    '写于 ${wish.createdAt.year} 年 ${wish.createdAt.month} 月',
-                                    style: const TextStyle(
-                                        fontSize: 15.5, color: T.muted)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (wish.desc != null &&
-                            wish.desc!.isNotEmpty) ...[
-                          const SizedBox(height: 11),
-                          SheetCard(
-                            child: Text(wish.desc!,
-                                style: const TextStyle(
-                                    fontSize: 16, height: 1.7)),
-                          ),
-                        ],
+                        _cover(tasks),
                         const SizedBox(height: 11),
-                        SheetCard(
-                          padding: const EdgeInsets.symmetric(vertical: 22),
-                          child: Column(
-                            children: const [
-                              Icon(Icons.photo_camera_outlined,
-                                  size: 24, color: T.grey),
-                              SizedBox(height: 6),
-                              Text('完成后在这里留一张照片和一句话',
-                                  style: TextStyle(
-                                      fontSize: 15, color: T.faint)),
-                            ],
-                          ),
-                        ),
+                        _target(context),
+                        const SizedBox(height: 11),
+                        _why(context),
+                        const SizedBox(height: 11),
+                        _steps(context),
+                        const SizedBox(height: 11),
+                        _tasksCard(context, tasks),
+                        const SizedBox(height: 11),
+                        _notes(context),
+                        const SizedBox(height: 11),
+                        _photos(context),
+                        const SizedBox(height: 11),
+                        _related(context),
                       ],
                     ),
                   ),
@@ -111,6 +83,732 @@ class WishDetailPage extends StatelessWidget {
     );
   }
 
+  // ---------- 封面卡：色彩渐变 + 标题 + 统计条 ----------
+  Widget _cover(List<Task> tasks) {
+    final c = wish.color;
+    final wantDays =
+        dOnly(DateTime.now()).difference(dOnly(wish.createdAt)).inDays;
+    final doneTasks = tasks.where((t) => t.done).toList();
+    final pushedDays = doneTasks.map((t) => dOnly(t.day)).toSet().length;
+    final no = AppData.I.wishes.indexWhere((x) => x.id == wish.id) + 1;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: T.shadowCard,
+      ),
+      child: Column(
+        children: [
+          // 渐变头：进行中的心愿还没有凭证照片，用它自己的颜色派生一块柔光
+          Container(
+            height: 116,
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.lerp(c, Colors.white, .28)!,
+                  Color.lerp(c, const Color(0xFF3A5CE0), .22)!,
+                ],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _tag('进行中'),
+                    const SizedBox(width: 7),
+                    if (no > 0) _tag('清单第 $no 项'),
+                  ],
+                ),
+                const Spacer(),
+                Text(wish.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                        color: Colors.white)),
+              ],
+            ),
+          ),
+          // 统计条
+          Container(
+            color: T.card,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              children: [
+                _stat('$wantDays', '天前写下'),
+                _statDivider(),
+                _stat('$pushedDays', '天在推进'),
+                _statDivider(),
+                _stat('${doneTasks.length}/${tasks.length}', '任务完成'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tag(String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .22),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white.withValues(alpha: .35)),
+        ),
+        child: Text(text,
+            style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white)),
+      );
+
+  Widget _stat(String v, String label) => Expanded(
+        child: Column(
+          children: [
+            Text(v,
+                style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                    color: T.ink,
+                    fontFeatures: [FontFeature.tabularFigures()])),
+            const SizedBox(height: 3),
+            Text(label,
+                style: const TextStyle(fontSize: 12, color: T.muted)),
+          ],
+        ),
+      );
+
+  Widget _statDivider() =>
+      Container(width: 1, height: 24, color: T.line);
+
+  // ---------- 目标日期 / 倒数 ----------
+  Widget _target(BuildContext context) {
+    final left = wish.daysToTarget;
+    final has = wish.targetAt != null;
+    // 文案克制：超期不用红色警示，这份清单不是 deadline
+    final label = !has
+        ? '给它设个期限？'
+        : left! > 0
+            ? '想在 ${ymdDots(wish.targetAt!)} 之前 · 还有 $left 天'
+            : left == 0
+                ? '就是今天 · ${ymdDots(wish.targetAt!)}'
+                : '原定 ${ymdDots(wish.targetAt!)} · 慢一点也没关系';
+    return GestureDetector(
+      onTap: () => _pickTarget(context),
+      child: SheetCard(
+        child: Row(
+          children: [
+            Icon(Icons.event_rounded,
+                size: 18, color: has ? wish.color : T.grey),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: has ? 15.5 : 15,
+                      fontWeight: has ? FontWeight.w600 : FontWeight.w400,
+                      color: has ? T.ink : T.faint)),
+            ),
+            if (has)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  AppData.I.setWishTarget(wish, null);
+                  cancelWishReminder(wish);
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Icon(Icons.close_rounded, size: 16, color: T.faint),
+                ),
+              )
+            else
+              const Icon(Icons.add_rounded, size: 16, color: T.faint),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickTarget(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: wish.targetAt ?? now.add(const Duration(days: 30)),
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 30),
+    );
+    if (picked == null) return;
+    AppData.I.setWishTarget(wish, picked);
+    // 到期当天早上九点提醒一次（没授权/不支持就静默跳过）
+    await scheduleWishReminder(wish);
+  }
+
+  // ---------- 里程碑 ----------
+  Widget _steps(BuildContext context) {
+    final steps = wish.steps;
+    final template =
+        steps.isEmpty ? stepTemplateFor(wish.title) : const <String>[];
+    return SheetCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('里程碑',
+                  style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              if (steps.isNotEmpty)
+                Text('${wish.doneStepCount} / ${steps.length}',
+                    style: const TextStyle(fontSize: 14, color: T.muted)),
+            ],
+          ),
+          if (steps.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: wish.stepProgress,
+                minHeight: 6,
+                backgroundColor: T.field,
+                valueColor: AlwaysStoppedAnimation(wish.color),
+              ),
+            ),
+            const SizedBox(height: 4),
+            for (final s in steps) _stepRow(context, s),
+          ] else ...[
+            const Padding(
+              padding: EdgeInsets.only(top: 8, bottom: 2),
+              child: Text('拆成几步，就不再是一件遥远的事',
+                  style: TextStyle(fontSize: 15, color: T.faint)),
+            ),
+            if (template.isNotEmpty)
+              TapRow(
+                onTap: () {
+                  AppData.I.addSteps(wish, template);
+                  snack(context, '已拆成 ${template.length} 步，可以随便改');
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  child: Row(
+                    children: [
+                      Icon(Icons.auto_awesome_rounded,
+                          size: 17, color: wish.color),
+                      const SizedBox(width: 8),
+                      Text('一键拆成 ${template.length} 步',
+                          style: const TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w600,
+                              color: T.accent)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => showTextSheet(
+              context,
+              title: '加一步',
+              hint: '下一步先做什么？',
+              okLabel: '加进里程碑',
+              onOk: (t) => AppData.I.addStep(wish, t),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.add_rounded, size: 18, color: T.faint),
+                  const SizedBox(width: 7),
+                  Text(steps.isEmpty ? '自己写一步' : '再加一步',
+                      style: const TextStyle(fontSize: 15, color: T.muted)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepRow(BuildContext context, WishStep s) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Cb(
+            done: s.done,
+            burstColor: wish.color,
+            onTap: () => AppData.I.toggleStep(wish, s),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => showTextSheet(
+                context,
+                title: '改一步',
+                hint: '这一步是…',
+                initial: s.title,
+                onOk: (t) => AppData.I.renameStep(wish, s, t),
+                onDelete: () => AppData.I.deleteStep(wish, s),
+              ),
+              child: Text(s.title,
+                  style: TextStyle(
+                      fontSize: 15.5,
+                      color: s.done ? T.faint : T.ink,
+                      decoration:
+                          s.done ? TextDecoration.lineThrough : null,
+                      decorationColor: T.faint)),
+            ),
+          ),
+          if (s.done && s.doneAt != null)
+            Text(md(s.doneAt!),
+                style: const TextStyle(fontSize: 12, color: T.faint)),
+        ],
+      ),
+    );
+  }
+
+  // ---------- 过程笔记 ----------
+  Widget _notes(BuildContext context) {
+    final notes = wish.notes;
+    return SheetCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('这一路',
+                  style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              if (notes.isNotEmpty)
+                Text('${notes.length} 条',
+                    style: const TextStyle(fontSize: 14, color: T.muted)),
+            ],
+          ),
+          if (notes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('随手记一句，以后回头看就是这件事的来龙去脉',
+                  style: TextStyle(fontSize: 15, color: T.faint)),
+            )
+          else ...[
+            const SizedBox(height: 6),
+            for (final n in notes) _noteRow(context, n),
+          ],
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => showTextSheet(
+              context,
+              title: '记一笔',
+              hint: '今天为它做了什么 / 想到了什么…',
+              okLabel: '记下来',
+              maxLines: 4,
+              onOk: (t) => AppData.I.addNote(wish, t),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.edit_note_rounded, size: 20, color: wish.color),
+                  const SizedBox(width: 6),
+                  const Text('记一笔',
+                      style: TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w600,
+                          color: T.accent)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _noteRow(BuildContext context, WishNote n) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showTextSheet(
+        context,
+        title: '改一笔',
+        hint: '…',
+        initial: n.text,
+        maxLines: 4,
+        onOk: (t) {
+          n.text = t;
+          AppData.I.updateWish(wish);
+        },
+        onDelete: () => AppData.I.deleteNote(wish, n),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: WDot(wish.color, size: 7, glow: false),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(n.text,
+                      style: const TextStyle(fontSize: 15.5, height: 1.5)),
+                  const SizedBox(height: 2),
+                  Text(ymdDots(n.at),
+                      style: const TextStyle(fontSize: 12, color: T.faint)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------- 为什么想做（desc，空态给引导）----------
+  Widget _why(BuildContext context) {
+    final has = wish.desc != null && wish.desc!.isNotEmpty;
+    return GestureDetector(
+      onTap: () => showEditWishSheet(context, wish),
+      child: SheetCard(
+        child: Row(
+          children: [
+            Expanded(
+              child: has
+                  ? Text(wish.desc!,
+                      style: const TextStyle(fontSize: 16, height: 1.7))
+                  : const Text('为什么想做这件事？写一句给以后的自己',
+                      style: TextStyle(fontSize: 15, color: T.faint)),
+            ),
+            const SizedBox(width: 8),
+            Icon(has ? Icons.edit_rounded : Icons.add_rounded,
+                size: 16, color: T.faint),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------- 关联任务 ----------
+  Widget _tasksCard(BuildContext context, List<Task> tasks) {
+    final active = tasks.where((t) => !t.done).toList();
+    final done = tasks.where((t) => t.done).toList();
+    return SheetCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('为它做点什么',
+                  style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              if (tasks.isNotEmpty)
+                Text('${done.length} / ${tasks.length}',
+                    style: const TextStyle(fontSize: 14, color: T.muted)),
+            ],
+          ),
+          if (tasks.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('把它拆成一件件小事，日历里就会出现它的颜色',
+                  style: TextStyle(fontSize: 15, color: T.faint)),
+            )
+          else ...[
+            const SizedBox(height: 4),
+            for (final t in active) _taskRow(context, t),
+            for (final t in done) _taskRow(context, t),
+          ],
+          const SizedBox(height: 6),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => showNewTaskSheet(context, DateTime.now(), wish: wish),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                children: [
+                  Icon(Icons.add_rounded, size: 18, color: wish.color),
+                  const SizedBox(width: 7),
+                  const Text('加一个任务',
+                      style: TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w600,
+                          color: T.accent)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _taskRow(BuildContext context, Task t) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showEditTaskPage(context, t),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Cb(
+              done: t.done,
+              burstColor: wish.color,
+              onTap: () => AppData.I.toggleTask(t),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(t.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 16,
+                      color: t.done ? T.faint : T.ink,
+                      decoration:
+                          t.done ? TextDecoration.lineThrough : null,
+                      decorationColor: T.faint)),
+            ),
+            const SizedBox(width: 8),
+            Text(md(t.day),
+                style: const TextStyle(fontSize: 13, color: T.faint)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------- 照片（真实图片，存云存储）----------
+  Widget _photos(BuildContext context) {
+    final photos = wish.photos;
+    return SheetCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('照片',
+                  style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _addPhoto(context),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text('加照片',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: T.accent)),
+                ),
+              ),
+            ],
+          ),
+          if (photos.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('路上的照片可以先存这儿，完成时再挑一张当凭证',
+                  style: TextStyle(fontSize: 15, color: T.faint)),
+            )
+          else ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 96,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: photos.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 9),
+                itemBuilder: (context, i) => _photoTile(context, photos[i]),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _photoTile(BuildContext context, String url) {
+    return GestureDetector(
+      onLongPress: () => showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('删除照片'),
+          content: const Text('把这张照片从心愿里移除？'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('取消')),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                AppData.I.removeWishPhoto(wish, url);
+              },
+              style: TextButton.styleFrom(foregroundColor: T.danger),
+              child: const Text('删除'),
+            ),
+          ],
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          url,
+          width: 96,
+          height: 96,
+          fit: BoxFit.cover,
+          // 链接过期或断网时不要炸成红屏，给一块灰底
+          errorBuilder: (_, __, ___) => Container(
+            width: 96,
+            height: 96,
+            color: T.field,
+            child: const Icon(Icons.image_not_supported_outlined,
+                size: 20, color: T.faint),
+          ),
+          loadingBuilder: (_, child, progress) => progress == null
+              ? child
+              : Container(width: 96, height: 96, color: T.field),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addPhoto(BuildContext context) async {
+    showAppSheet(
+      context,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _moreRow(Icons.photo_library_outlined, '从相册选', () {
+            Navigator.pop(context);
+            pickAndUploadWishPhoto(context, wish);
+          }),
+          _moreRow(Icons.photo_camera_outlined, '拍一张', () {
+            Navigator.pop(context);
+            pickAndUploadWishPhoto(context, wish, fromCamera: true);
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ---------- 相关心愿 ----------
+  Widget _related(BuildContext context) {
+    final have = AppData.I.wishes.map((w) => w.title).toSet();
+    final picks = relatedGoals(wish.title, exclude: have);
+    if (picks.isEmpty) return const SizedBox.shrink();
+    return SheetCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('顺手也想做的',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          for (final g in picks)
+            TapRow(
+              onTap: () {
+                AppData.I.addWish(g, T.wishPalette[g.hashCode.abs() % T.wishPalette.length]);
+                snack(context, '「$g」已写进清单');
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(g,
+                          style: const TextStyle(fontSize: 15.5)),
+                    ),
+                    const Icon(Icons.add_circle_outline_rounded,
+                        size: 18, color: T.accent),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- 更多：编辑 / 分享 / 删除 ----------
+  void _showMore(BuildContext context) {
+    showAppSheet(
+      context,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _moreRow(Icons.edit_rounded, '修改心愿', () {
+            Navigator.pop(context);
+            showEditWishSheet(context, wish);
+          }),
+          _moreRow(Icons.auto_awesome_rounded, '做成宣告卡', () {
+            Navigator.pop(context);
+            Navigator.push(context,
+                MaterialPageRoute(builder: (_) => SharePage(wish: wish)));
+          }),
+          _moreRow(Icons.ios_share_rounded, '生成分享码', () {
+            Navigator.pop(context);
+            _shareCode(context);
+          }),
+          _moreRow(Icons.delete_outline_rounded, '删除心愿', () {
+            Navigator.pop(context);
+            // 删完这条心愿就不存在了，详情页一起退掉
+            confirmDeleteWish(context, wish,
+                after: () => Navigator.pop(context));
+          }, danger: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _moreRow(IconData icon, String label, VoidCallback onTap,
+      {bool danger = false}) {
+    final color = danger ? T.danger : T.ink;
+    return TapRow(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 19, color: color),
+            const SizedBox(width: 12),
+            Text(label, style: TextStyle(fontSize: 16.5, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareCode(BuildContext context) async {
+    if (!AppData.I.signedIn) {
+      snack(context, '请先登录后再分享');
+      return;
+    }
+    try {
+      final path = await AppData.I.shareWish(wish);
+      await Clipboard.setData(ClipboardData(text: path));
+      if (!context.mounted) return;
+      snack(context, '分享码已复制：$path');
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      snack(context, e.message);
+    } catch (_) {
+      if (!context.mounted) return;
+      snack(context, '生成分享码失败，请重试');
+    }
+  }
 }
 
 /// 完成打卡：照片 + 一句话
@@ -226,6 +924,8 @@ class _CompleteWishPageState extends State<CompleteWishPage> {
         quote: _quote.text.trim(),
         location: _loc.text.trim(),
         heroIndex: _hero);
+    // 已经完成了就别再到期提醒
+    cancelWishReminder(widget.wish);
     Navigator.pushReplacement(context,
         MaterialPageRoute(builder: (_) => SharePage(wish: widget.wish)));
   }

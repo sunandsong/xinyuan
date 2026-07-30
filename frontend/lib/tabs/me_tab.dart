@@ -3,6 +3,7 @@ import '../data.dart';
 import '../pages/login_page.dart';
 import '../pages/misc_pages.dart';
 import '../pages/tree_page.dart';
+import '../pages/wish_edit_page.dart';
 import '../theme.dart';
 import '../ui.dart';
 
@@ -29,6 +30,8 @@ class MeTab extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 child: Column(
                   children: [
+                    _row(context, '人生清单编辑', '$active 个在清单里',
+                        () => _push(context, const WishEditPage())),
                     _row(context, '荣誉陈列馆', '$done 枚勋章',
                         () => _push(context, const TreePage())),
                     _row(context, '${DateTime.now().year} 年度回顾', '',
