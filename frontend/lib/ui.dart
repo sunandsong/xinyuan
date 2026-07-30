@@ -148,14 +148,51 @@ class _BurstPainter extends CustomPainter {
   bool shouldRepaint(_BurstPainter old) => old.t != t;
 }
 
+/// 小提示条 —— 浮动圆角胶囊，跟卡片同一套柔和阴影，别用系统默认的黑条
 void snack(BuildContext context, String msg) {
   ScaffoldMessenger.of(context)
     ..clearSnackBars()
     ..showSnackBar(SnackBar(
-      content: Text(msg, style: const TextStyle(fontSize: 16)),
       behavior: SnackBarBehavior.floating,
-      duration: const Duration(milliseconds: 1400),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      padding: EdgeInsets.zero,
+      duration: const Duration(milliseconds: 1800),
+      content: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: T.card,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: T.shadowDock,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                      color: T.accentSoft, shape: BoxShape.circle),
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.check_rounded,
+                      size: 13, color: T.accent),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(msg,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          color: T.ink,
+                          fontWeight: FontWeight.w500)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     ));
 }
 
