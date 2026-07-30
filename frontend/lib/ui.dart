@@ -72,10 +72,10 @@ class _Burst extends StatefulWidget {
 
 class _BurstState extends State<_Burst> with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 620))
+      vsync: this, duration: const Duration(milliseconds: 700))
     ..forward().whenComplete(widget.onDone);
   late final List<double> _ang =
-      List.generate(8, (i) => i * math.pi / 4 + math.pi / 8);
+      List.generate(12, (i) => i * math.pi / 6 + math.pi / 12);
 
   @override
   void dispose() {
@@ -110,11 +110,11 @@ class _BurstPainter extends CustomPainter {
   final Color color;
   @override
   void paint(Canvas canvas, Size size) {
-    final dist = 4 + t * 22;
-    final r = (1 - t) * 3.2 + .5;
+    final dist = 6 + t * 42;
+    final r = (1 - t) * 5.5 + .8;
     final p = Paint()..color = color.withValues(alpha: (1 - t).clamp(0, 1));
     for (final a in ang) {
-      final o = Offset(math.cos(a) * dist, math.sin(a) * dist - t * 6);
+      final o = Offset(math.cos(a) * dist, math.sin(a) * dist - t * 10);
       canvas.drawCircle(o, r, p);
     }
   }
@@ -458,6 +458,20 @@ Future<void> showBlurDialog(BuildContext context, Widget child) {
           child: dialogChild,
         ),
       ),
+    ),
+  );
+}
+
+/// 小图标按钮（用于工具栏按钮）
+Widget toolIconBtn(IconData icon, VoidCallback onTap) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: 34,
+      height: 34,
+      decoration:
+          BoxDecoration(color: T.field, borderRadius: BorderRadius.circular(10)),
+      child: Icon(icon, size: 19, color: T.muted),
     ),
   );
 }

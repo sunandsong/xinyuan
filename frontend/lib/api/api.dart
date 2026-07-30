@@ -48,8 +48,13 @@ class ApiClient {
     if (r.statusCode >= 200 && r.statusCode < 300) {
       return (body is Map<String, dynamic>) ? body : {'data': body};
     }
-    final err = (body is Map && body['error'] is String) ? body['error'] as String : 'error';
-    throw ApiException(r.statusCode, _friendly(err));
+    // 413 是网关本身拒绝的（请求体过大），响应体不是我们自己的 {error} 格式
+    if (r.statusCode == 413) {
+      throw ApiException(413, '内容太多，请精简后重试');
+    }
+    final err = (body is Map && body['error'] is String) ? body['error'] as String : null;
+    throw ApiException(
+        r.statusCode, err != null ? _friendly(err) : '网络异常，请稍后重试');
   }
 
   String _friendly(String code) {
@@ -178,3 +183,4 @@ class ShareApi {
     });
   }
 }
+

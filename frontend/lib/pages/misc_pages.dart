@@ -300,63 +300,15 @@ class WriteLetterPage extends StatefulWidget {
 }
 
 class _WriteLetterPageState extends State<WriteLetterPage> {
-  static const _emojis = [
-    '😀', '😁', '😂', '🤣', '😊', '😍', '🥰', '😘', '😅', '😉', '😎', '🤔',
-    '😴', '😭', '😢', '🥹', '👍', '👏', '🙌', '🎉', '❤️', '✨', '🌟', '🔥',
-    '🌈', '☀️', '🌙', '⭐', '🍀', '🌸', '🌊', '🏔️', '☕', '🎂', '🎁', '📖',
-    '✈️', '🏠', '💪', '🙏', '😇', '🥳',
-  ];
-
   final _title = TextEditingController();
   final _content = TextEditingController();
-  final _contentFocus = FocusNode();
   DateTime _openAt = DateTime.now().add(const Duration(days: 365));
 
   @override
   void dispose() {
     _title.dispose();
     _content.dispose();
-    _contentFocus.dispose();
     super.dispose();
-  }
-
-  void _insertEmoji(String emoji) {
-    final text = _content.text;
-    final sel = _content.selection;
-    final start = sel.start < 0 ? text.length : sel.start;
-    final end = sel.end < 0 ? text.length : sel.end;
-    _content.text = text.replaceRange(start, end, emoji);
-    final pos = start + emoji.length;
-    _content.selection = TextSelection.collapsed(offset: pos);
-    _contentFocus.requestFocus();
-  }
-
-  void _showEmojiPicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: T.card,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Wrap(
-            spacing: 14,
-            runSpacing: 14,
-            children: [
-              for (final e in _emojis)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _insertEmoji(e);
-                  },
-                  child: Text(e, style: const TextStyle(fontSize: 28)),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -383,7 +335,8 @@ class _WriteLetterPageState extends State<WriteLetterPage> {
                   GestureDetector(
                     onTap: _submit,
                     child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 8),
                       child: Text('封存',
                           style: TextStyle(
                               fontSize: 16,
@@ -417,7 +370,6 @@ class _WriteLetterPageState extends State<WriteLetterPage> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: _content,
-                      focusNode: _contentFocus,
                       decoration: const InputDecoration(
                         hintText: '想对未来的自己说什么…',
                         hintStyle: TextStyle(fontSize: 17, color: T.faint),
@@ -428,18 +380,6 @@ class _WriteLetterPageState extends State<WriteLetterPage> {
                       style: const TextStyle(fontSize: 17, height: 1.6),
                       maxLines: null,
                       minLines: 6,
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: _showEmojiPicker,
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                            color: T.field, borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.emoji_emotions_outlined,
-                            size: 19, color: T.muted),
-                      ),
                     ),
                   ],
                 ),

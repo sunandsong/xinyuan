@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../data.dart';
 import '../pages/login_page.dart';
 import '../sheets.dart';
@@ -286,15 +287,18 @@ class _TasksTabState extends State<TasksTab> {
         final label =
             today ? '今天' : '${md(selected)} · ${weekLabel(selected)}';
         return SheetCard(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+          padding: const EdgeInsets.fromLTRB(0, 14, 0, 6),
           child: all.isEmpty
               ? Column(
                   children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(label,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w600)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(label,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w600)),
+                      ),
                     ),
                     const Expanded(
                       child: Center(
@@ -307,15 +311,18 @@ class _TasksTabState extends State<TasksTab> {
               : ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    Text(label,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Text(label,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w600)),
+                    ),
                     const SizedBox(height: 6),
                     for (var k = 0; k < active.length; k++)
                       StaggerIn(index: k, child: _taskRow(active[k])),
                     if (done.isNotEmpty) ...[
                       const Padding(
-                        padding: EdgeInsets.only(top: 8, bottom: 2),
+                        padding: EdgeInsets.fromLTRB(14, 8, 14, 2),
                         child: Text('已完成',
                             style: TextStyle(fontSize: 15, color: T.faint)),
                       ),
@@ -331,31 +338,94 @@ class _TasksTabState extends State<TasksTab> {
 
   Widget _taskRow(Task t) {
     final color = AppData.I.taskColor(t);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
+    return Slidable(
+      key: ValueKey(t.id),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: .28,
         children: [
-          Cb(
-            done: t.done,
-            greyWhenDone: t.wishId == null,
-            burstColor: color,
-            onTap: () => AppData.I.toggleTask(t),
+          CustomSlidableAction(
+            onPressed: (_) => _changeTaskDate(t),
+            backgroundColor: T.accent,
+            padding: EdgeInsets.zero,
+            borderRadius: BorderRadius.zero,
+            child: const Center(
+                child: Icon(Icons.event_rounded, color: Colors.white)),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 220),
-              style: TextStyle(
-                fontFamily: 'MiSans',
-                fontSize: 18,
-                color: t.done ? T.faint : T.ink,
-                decoration: t.done ? TextDecoration.lineThrough : null,
-                decorationColor: T.faint,
+          CustomSlidableAction(
+            onPressed: (_) => _confirmDeleteTask(t),
+            backgroundColor: const Color(0xFFE05A5A),
+            padding: EdgeInsets.zero,
+            borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+            child: const Center(
+                child: Icon(Icons.delete_outline_rounded, color: Colors.white)),
+          ),
+        ],
+      ),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showEditTaskPage(context, t),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+          child: Row(
+            children: [
+              Cb(
+                done: t.done,
+                greyWhenDone: t.wishId == null,
+                burstColor: color,
+                onTap: () => AppData.I.toggleTask(t),
               ),
-              child: Text(t.title),
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 220),
+                  style: TextStyle(
+                    fontFamily: 'MiSans',
+                    fontSize: 18,
+                    color: t.done ? T.faint : T.ink,
+                    decoration: t.done ? TextDecoration.lineThrough : null,
+                    decorationColor: T.faint,
+                  ),
+                  child: Text(t.title),
+                ),
+              ),
+              WDot(t.done ? T.greyBar : color, glow: !t.done),
+            ],
           ),
-          WDot(t.done ? T.greyBar : color, glow: !t.done),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _changeTaskDate(Task t) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: t.day,
+      firstDate: DateTime(DateTime.now().year - 1),
+      lastDate: DateTime(DateTime.now().year + 5),
+    );
+    if (picked == null) return;
+    t.day = dOnly(picked);
+    AppData.I.updateTask(t);
+  }
+
+  void _confirmDeleteTask(Task t) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除任务'),
+        content: Text('确定删除「${t.title}」吗？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              AppData.I.deleteTask(t);
+            },
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFE05A5A)),
+            child: const Text('删除'),
+          ),
         ],
       ),
     );

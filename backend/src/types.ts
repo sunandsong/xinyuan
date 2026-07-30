@@ -36,6 +36,7 @@ export interface Task {
   done: boolean;
   wishId: string | null;
   color: string;
+  desc: string | null;
   createdAt: number;
   updatedAt: number;
   deleted: boolean;

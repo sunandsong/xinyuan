@@ -15,8 +15,8 @@ function publicProfile(u: UserProfile) {
 function genUid() {
   return 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
-// TODO(上线前必改)：还没接真实 SMTP，验证码先写死方便联调；
-// 接上邮件发送后要改回随机生成，否则任何人都能用别人的邮箱注册。
+// TODO(上线前必改)：还没接真实 SMTP，验证码先写死方便你自己测；
+// 接上邮件发送后要改回随机生成，否则任何人都能拿别人的邮箱注册。
 function genCode() {
   return '123456';
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show jsonEncode, utf8;
 import 'dart:math' show Random;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -208,11 +209,29 @@ class Letter {
 /// 全局状态（内存态，无本地磁盘持久化）：数据全部来自后端 API——
 /// 启动/登录即整体拉取云端数据，后续每次增删改会防抖批量推送云端；
 /// 未登录时「人生清单」显示本地预览（人生必做清单前 50 条，不同步），任务列表为空。
-class AppData extends ChangeNotifier {
+class _PushChunk {
+  final wishes = <Wish>[];
+  final tasks = <Task>[];
+  final letters = <Letter>[];
+}
+
+class AppData extends ChangeNotifier with WidgetsBindingObserver {
   AppData._() {
     _fillLifeGoals();
+    WidgetsBinding.instance.addObserver(this);
   }
   static final AppData I = AppData._();
+
+  /// App 切后台/被杀前，把还没到防抖时间的改动立刻推一次，别等 800ms
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _pushTimer?.cancel();
+      unawaited(_flushPush());
+    }
+  }
 
   final wishes = <Wish>[];
   final tasks = <Task>[];
@@ -252,27 +271,67 @@ class AppData extends ChangeNotifier {
 
   void _scheduleFlush() {
     _pushTimer?.cancel();
-    _pushTimer = Timer(const Duration(milliseconds: 800), () {
+    // 300ms 够合并批量导入这类连续调用了，同时把"改完立刻被杀掉"的风险窗口缩到最小
+    _pushTimer = Timer(const Duration(milliseconds: 300), () {
       unawaited(_flushPush());
     });
   }
 
+  // 云函数网关单次请求体上限约 100KB，超量的批量改动（比如一次性导入/改一堆任务）
+  // 得分批推送，不然整批直接被网关 413 拒掉、还静默吞掉
+  static const _pushChunkBudget = 80 * 1024;
+
+  List<_PushChunk> _buildPushChunks(List<Wish> ws, List<Task> ts, List<Letter> ls) {
+    final chunks = <_PushChunk>[];
+    var cur = _PushChunk();
+    var curSize = 0;
+    void add(void Function(_PushChunk) put, int size) {
+      if (curSize > 0 && curSize + size > _pushChunkBudget) {
+        chunks.add(cur);
+        cur = _PushChunk();
+        curSize = 0;
+      }
+      put(cur);
+      curSize += size;
+    }
+
+    for (final w in ws) {
+      add((c) => c.wishes.add(w), utf8.encode(jsonEncode(w.toJson())).length);
+    }
+    for (final t in ts) {
+      add((c) => c.tasks.add(t), utf8.encode(jsonEncode(t.toJson())).length);
+    }
+    for (final l in ls) {
+      add((c) => c.letters.add(l), utf8.encode(jsonEncode(l.toJson())).length);
+    }
+    if (curSize > 0) chunks.add(cur);
+    return chunks;
+  }
+
   Future<void> _flushPush() async {
     if (_dirtyWishes.isEmpty && _dirtyTasks.isEmpty && _dirtyLetters.isEmpty) return;
-    final ws = _dirtyWishes.toList();
-    final ts = _dirtyTasks.toList();
-    final ls = _dirtyLetters.toList();
+    final chunks = _buildPushChunks(
+        _dirtyWishes.toList(), _dirtyTasks.toList(), _dirtyLetters.toList());
     _dirtyWishes.clear();
     _dirtyTasks.clear();
     _dirtyLetters.clear();
-    try {
-      await SyncApi.push(
-        wishes: ws.isEmpty ? null : ws.map((w) => w.toJson()).toList(),
-        tasks: ts.isEmpty ? null : ts.map((t) => t.toJson()).toList(),
-        letters: ls.isEmpty ? null : ls.map((l) => l.toJson()).toList(),
-      );
-    } catch (_) {
-      // 静默失败：v1 无重试队列，下次该条目再变更时会带新 updatedAt 一并重推
+    for (var i = 0; i < chunks.length; i++) {
+      final c = chunks[i];
+      try {
+        await SyncApi.push(
+          wishes: c.wishes.isEmpty ? null : c.wishes.map((w) => w.toJson()).toList(),
+          tasks: c.tasks.isEmpty ? null : c.tasks.map((t) => t.toJson()).toList(),
+          letters: c.letters.isEmpty ? null : c.letters.map((l) => l.toJson()).toList(),
+        );
+      } catch (_) {
+        // 静默失败：把这批和还没发的都放回去，下次该条目再变更（或下次启动）时重推
+        for (var j = i; j < chunks.length; j++) {
+          _dirtyWishes.addAll(chunks[j].wishes);
+          _dirtyTasks.addAll(chunks[j].tasks);
+          _dirtyLetters.addAll(chunks[j].letters);
+        }
+        return;
+      }
     }
   }
 
@@ -309,6 +368,8 @@ class AppData extends ChangeNotifier {
         avatarEmoji = profile['avatarEmoji'] as String?;
         accountCreatedAt = _fromMs(profile['createdAt'] as num?);
       }
+      // 云端心愿为空就兜底填入默认清单，不管是新注册还是老账号空着——不允许出现空列表
+      if (wishes.isEmpty) _fillLifeGoals();
     } catch (_) {
       // 拉取失败：保留当前本地数据，不阻断登录/启动流程
     }
@@ -366,6 +427,20 @@ class AppData extends ChangeNotifier {
       HapticFeedback.lightImpact();
     }
     _touchTask(t);
+    notifyListeners();
+  }
+
+  /// 任务字段（标题/日期/描述/配图…）改完之后调用，推送到云端并刷新界面
+  void updateTask(Task t) {
+    _touchTask(t);
+    notifyListeners();
+  }
+
+  /// 软删除：本地立即消失，同时把删除标记同步给云端
+  void deleteTask(Task t) {
+    t.deleted = true;
+    _touchTask(t);
+    tasks.remove(t);
     notifyListeners();
   }
 
@@ -485,7 +560,7 @@ class AppData extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 邮箱登录 / 注册；成功后置登录态、存 token，并拉取云端数据（新注册账号会默认导入 50 个人生清单）
+  /// 邮箱登录 / 注册；成功后置登录态、存 token，并拉取云端数据（云端心愿为空会自动导入 50 个人生清单兜底）
   /// （注册需先 AuthApi.sendCode 拿到验证码）
   Future<void> loginOrRegister(String email, String password,
       {bool register = false, String? code}) async {
@@ -500,8 +575,7 @@ class AppData extends ChangeNotifier {
     this.email = email;
     if (nick != null && nick.isNotEmpty) nickname = nick;
     signedIn = true;
-    await _pullFromCloud();
-    if (register && wishes.isEmpty) _fillLifeGoals();
+    await _pullFromCloud(); // 云端为空会在 _pullFromCloud 里自动兜底填默认清单
     notifyListeners();
   }
 
