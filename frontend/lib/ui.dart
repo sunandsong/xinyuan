@@ -72,10 +72,23 @@ class _Burst extends StatefulWidget {
 
 class _BurstState extends State<_Burst> with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 700))
+      vsync: this, duration: const Duration(milliseconds: 750))
     ..forward().whenComplete(widget.onDone);
   late final List<double> _ang =
       List.generate(12, (i) => i * math.pi / 6 + math.pi / 12);
+  late final List<double> _spin =
+      List.generate(12, (i) => (i.isEven ? 1 : -1) * (2.2 + (i % 4) * 1.1));
+  late final List<Color> _colors = _confettiColors(widget.color);
+
+  static List<Color> _confettiColors(Color base) {
+    final hsl = HSLColor.fromColor(base);
+    return [
+      base,
+      hsl.withLightness((hsl.lightness + .22).clamp(0.0, 1.0)).toColor(),
+      hsl.withHue((hsl.hue + 35) % 360).toColor(),
+      const Color(0xFFFFD166), // 金色点缀，让撒纸屑更有节庆感
+    ];
+  }
 
   @override
   void dispose() {
@@ -94,7 +107,7 @@ class _BurstState extends State<_Burst> with SingleTickerProviderStateMixin {
           builder: (context, _) {
             final t = Curves.easeOut.transform(_c.value);
             return CustomPaint(
-              painter: _BurstPainter(t, _ang, widget.color),
+              painter: _BurstPainter(t, _ang, _spin, _colors),
             );
           },
         ),
@@ -103,19 +116,31 @@ class _BurstState extends State<_Burst> with SingleTickerProviderStateMixin {
   }
 }
 
+/// 撒纸屑效果：小方片带旋转迸发，比纯圆点更有庆祝感
 class _BurstPainter extends CustomPainter {
-  _BurstPainter(this.t, this.ang, this.color);
+  _BurstPainter(this.t, this.ang, this.spin, this.colors);
   final double t;
   final List<double> ang;
-  final Color color;
+  final List<double> spin;
+  final List<Color> colors;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final dist = 6 + t * 42;
-    final r = (1 - t) * 5.5 + .8;
-    final p = Paint()..color = color.withValues(alpha: (1 - t).clamp(0, 1));
-    for (final a in ang) {
-      final o = Offset(math.cos(a) * dist, math.sin(a) * dist - t * 10);
-      canvas.drawCircle(o, r, p);
+    final dist = 6 + t * 46;
+    final side = (1 - t * .3) * 6.5;
+    // 前 75% 时间保持不透明，最后一段快速淡出，比线性淡出更像纸屑飘落消失
+    final alpha = t < .75 ? 1.0 : (1 - (t - .75) / .25).clamp(0.0, 1.0);
+    for (var i = 0; i < ang.length; i++) {
+      final o = Offset(
+          math.cos(ang[i]) * dist, math.sin(ang[i]) * dist - t * 12);
+      final paint = Paint()..color = colors[i % colors.length].withValues(alpha: alpha);
+      canvas.save();
+      canvas.translate(o.dx, o.dy);
+      canvas.rotate(spin[i] * t * math.pi);
+      canvas.drawRect(
+          Rect.fromCenter(center: Offset.zero, width: side, height: side * .55),
+          paint);
+      canvas.restore();
     }
   }
 
