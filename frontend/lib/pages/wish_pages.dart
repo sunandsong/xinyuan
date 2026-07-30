@@ -87,99 +87,213 @@ class WishDetailPage extends StatelessWidget {
   }
 
   // ---------- 头卡：色点 + 标题 + 标签 + 统计条 ----------
+  // 头图高度 / 悬浮统计卡高度 / 二者的重叠量，三个数定死，方便手算布局。
+  // 标题文字块要留在 overlap 区域之上，否则会被悬浮卡片盖住
+  static const _heroH = 210.0;
+  static const _pillH = 60.0;
+  static const _pillOverlap = 18.0;
+  static const _heroTextBottom = _pillOverlap + 16;
+
   Widget _cover(BuildContext context, List<Task> tasks) {
-    final c = wish.color;
     final wantDays = dOnly(
       DateTime.now(),
     ).difference(dOnly(wish.createdAt)).inDays;
     final doneTasks = tasks.where((t) => t.done).toList();
     final pushedDays = doneTasks.map((t) => dOnly(t.day)).toSet().length;
     final no = AppData.I.wishes.indexWhere((x) => x.id == wish.id) + 1;
-    final hasDesc = wish.desc != null && wish.desc!.isNotEmpty;
     return SheetCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.zero,
+      child: Stack(
         children: [
-          Row(
+          Column(
             children: [
-              WDot(c),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text(
-                  wish.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w700,
-                    color: T.ink,
-                  ),
+              SizedBox(height: _heroH, child: _hero(context)),
+              const SizedBox(height: _pillH - _pillOverlap),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: [
+                    if (no > 0) _tag('清单第 $no 项', bg: T.field, fg: T.muted),
+                    _targetTag(context),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: () => showEditWishSheet(context, wish),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    hasDesc ? wish.desc! : '为什么想做这件事？写一句给以后的自己',
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      height: 1.5,
-                      color: hasDesc ? T.muted : T.faint,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    hasDesc ? Icons.edit_rounded : Icons.add_rounded,
-                    size: 13,
-                    color: T.faint,
-                  ),
-                ),
-              ],
+          Positioned(
+            top: _heroH - _pillOverlap,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              decoration: BoxDecoration(
+                color: T.card,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: T.shadowDock,
+              ),
+              child: Row(
+                children: [
+                  _stat('$wantDays', '天前写下'),
+                  _statDivider(),
+                  _stat('$pushedDays', '天在推进'),
+                  _statDivider(),
+                  _stat('${doneTasks.length}/${tasks.length}', '任务完成'),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: [
-              _tag('进行中', bg: c.withValues(alpha: .14), fg: c),
-              if (no > 0) _tag('清单第 $no 项', bg: T.field, fg: T.muted),
-              _targetTag(context),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Container(height: 1, color: T.line),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _stat('$wantDays', '天前写下'),
-              _statDivider(),
-              _stat('$pushedDays', '天在推进'),
-              _statDivider(),
-              _stat('${doneTasks.length}/${tasks.length}', '任务完成'),
-            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _tag(String text, {required Color bg, required Color fg}) => Container(
+  /// 头图：有真实照片就用最新一张（"现在进行时"，用当下的样子）；
+  /// 没有就用心愿自己的颜色画一块有质感的抽象场景，而不是一块死板的纯色矩形
+  Widget _hero(BuildContext context) {
+    final photo = wish.photos.isNotEmpty ? wish.photos.last : null;
+    return GestureDetector(
+      onTap: () => showEditWishSheet(context, wish),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (photo != null)
+            Image.network(
+              photo,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _heroArt(wish.color),
+            )
+          else
+            _heroArt(wish.color),
+          // 底部渐暗遮罩，保证白字在任何图上都读得清楚
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0, .45, 1],
+                colors: [
+                  Colors.transparent,
+                  Colors.transparent,
+                  Color(0xB3000000),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            top: 14,
+            child: _tag(
+              '进行中',
+              bg: Colors.white.withValues(alpha: .22),
+              fg: Colors.white,
+              border: Colors.white.withValues(alpha: .35),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: _heroTextBottom,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  wish.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    height: 1.22,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  (wish.desc?.isNotEmpty ?? false)
+                      ? wish.desc!
+                      : '为什么想做这件事？写一句给以后的自己',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.white.withValues(alpha: .85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 没有真实照片时的兜底头图：心愿自己的颜色 + 一团柔光 + 一道地平线弧，
+  /// 撑起"这是一个场景"的感觉，而不是纯色块
+  Widget _heroArt(Color c) {
+    final deep = Color.lerp(c, Colors.black, .55)!;
+    final mid = Color.lerp(c, Colors.black, .12)!;
+    final glow = Color.lerp(c, Colors.white, .55)!;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [deep, mid],
+            ),
+          ),
+        ),
+        Positioned(
+          right: -30,
+          bottom: -20,
+          child: Container(
+            width: 170,
+            height: 170,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  glow.withValues(alpha: .55),
+                  glow.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: -24,
+          right: -24,
+          bottom: -34,
+          child: Container(
+            height: 76,
+            decoration: BoxDecoration(
+              color: deep.withValues(alpha: .8),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.elliptical(240, 50),
+                topRight: Radius.elliptical(240, 50),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tag(
+    String text, {
+    required Color bg,
+    required Color fg,
+    Color? border,
+  }) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
     decoration: BoxDecoration(
       color: bg,
       borderRadius: BorderRadius.circular(999),
+      border: border == null ? null : Border.all(color: border, width: .8),
     ),
     child: Text(
       text,
