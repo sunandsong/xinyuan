@@ -19,6 +19,7 @@ class WishDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
+    final heroFullH = topInset + _heroH;
     return Scaffold(
       backgroundColor: T.bg,
       body: ListenableBuilder(
@@ -27,8 +28,13 @@ class WishDetailPage extends StatelessWidget {
           final tasks = AppData.I.tasksOfWish(wish.id);
           return Stack(
             children: [
-              // 头图要一直铺到屏幕最顶（含刘海/状态栏那一截），所以内容区不整体套
-              // SafeArea，只在底部按钮那里单独避让
+              // 头图纯当背景：固定在最顶不参与滚动，下面整块白色内容
+              // （统计卡 + 里程碑/任务/笔记）盖在它上面一起滑动、回弹
+              SizedBox(
+                height: heroFullH,
+                width: double.infinity,
+                child: _hero(context),
+              ),
               SafeArea(
                 top: false,
                 child: Padding(
@@ -39,7 +45,13 @@ class WishDetailPage extends StatelessWidget {
                         child: ListView(
                           padding: EdgeInsets.zero,
                           children: [
-                            _coverHero(context, tasks, topInset),
+                            SizedBox(height: heroFullH - _pillOverlap),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 13,
+                              ),
+                              child: _statPill(tasks),
+                            ),
                             const SizedBox(height: 11),
                             Padding(
                               padding: const EdgeInsets.symmetric(
@@ -47,15 +59,11 @@ class WishDetailPage extends StatelessWidget {
                               ),
                               child: Column(
                                 children: [
-                                  _tagsCard(context),
-                                  const SizedBox(height: 11),
                                   _steps(context),
                                   const SizedBox(height: 11),
                                   _tasksCard(context, tasks),
                                   const SizedBox(height: 11),
                                   _notes(context),
-                                  const SizedBox(height: 11),
-                                  _related(context),
                                 ],
                               ),
                             ),
@@ -115,79 +123,43 @@ class WishDetailPage extends StatelessWidget {
   // 头图高度 / 悬浮统计卡高度 / 二者的重叠量，三个数定死，方便手算布局。
   // 标题文字块要留在 overlap 区域之上，否则会被悬浮卡片盖住
   static const _heroH = 210.0;
-  static const _pillH = 60.0;
   static const _pillOverlap = 18.0;
   static const _heroTextBottom = _pillOverlap + 16;
 
-  /// 头图 + 悬浮统计卡：头图要一直铺到屏幕最顶，所以不能再包在有左右
-  /// 留白的卡片里了，改成自己算好高度、自己管重叠的一段
-  Widget _coverHero(BuildContext context, List<Task> tasks, double topInset) {
+  /// 悬浮统计卡：随下面的白色内容一起滚动，静止时视觉上盖在头图底部
+  Widget _statPill(List<Task> tasks) {
     final wantDays = dOnly(
       DateTime.now(),
     ).difference(dOnly(wish.createdAt)).inDays;
     final doneTasks = tasks.where((t) => t.done).toList();
     final pushedDays = doneTasks.map((t) => dOnly(t.day)).toSet().length;
-    final heroFullH = topInset + _heroH;
-    return SizedBox(
-      height: heroFullH + (_pillH - _pillOverlap),
-      child: Stack(
-        children: [
-          SizedBox(
-            height: heroFullH,
-            width: double.infinity,
-            child: _hero(context, topInset),
-          ),
-          Positioned(
-            top: heroFullH - _pillOverlap,
-            left: 13,
-            right: 13,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(
-                color: T.card,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: T.shadowDock,
-              ),
-              child: Row(
-                children: [
-                  _stat('$wantDays', '天前写下'),
-                  _statDivider(),
-                  _stat('$pushedDays', '天在推进'),
-                  _statDivider(),
-                  _stat('${doneTasks.length}/${tasks.length}', '任务完成'),
-                ],
-              ),
-            ),
-          ),
-        ],
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      decoration: BoxDecoration(
+        color: T.card,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: T.shadowDock,
       ),
-    );
-  }
-
-  /// 清单序号 / 目标期限，跟其它区块一样单独一张卡，铺在悬浮统计卡下面
-  Widget _tagsCard(BuildContext context) {
-    final no = AppData.I.wishes.indexWhere((x) => x.id == wish.id) + 1;
-    return SheetCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Wrap(
-        spacing: 7,
-        runSpacing: 7,
+      child: Row(
         children: [
-          if (no > 0) _tag('清单第 $no 项', bg: T.field, fg: T.muted),
-          _targetTag(context),
+          _stat('$wantDays', '天前写下'),
+          _statDivider(),
+          _stat('$pushedDays', '天在推进'),
+          _statDivider(),
+          _stat('${doneTasks.length}/${tasks.length}', '任务完成'),
         ],
       ),
     );
   }
 
   /// 头图：心愿自己的颜色画一块有质感的抽象场景，不是一块死板的纯色矩形。
-  /// 一直铺到屏幕最顶（含状态栏/刘海那一截），[topInset] 用来把文字往下让开。
+  /// 一直铺到屏幕最顶（含状态栏/刘海那一截）。
   ///
   /// 照片上传功能暂时下线了（CloudBase 存储桶是私有的，直传凭证里的
   /// download_url 是带签名的临时链接，存起来当"永久"地址过一阵子就会失效；
   /// 桶权限改不了——套餐限制，改成"现取现用"要多加一个后端接口，先缓一缓），
   /// 等重新做好了再把 _PhotoCarousel 接回来
-  Widget _hero(BuildContext context, double topInset) {
+  Widget _hero(BuildContext context) {
     return GestureDetector(
       onTap: () => showEditWishSheet(context, wish),
       child: Stack(
@@ -207,16 +179,6 @@ class WishDetailPage extends StatelessWidget {
                   Color(0xB3000000),
                 ],
               ),
-            ),
-          ),
-          Positioned(
-            left: 13,
-            top: topInset + 56,
-            child: _tag(
-              '进行中',
-              bg: Colors.white.withValues(alpha: .22),
-              fg: Colors.white,
-              border: Colors.white.withValues(alpha: .35),
             ),
           ),
           Positioned(
@@ -272,80 +234,6 @@ class WishDetailPage extends StatelessWidget {
     return Image.asset(asset, fit: BoxFit.cover);
   }
 
-  Widget _tag(
-    String text, {
-    required Color bg,
-    required Color fg,
-    Color? border,
-  }) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-    decoration: BoxDecoration(
-      color: bg,
-      borderRadius: BorderRadius.circular(999),
-      border: border == null ? null : Border.all(color: border, width: .8),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: fg),
-    ),
-  );
-
-  /// 目标日期做成标签胶囊，混在"进行中"那排标签里，不再单占一张卡
-  Widget _targetTag(BuildContext context) {
-    final left = wish.daysToTarget;
-    final has = wish.targetAt != null;
-    if (!has) {
-      return GestureDetector(
-        onTap: () => _pickTarget(context),
-        child: _tag('+ 设个期限', bg: T.field, fg: T.muted),
-      );
-    }
-    // 文案克制：超期不用红色警示，这份清单不是 deadline
-    final label = left! > 0
-        ? '还有 $left 天'
-        : left == 0
-        ? '就是今天'
-        : '慢一点也没关系';
-    return GestureDetector(
-      onTap: () => _pickTarget(context),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(9, 4, 6, 4),
-        decoration: BoxDecoration(
-          color: wish.color.withValues(alpha: .14),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.event_rounded, size: 12, color: wish.color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: wish.color,
-              ),
-            ),
-            const SizedBox(width: 3),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                AppData.I.setWishTarget(wish, null);
-                cancelWishReminder(wish);
-              },
-              child: Icon(
-                Icons.close_rounded,
-                size: 13,
-                color: wish.color.withValues(alpha: .7),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _stat(String v, String label) => Expanded(
     child: Column(
       children: [
@@ -366,20 +254,6 @@ class WishDetailPage extends StatelessWidget {
   );
 
   Widget _statDivider() => Container(width: 1, height: 24, color: T.line);
-
-  Future<void> _pickTarget(BuildContext context) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: wish.targetAt ?? now.add(const Duration(days: 30)),
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 30),
-    );
-    if (picked == null) return;
-    AppData.I.setWishTarget(wish, picked);
-    // 到期当天早上九点提醒一次（没授权/不支持就静默跳过）
-    await scheduleWishReminder(wish);
-  }
 
   // ---------- 里程碑 ----------
   Widget _steps(BuildContext context) {
@@ -916,57 +790,6 @@ class WishDetailPage extends StatelessWidget {
             pickAndUploadWishPhoto(context, wish, fromCamera: true);
           }),
         ],
-      ),
-    );
-  }
-
-  // ---------- 相关心愿 ----------
-  Widget _related(BuildContext context) {
-    final have = AppData.I.wishes.map((w) => w.title).toSet();
-    final picks = relatedGoals(wish.title, exclude: have);
-    if (picks.isEmpty) return const SizedBox.shrink();
-    return SheetCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '顺手也想做的',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [for (final g in picks) _relatedChip(context, g)],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _relatedChip(BuildContext context, String g) {
-    return GestureDetector(
-      onTap: () {
-        AppData.I.addWish(
-          g,
-          T.wishPalette[g.hashCode.abs() % T.wishPalette.length],
-        );
-        snack(context, '「$g」已写进清单');
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: T.field,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(g, style: const TextStyle(fontSize: 14.5, color: T.ink)),
-            const SizedBox(width: 5),
-            const Icon(Icons.add_rounded, size: 16, color: T.accent),
-          ],
-        ),
       ),
     );
   }

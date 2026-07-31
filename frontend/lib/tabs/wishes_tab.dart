@@ -130,8 +130,8 @@ class WishesTab extends StatelessWidget {
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                           color: T.ink)),
-                  // 有里程碑或期限时，卡片上直接看得到进度
-                  if (w.steps.isNotEmpty || w.targetAt != null) ...[
+                  // 有里程碑时，卡片上直接看得到进度
+                  if (w.steps.isNotEmpty) ...[
                     const SizedBox(height: 7),
                     _cardMeta(w),
                   ],
@@ -147,38 +147,25 @@ class WishesTab extends StatelessWidget {
   }
 }
 
-/// 卡片副行：里程碑进度条 + 期限倒数
+/// 卡片副行：里程碑进度条
 Widget _cardMeta(Wish w) {
-  final left = w.daysToTarget;
   return Row(
     children: [
-      if (w.steps.isNotEmpty) ...[
-        SizedBox(
-          width: 54,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: w.stepProgress,
-              minHeight: 4,
-              backgroundColor: T.field,
-              valueColor: AlwaysStoppedAnimation(w.color),
-            ),
+      SizedBox(
+        width: 54,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: w.stepProgress,
+            minHeight: 4,
+            backgroundColor: T.field,
+            valueColor: AlwaysStoppedAnimation(w.color),
           ),
         ),
-        const SizedBox(width: 7),
-        Text('${w.doneStepCount}/${w.steps.length}',
-            style: const TextStyle(fontSize: 12, color: T.muted)),
-      ],
-      if (w.steps.isNotEmpty && left != null)
-        const Text(' · ', style: TextStyle(fontSize: 12, color: T.faint)),
-      if (left != null)
-        Text(
-            left > 0
-                ? '还有 $left 天'
-                : left == 0
-                    ? '就是今天'
-                    : '已过期限',
-            style: const TextStyle(fontSize: 12, color: T.muted)),
+      ),
+      const SizedBox(width: 7),
+      Text('${w.doneStepCount}/${w.steps.length}',
+          style: const TextStyle(fontSize: 12, color: T.muted)),
     ],
   );
 }
