@@ -449,7 +449,6 @@ Future<void> showEditWishSheet(BuildContext context, Wish w,
     {VoidCallback? onDelete}) {
   final title = TextEditingController(text: w.title);
   final desc = TextEditingController(text: w.desc ?? '');
-  Color picked = w.color;
   return showAppSheet(
     context,
     StatefulBuilder(
@@ -480,35 +479,6 @@ Future<void> showEditWishSheet(BuildContext context, Wish w,
             maxLines: 3,
             minLines: 1,
           ),
-          const SizedBox(height: 14),
-          const Padding(
-            padding: EdgeInsets.only(left: 2, bottom: 10),
-            child: Text('颜色', style: TextStyle(fontSize: 14, color: T.muted)),
-          ),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              for (final c in _wishPaletteWith(w.color))
-                GestureDetector(
-                  onTap: () => setSheet(() => picked = c),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: c,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: picked.toARGB32() == c.toARGB32()
-                            ? T.accent
-                            : Colors.transparent,
-                        width: 2.5,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
           const SizedBox(height: 18),
           BigBtn(
             '保存',
@@ -517,7 +487,6 @@ Future<void> showEditWishSheet(BuildContext context, Wish w,
               if (t.isEmpty) return;
               w.title = t;
               w.desc = desc.text.trim().isEmpty ? null : desc.text.trim();
-              w.color = picked;
               AppData.I.updateWish(w);
               Navigator.pop(context);
             },
@@ -544,15 +513,6 @@ Future<void> showEditWishSheet(BuildContext context, Wish w,
       ),
     ),
   );
-}
-
-/// 色板 + 当前颜色（自定义颜色在色板里没有对应项时补到最前）
-List<Color> _wishPaletteWith(Color current) {
-  final list = [...T.wishPalette];
-  if (!list.any((c) => c.toARGB32() == current.toARGB32())) {
-    list.insert(0, current);
-  }
-  return list;
 }
 
 /// 删除单个心愿的确认框；[after] 在真的删掉之后回调（比如把详情页 pop 掉）

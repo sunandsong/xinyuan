@@ -36,8 +36,9 @@ class WishDetailPage extends StatelessWidget {
                       Expanded(
                         child: CustomScrollView(
                           slivers: [
-                            // 头图放进 SliverAppBar：往下拉超出顶部时会自己
-                            // 拉伸放大（stretch + zoomBackground），松手弹回去
+                            // 头部：图片填满整块，下拉超出时图片跟着变大（stretch）；
+                            // 统计卡固定大小、压在图片底部、锚在头部底——下拉时它和
+                            // 下面内容一起下移，只有图片放大，卡片始终盖住图片一点点。
                             SliverAppBar(
                               primary: false,
                               pinned: false,
@@ -47,21 +48,40 @@ class WishDetailPage extends StatelessWidget {
                               backgroundColor: Colors.transparent,
                               elevation: 0,
                               automaticallyImplyLeading: false,
-                              flexibleSpace: FlexibleSpaceBar(
-                                stretchModes: const [
-                                  StretchMode.zoomBackground,
-                                ],
-                                background:
-                                    _coverHero(context, tasks, topInset),
+                              flexibleSpace: LayoutBuilder(
+                                builder: (context, c) {
+                                  // 头部当前高度：正常=expandedHeight，下拉时更大
+                                  final h = c.maxHeight;
+                                  final imgH =
+                                      h - (_pillH - _pillOverlap);
+                                  return Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      // 图片：占顶部，下拉时高度变大 = 放大
+                                      Positioned(
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        height: imgH,
+                                        child: _hero(context),
+                                      ),
+                                      // 统计卡：锚在头部底，固定大小、压住图片底部一点
+                                      Positioned(
+                                        left: 13,
+                                        right: 13,
+                                        bottom: 0,
+                                        child: _statCard(context, tasks),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
+                            // 下面各版块，跟头部一起动
                             SliverPadding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 13,
-                              ),
+                              padding: const EdgeInsets.fromLTRB(13, 11, 13, 0),
                               sliver: SliverList(
                                 delegate: SliverChildListDelegate([
-                                  const SizedBox(height: 11),
                                   _steps(context),
                                   const SizedBox(height: 11),
                                   _tasksCard(context, tasks),
@@ -132,46 +152,27 @@ class WishDetailPage extends StatelessWidget {
   static const _pillOverlap = 18.0;
   static const _heroTextBottom = _pillOverlap + 16;
 
-  /// 头图 + 悬浮统计卡：头图要一直铺到屏幕最顶，所以不能再包在有左右
-  /// 留白的卡片里了，改成自己算好高度、自己管重叠的一段
-  Widget _coverHero(BuildContext context, List<Task> tasks, double topInset) {
+  /// 悬浮统计卡：现在放进内容列表，和下方版块一起动
+  Widget _statCard(BuildContext context, List<Task> tasks) {
     final wantDays = dOnly(
       DateTime.now(),
     ).difference(dOnly(wish.createdAt)).inDays;
     final doneTasks = tasks.where((t) => t.done).toList();
     final pushedDays = doneTasks.map((t) => dOnly(t.day)).toSet().length;
-    final heroFullH = topInset + _heroH;
-    return SizedBox(
-      height: heroFullH + (_pillH - _pillOverlap),
-      child: Stack(
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      decoration: BoxDecoration(
+        color: T.card,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: T.shadowDock,
+      ),
+      child: Row(
         children: [
-          SizedBox(
-            height: heroFullH,
-            width: double.infinity,
-            child: _hero(context),
-          ),
-          Positioned(
-            top: heroFullH - _pillOverlap,
-            left: 13,
-            right: 13,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(
-                color: T.card,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: T.shadowDock,
-              ),
-              child: Row(
-                children: [
-                  _stat('$wantDays', '天前写下'),
-                  _statDivider(),
-                  _stat('$pushedDays', '天在推进'),
-                  _statDivider(),
-                  _stat('${doneTasks.length}/${tasks.length}', '任务完成'),
-                ],
-              ),
-            ),
-          ),
+          _stat('$wantDays', '天前写下'),
+          _statDivider(),
+          _stat('$pushedDays', '天在推进'),
+          _statDivider(),
+          _stat('${doneTasks.length}/${tasks.length}', '任务完成'),
         ],
       ),
     );
