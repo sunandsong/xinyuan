@@ -55,8 +55,6 @@ class WishDetailPage extends StatelessWidget {
                                   const SizedBox(height: 11),
                                   _notes(context),
                                   const SizedBox(height: 11),
-                                  _photos(context),
-                                  const SizedBox(height: 11),
                                   _related(context),
                                 ],
                               ),
@@ -182,24 +180,20 @@ class WishDetailPage extends StatelessWidget {
     );
   }
 
-  /// 头图：有真实照片就用最新一张（"现在进行时"，用当下的样子）；
-  /// 没有就用心愿自己的颜色画一块有质感的抽象场景，而不是一块死板的纯色矩形。
-  /// 一直铺到屏幕最顶（含状态栏/刘海那一截），[topInset] 用来把文字往下让开
+  /// 头图：心愿自己的颜色画一块有质感的抽象场景，不是一块死板的纯色矩形。
+  /// 一直铺到屏幕最顶（含状态栏/刘海那一截），[topInset] 用来把文字往下让开。
+  ///
+  /// 照片上传功能暂时下线了（CloudBase 存储桶是私有的，直传凭证里的
+  /// download_url 是带签名的临时链接，存起来当"永久"地址过一阵子就会失效；
+  /// 桶权限改不了——套餐限制，改成"现取现用"要多加一个后端接口，先缓一缓），
+  /// 等重新做好了再把 _PhotoCarousel 接回来
   Widget _hero(BuildContext context, double topInset) {
-    final photo = wish.photos.isNotEmpty ? wish.photos.last : null;
     return GestureDetector(
       onTap: () => showEditWishSheet(context, wish),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (photo != null)
-            Image.network(
-              photo,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _heroArt(wish),
-            )
-          else
-            _heroArt(wish),
+          _heroArt(wish),
           // 底部渐暗遮罩，保证白字在任何图上都读得清楚
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -1053,6 +1047,90 @@ class WishDetailPage extends StatelessWidget {
       if (!context.mounted) return;
       snack(context, '生成分享码失败，请重试');
     }
+  }
+}
+
+/// 头图的照片轮播：左右滑动看这条心愿存的每一张照片，默认停在最新一张。
+/// 用 StatefulWidget 单独拎出来，是为了让滑到第几张能在页面其它地方触发的
+/// 刷新（勾一个里程碑之类）之间保持住，不会每次 rebuild 就跳回第一张
+class _PhotoCarousel extends StatefulWidget {
+  const _PhotoCarousel({required this.photos, required this.topInset});
+  final List<String> photos;
+  final double topInset;
+  @override
+  State<_PhotoCarousel> createState() => _PhotoCarouselState();
+}
+
+class _PhotoCarouselState extends State<_PhotoCarousel> {
+  late int _page = widget.photos.length - 1;
+  late final PageController _controller = PageController(initialPage: _page);
+
+  @override
+  void didUpdateWidget(_PhotoCarousel old) {
+    super.didUpdateWidget(old);
+    if (widget.photos.length != old.photos.length) {
+      final next = (widget.photos.length - 1).clamp(
+        0,
+        widget.photos.length - 1,
+      );
+      _page = next;
+      if (_controller.hasClients) _controller.jumpToPage(next);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PageView.builder(
+          controller: _controller,
+          itemCount: widget.photos.length,
+          onPageChanged: (i) => setState(() => _page = i),
+          itemBuilder: (context, i) => Image.network(
+            widget.photos[i],
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              color: T.field,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.image_not_supported_outlined,
+                size: 28,
+                color: T.faint,
+              ),
+            ),
+          ),
+        ),
+        if (widget.photos.length > 1)
+          Positioned(
+            right: 13,
+            top: widget.topInset + 60,
+            child: Row(
+              children: [
+                for (var i = 0; i < widget.photos.length; i++)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.only(left: 4),
+                    width: i == _page ? 14 : 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(
+                        alpha: i == _page ? .95 : .5,
+                      ),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 }
 
