@@ -128,6 +128,24 @@ class _SharePageState extends State<SharePage>
   int _wantDays(Wish w) =>
       dOnly(DateTime.now()).difference(dOnly(w.createdAt)).inDays;
 
+  /// 没有真实照片时的凭证底色：进行中用心愿自己的颜色压暗，已完成用预设的
+  /// 四组渐变色之一
+  Widget _coverGradient(Wish w) => Container(
+        height: 210,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: widget.declare
+                ? [
+                    Color.lerp(w.color, T.darkCard, .25)!,
+                    Color.lerp(w.color, T.darkCard, .72)!,
+                  ]
+                : (w.hero ?? AppData.heroes[0]),
+          ),
+        ),
+      );
+
   Widget _card(Wish w, int no, int total, int days) {
     // 金箔描边框
     return Container(
@@ -154,25 +172,21 @@ class _SharePageState extends State<SharePage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 凭证照片
+                  // 凭证照片：心愿存过真实照片就用最新一张，没有再退回渐变色块
                   Stack(
                     children: [
-                      Container(
-                        height: 210,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            // 进行中还没有凭证照片，用心愿自己的颜色压暗当底
-                            colors: widget.declare
-                                ? [
-                                    Color.lerp(w.color, T.darkCard, .25)!,
-                                    Color.lerp(w.color, T.darkCard, .72)!,
-                                  ]
-                                : (w.hero ?? AppData.heroes[0]),
+                      if (w.photos.isNotEmpty)
+                        SizedBox(
+                          height: 210,
+                          width: double.infinity,
+                          child: Image.network(
+                            w.photos.last,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _coverGradient(w),
                           ),
-                        ),
-                      ),
+                        )
+                      else
+                        _coverGradient(w),
                       Positioned.fill(
                         child: DecoratedBox(
                           decoration: BoxDecoration(

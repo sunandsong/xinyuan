@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
-import '../api/api.dart';
 import '../data.dart';
 import '../notify.dart';
 import '../photos.dart';
@@ -19,7 +17,6 @@ class WishDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
-    final heroFullH = topInset + _heroH;
     return Scaffold(
       backgroundColor: T.bg,
       body: ListenableBuilder(
@@ -28,13 +25,8 @@ class WishDetailPage extends StatelessWidget {
           final tasks = AppData.I.tasksOfWish(wish.id);
           return Stack(
             children: [
-              // 头图纯当背景：固定在最顶不参与滚动，下面整块白色内容
-              // （统计卡 + 里程碑/任务/笔记）盖在它上面一起滑动、回弹
-              SizedBox(
-                height: heroFullH,
-                width: double.infinity,
-                child: _hero(context),
-              ),
+              // 头图要一直铺到屏幕最顶（含刘海/状态栏那一截），所以内容区不整体套
+              // SafeArea，只在底部按钮那里单独避让
               SafeArea(
                 top: false,
                 child: Padding(
@@ -42,29 +34,42 @@ class WishDetailPage extends StatelessWidget {
                   child: Column(
                     children: [
                       Expanded(
-                        child: ListView(
-                          padding: EdgeInsets.zero,
-                          children: [
-                            SizedBox(height: heroFullH - _pillOverlap),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 13,
+                        child: CustomScrollView(
+                          slivers: [
+                            // 头图放进 SliverAppBar：往下拉超出顶部时会自己
+                            // 拉伸放大（stretch + zoomBackground），松手弹回去
+                            SliverAppBar(
+                              primary: false,
+                              pinned: false,
+                              stretch: true,
+                              expandedHeight:
+                                  topInset + _heroH + (_pillH - _pillOverlap),
+                              backgroundColor: Colors.transparent,
+                              elevation: 0,
+                              automaticallyImplyLeading: false,
+                              flexibleSpace: FlexibleSpaceBar(
+                                stretchModes: const [
+                                  StretchMode.zoomBackground,
+                                ],
+                                background:
+                                    _coverHero(context, tasks, topInset),
                               ),
-                              child: _statPill(tasks),
                             ),
-                            const SizedBox(height: 11),
-                            Padding(
+                            SliverPadding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 13,
                               ),
-                              child: Column(
-                                children: [
+                              sliver: SliverList(
+                                delegate: SliverChildListDelegate([
+                                  const SizedBox(height: 11),
                                   _steps(context),
                                   const SizedBox(height: 11),
                                   _tasksCard(context, tasks),
                                   const SizedBox(height: 11),
                                   _notes(context),
-                                ],
+                                  const SizedBox(height: 11),
+                                  _photos(context),
+                                ]),
                               ),
                             ),
                           ],
@@ -123,49 +128,73 @@ class WishDetailPage extends StatelessWidget {
   // 头图高度 / 悬浮统计卡高度 / 二者的重叠量，三个数定死，方便手算布局。
   // 标题文字块要留在 overlap 区域之上，否则会被悬浮卡片盖住
   static const _heroH = 210.0;
+  static const _pillH = 60.0;
   static const _pillOverlap = 18.0;
   static const _heroTextBottom = _pillOverlap + 16;
 
-  /// 悬浮统计卡：随下面的白色内容一起滚动，静止时视觉上盖在头图底部
-  Widget _statPill(List<Task> tasks) {
+  /// 头图 + 悬浮统计卡：头图要一直铺到屏幕最顶，所以不能再包在有左右
+  /// 留白的卡片里了，改成自己算好高度、自己管重叠的一段
+  Widget _coverHero(BuildContext context, List<Task> tasks, double topInset) {
     final wantDays = dOnly(
       DateTime.now(),
     ).difference(dOnly(wish.createdAt)).inDays;
     final doneTasks = tasks.where((t) => t.done).toList();
     final pushedDays = doneTasks.map((t) => dOnly(t.day)).toSet().length;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13),
-      decoration: BoxDecoration(
-        color: T.card,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: T.shadowDock,
-      ),
-      child: Row(
+    final heroFullH = topInset + _heroH;
+    return SizedBox(
+      height: heroFullH + (_pillH - _pillOverlap),
+      child: Stack(
         children: [
-          _stat('$wantDays', '天前写下'),
-          _statDivider(),
-          _stat('$pushedDays', '天在推进'),
-          _statDivider(),
-          _stat('${doneTasks.length}/${tasks.length}', '任务完成'),
+          SizedBox(
+            height: heroFullH,
+            width: double.infinity,
+            child: _hero(context),
+          ),
+          Positioned(
+            top: heroFullH - _pillOverlap,
+            left: 13,
+            right: 13,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              decoration: BoxDecoration(
+                color: T.card,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: T.shadowDock,
+              ),
+              child: Row(
+                children: [
+                  _stat('$wantDays', '天前写下'),
+                  _statDivider(),
+                  _stat('$pushedDays', '天在推进'),
+                  _statDivider(),
+                  _stat('${doneTasks.length}/${tasks.length}', '任务完成'),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  /// 头图：心愿自己的颜色画一块有质感的抽象场景，不是一块死板的纯色矩形。
+  /// 头图：有真实照片就用最新一张（"现在进行时"，用当下的样子）；
+  /// 没有就用心愿自己的颜色画一块有质感的抽象场景，而不是一块死板的纯色矩形。
   /// 一直铺到屏幕最顶（含状态栏/刘海那一截）。
-  ///
-  /// 照片上传功能暂时下线了（CloudBase 存储桶是私有的，直传凭证里的
-  /// download_url 是带签名的临时链接，存起来当"永久"地址过一阵子就会失效；
-  /// 桶权限改不了——套餐限制，改成"现取现用"要多加一个后端接口，先缓一缓），
-  /// 等重新做好了再把 _PhotoCarousel 接回来
   Widget _hero(BuildContext context) {
+    final photo = wish.photos.isNotEmpty ? wish.photos.last : null;
     return GestureDetector(
       onTap: () => showEditWishSheet(context, wish),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _heroArt(wish),
+          if (photo != null)
+            Image.network(
+              photo,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _heroArt(wish),
+            )
+          else
+            _heroArt(wish),
           // 底部渐暗遮罩，保证白字在任何图上都读得清楚
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -727,49 +756,79 @@ class WishDetailPage extends StatelessWidget {
 
   Widget _photoTile(BuildContext context, String url) {
     return GestureDetector(
-      onLongPress: () => showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('删除照片'),
-          content: const Text('把这张照片从心愿里移除？'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                AppData.I.removeWishPhoto(wish, url);
-              },
-              style: TextButton.styleFrom(foregroundColor: T.danger),
-              child: const Text('删除'),
-            ),
-          ],
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          url,
-          width: 96,
-          height: 96,
-          fit: BoxFit.cover,
-          // 链接过期或断网时不要炸成红屏，给一块灰底
-          errorBuilder: (_, __, ___) => Container(
-            width: 96,
-            height: 96,
-            color: T.field,
-            child: const Icon(
-              Icons.image_not_supported_outlined,
-              size: 20,
-              color: T.faint,
+      onLongPress: () => _confirmDeletePhoto(context, url),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              url,
+              width: 96,
+              height: 96,
+              fit: BoxFit.cover,
+              // 链接过期或断网时不要炸成红屏，给一块灰底
+              errorBuilder: (_, __, ___) => Container(
+                width: 96,
+                height: 96,
+                color: T.field,
+                child: const Icon(
+                  Icons.image_not_supported_outlined,
+                  size: 20,
+                  color: T.faint,
+                ),
+              ),
+              loadingBuilder: (_, child, progress) => progress == null
+                  ? child
+                  : Container(width: 96, height: 96, color: T.field),
             ),
           ),
-          loadingBuilder: (_, child, progress) => progress == null
-              ? child
-              : Container(width: 96, height: 96, color: T.field),
-        ),
+          // 长按也能删，但那太隐蔽了，另外放一个看得见的删除角标
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _confirmDeletePhoto(context, url),
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: .55),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 13,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDeletePhoto(BuildContext context, String url) {
+    return showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除照片'),
+        content: const Text('把这张照片从心愿里移除？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              AppData.I.removeWishPhoto(wish, url);
+            },
+            style: TextButton.styleFrom(foregroundColor: T.danger),
+            child: const Text('删除'),
+          ),
+        ],
       ),
     );
   }
@@ -813,10 +872,6 @@ class WishDetailPage extends StatelessWidget {
               MaterialPageRoute(builder: (_) => SharePage(wish: wish)),
             );
           }),
-          _moreRow(Icons.ios_share_rounded, '生成分享码', () {
-            Navigator.pop(context);
-            _shareCode(context);
-          }),
           _moreRow(Icons.delete_outline_rounded, '删除心愿', () {
             Navigator.pop(context);
             // 删完这条心愿就不存在了，详情页一起退掉
@@ -853,24 +908,6 @@ class WishDetailPage extends StatelessWidget {
     );
   }
 
-  Future<void> _shareCode(BuildContext context) async {
-    if (!AppData.I.signedIn) {
-      snack(context, '请先登录后再分享');
-      return;
-    }
-    try {
-      final path = await AppData.I.shareWish(wish);
-      await Clipboard.setData(ClipboardData(text: path));
-      if (!context.mounted) return;
-      snack(context, '分享码已复制：$path');
-    } on ApiException catch (e) {
-      if (!context.mounted) return;
-      snack(context, e.message);
-    } catch (_) {
-      if (!context.mounted) return;
-      snack(context, '生成分享码失败，请重试');
-    }
-  }
 }
 
 /// 头图的照片轮播：左右滑动看这条心愿存的每一张照片，默认停在最新一张。
