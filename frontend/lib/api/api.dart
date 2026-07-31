@@ -27,12 +27,13 @@ class ApiClient {
   String? token;
 
   Map<String, String> _headers() => {
-        'content-type': 'application/json',
-        if (token != null) 'authorization': 'Bearer $token',
-      };
+    'content-type': 'application/json',
+    if (token != null) 'authorization': 'Bearer $token',
+  };
 
   Future<Map<String, dynamic>> _do(
-      Future<http.Response> Function() send) async {
+    Future<http.Response> Function() send,
+  ) async {
     late http.Response r;
     try {
       r = await send().timeout(const Duration(seconds: 20));
@@ -52,9 +53,13 @@ class ApiClient {
     if (r.statusCode == 413) {
       throw ApiException(413, '内容太多，请精简后重试');
     }
-    final err = (body is Map && body['error'] is String) ? body['error'] as String : null;
+    final err = (body is Map && body['error'] is String)
+        ? body['error'] as String
+        : null;
     throw ApiException(
-        r.statusCode, err != null ? _friendly(err) : '网络异常，请稍后重试');
+      r.statusCode,
+      err != null ? _friendly(err) : '网络异常，请稍后重试',
+    );
   }
 
   String _friendly(String code) {
@@ -87,37 +92,56 @@ class ApiClient {
         return '缺少心愿信息，无法生成分享';
       case 'not_found':
         return '内容不存在或已失效';
+      case 'unsupported_type':
+        return '这种图片格式暂不支持';
       default:
         return code;
     }
   }
 
-  Future<Map<String, dynamic>> get(String path) =>
-      _do(() => http.get(Uri.parse('${ApiConfig.base}$path'), headers: _headers()));
+  Future<Map<String, dynamic>> get(String path) => _do(
+    () => http.get(Uri.parse('${ApiConfig.base}$path'), headers: _headers()),
+  );
 
-  Future<Map<String, dynamic>> post(String path, Object? body) => _do(() =>
-      http.post(Uri.parse('${ApiConfig.base}$path'),
-          headers: _headers(), body: jsonEncode(body ?? {})));
+  Future<Map<String, dynamic>> post(String path, Object? body) => _do(
+    () => http.post(
+      Uri.parse('${ApiConfig.base}$path'),
+      headers: _headers(),
+      body: jsonEncode(body ?? {}),
+    ),
+  );
 
-  Future<Map<String, dynamic>> patch(String path, Object? body) => _do(() =>
-      http.patch(Uri.parse('${ApiConfig.base}$path'),
-          headers: _headers(), body: jsonEncode(body ?? {})));
+  Future<Map<String, dynamic>> patch(String path, Object? body) => _do(
+    () => http.patch(
+      Uri.parse('${ApiConfig.base}$path'),
+      headers: _headers(),
+      body: jsonEncode(body ?? {}),
+    ),
+  );
 
-  Future<Map<String, dynamic>> delete(String path) =>
-      _do(() => http.delete(Uri.parse('${ApiConfig.base}$path'), headers: _headers()));
+  Future<Map<String, dynamic>> delete(String path) => _do(
+    () => http.delete(Uri.parse('${ApiConfig.base}$path'), headers: _headers()),
+  );
 }
 
 /// 账号相关接口
 class AuthApi {
-  static Future<Map<String, dynamic>> sendCode(String email,
-      {String purpose = 'register'}) {
-    return ApiClient.I
-        .post('/auth/send-code', {'email': email, 'purpose': purpose});
+  static Future<Map<String, dynamic>> sendCode(
+    String email, {
+    String purpose = 'register',
+  }) {
+    return ApiClient.I.post('/auth/send-code', {
+      'email': email,
+      'purpose': purpose,
+    });
   }
 
   static Future<Map<String, dynamic>> register(
-      String email, String password, String code,
-      {String? nickname}) {
+    String email,
+    String password,
+    String code, {
+    String? nickname,
+  }) {
     return ApiClient.I.post('/auth/register', {
       'email': email,
       'password': password,
@@ -127,13 +151,19 @@ class AuthApi {
   }
 
   static Future<Map<String, dynamic>> login(String email, String password) {
-    return ApiClient.I.post('/auth/login', {'email': email, 'password': password});
+    return ApiClient.I.post('/auth/login', {
+      'email': email,
+      'password': password,
+    });
   }
 
   static Future<Map<String, dynamic>> me() => ApiClient.I.get('/me');
 
-  static Future<Map<String, dynamic>> updateProfile(
-      {String? nickname, String? avatarEmoji, bool clearEmoji = false}) {
+  static Future<Map<String, dynamic>> updateProfile({
+    String? nickname,
+    String? avatarEmoji,
+    bool clearEmoji = false,
+  }) {
     final body = <String, dynamic>{};
     if (nickname != null) body['nickname'] = nickname;
     if (clearEmoji) {
@@ -184,23 +214,30 @@ class ShareApi {
   }
 }
 
-
-/// 图片上传：客户端把图片压成 base64 传给云函数，云函数落云存储后回 https 链接
+/// 图片直传凭证：云函数网关请求体限得很小（约 100KB），图片本体传不过去，
+/// 所以只找后端换一次性凭证，图片字节由客户端直接 PUT 给云存储
 class UploadApi {
-  static Future<String> image({
-    required String base64Data,
-    required String mime,
-    String? wishId,
-  }) async {
-    final r = await ApiClient.I.post('/upload', {
-      'data': base64Data,
-      'mime': mime,
-      if (wishId != null) 'wishId': wishId,
-    });
-    final url = r['url'] as String?;
-    if (url == null || url.isEmpty) {
-      throw ApiException(0, '上传失败，请重试');
-    }
-    return url;
+  static Future<UploadTicket> ticket({required String mime}) async {
+    final r = await ApiClient.I.post('/upload', {'mime': mime});
+    return UploadTicket(
+      url: r['url'] as String? ?? '',
+      headers:
+          (r['headers'] as Map?)?.map(
+            (k, v) => MapEntry(k.toString(), v.toString()),
+          ) ??
+          const {},
+      downloadUrl: r['downloadUrl'] as String? ?? '',
+    );
   }
+}
+
+class UploadTicket {
+  UploadTicket({
+    required this.url,
+    required this.headers,
+    required this.downloadUrl,
+  });
+  final String url;
+  final Map<String, String> headers;
+  final String downloadUrl;
 }

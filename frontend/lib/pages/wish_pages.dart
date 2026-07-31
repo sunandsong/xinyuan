@@ -18,70 +18,97 @@ class WishDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: T.bg,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(13, 8, 13, 12),
-          child: ListenableBuilder(
-            listenable: AppData.I,
-            builder: (context, _) {
-              final tasks = AppData.I.tasksOfWish(wish.id);
-              return Column(
-                children: [
-                  Row(
+      body: ListenableBuilder(
+        listenable: AppData.I,
+        builder: (context, _) {
+          final tasks = AppData.I.tasksOfWish(wish.id);
+          return Stack(
+            children: [
+              // 头图要一直铺到屏幕最顶（含刘海/状态栏那一截），所以内容区不整体套
+              // SafeArea，只在底部按钮那里单独避让
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
                     children: [
-                      PillBtn(
-                        icon: Icons.arrow_back_ios_new_rounded,
-                        onTap: () => Navigator.pop(context),
+                      Expanded(
+                        child: ListView(
+                          padding: EdgeInsets.zero,
+                          children: [
+                            _coverHero(context, tasks, topInset),
+                            const SizedBox(height: 11),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 13,
+                              ),
+                              child: Column(
+                                children: [
+                                  _tagsCard(context),
+                                  const SizedBox(height: 11),
+                                  _steps(context),
+                                  const SizedBox(height: 11),
+                                  _tasksCard(context, tasks),
+                                  const SizedBox(height: 11),
+                                  _notes(context),
+                                  const SizedBox(height: 11),
+                                  _photos(context),
+                                  const SizedBox(height: 11),
+                                  _related(context),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const Spacer(),
-                      PillBtn(
-                        icon: Icons.more_horiz_rounded,
-                        onTap: () => _showMore(context),
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 13),
+                        child: BigBtn(
+                          '完成这个心愿',
+                          onTap: () {
+                            if (!AppData.I.signedIn) {
+                              showBlurDialog(context, const LoginForm());
+                              return;
+                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CompleteWishPage(wish: wish),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
-                      children: [
-                        _cover(context, tasks),
-                        const SizedBox(height: 11),
-                        _steps(context),
-                        const SizedBox(height: 11),
-                        _tasksCard(context, tasks),
-                        const SizedBox(height: 11),
-                        _notes(context),
-                        const SizedBox(height: 11),
-                        _photos(context),
-                        const SizedBox(height: 11),
-                        _related(context),
-                      ],
+                ),
+              ),
+              // 返回/更多悬浮在头图上，不随内容滚动
+              Positioned(
+                top: topInset + 8,
+                left: 13,
+                right: 13,
+                child: Row(
+                  children: [
+                    PillBtn(
+                      icon: Icons.arrow_back_ios_new_rounded,
+                      onTap: () => Navigator.pop(context),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  BigBtn(
-                    '完成这个心愿',
-                    onTap: () {
-                      if (!AppData.I.signedIn) {
-                        showBlurDialog(context, const LoginForm());
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CompleteWishPage(wish: wish),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
+                    const Spacer(),
+                    PillBtn(
+                      icon: Icons.more_horiz_rounded,
+                      onTap: () => _showMore(context),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -94,38 +121,28 @@ class WishDetailPage extends StatelessWidget {
   static const _pillOverlap = 18.0;
   static const _heroTextBottom = _pillOverlap + 16;
 
-  Widget _cover(BuildContext context, List<Task> tasks) {
+  /// 头图 + 悬浮统计卡：头图要一直铺到屏幕最顶，所以不能再包在有左右
+  /// 留白的卡片里了，改成自己算好高度、自己管重叠的一段
+  Widget _coverHero(BuildContext context, List<Task> tasks, double topInset) {
     final wantDays = dOnly(
       DateTime.now(),
     ).difference(dOnly(wish.createdAt)).inDays;
     final doneTasks = tasks.where((t) => t.done).toList();
     final pushedDays = doneTasks.map((t) => dOnly(t.day)).toSet().length;
-    final no = AppData.I.wishes.indexWhere((x) => x.id == wish.id) + 1;
-    return SheetCard(
-      padding: EdgeInsets.zero,
+    final heroFullH = topInset + _heroH;
+    return SizedBox(
+      height: heroFullH + (_pillH - _pillOverlap),
       child: Stack(
         children: [
-          Column(
-            children: [
-              SizedBox(height: _heroH, child: _hero(context)),
-              const SizedBox(height: _pillH - _pillOverlap),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
-                  children: [
-                    if (no > 0) _tag('清单第 $no 项', bg: T.field, fg: T.muted),
-                    _targetTag(context),
-                  ],
-                ),
-              ),
-            ],
+          SizedBox(
+            height: heroFullH,
+            width: double.infinity,
+            child: _hero(context, topInset),
           ),
           Positioned(
-            top: _heroH - _pillOverlap,
-            left: 16,
-            right: 16,
+            top: heroFullH - _pillOverlap,
+            left: 13,
+            right: 13,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 13),
               decoration: BoxDecoration(
@@ -149,9 +166,26 @@ class WishDetailPage extends StatelessWidget {
     );
   }
 
+  /// 清单序号 / 目标期限，跟其它区块一样单独一张卡，铺在悬浮统计卡下面
+  Widget _tagsCard(BuildContext context) {
+    final no = AppData.I.wishes.indexWhere((x) => x.id == wish.id) + 1;
+    return SheetCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Wrap(
+        spacing: 7,
+        runSpacing: 7,
+        children: [
+          if (no > 0) _tag('清单第 $no 项', bg: T.field, fg: T.muted),
+          _targetTag(context),
+        ],
+      ),
+    );
+  }
+
   /// 头图：有真实照片就用最新一张（"现在进行时"，用当下的样子）；
-  /// 没有就用心愿自己的颜色画一块有质感的抽象场景，而不是一块死板的纯色矩形
-  Widget _hero(BuildContext context) {
+  /// 没有就用心愿自己的颜色画一块有质感的抽象场景，而不是一块死板的纯色矩形。
+  /// 一直铺到屏幕最顶（含状态栏/刘海那一截），[topInset] 用来把文字往下让开
+  Widget _hero(BuildContext context, double topInset) {
     final photo = wish.photos.isNotEmpty ? wish.photos.last : null;
     return GestureDetector(
       onTap: () => showEditWishSheet(context, wish),
@@ -162,10 +196,10 @@ class WishDetailPage extends StatelessWidget {
             Image.network(
               photo,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _heroArt(wish.color),
+              errorBuilder: (_, __, ___) => _heroArt(wish),
             )
           else
-            _heroArt(wish.color),
+            _heroArt(wish),
           // 底部渐暗遮罩，保证白字在任何图上都读得清楚
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -182,8 +216,8 @@ class WishDetailPage extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: 16,
-            top: 14,
+            left: 13,
+            top: topInset + 56,
             child: _tag(
               '进行中',
               bg: Colors.white.withValues(alpha: .22),
@@ -192,8 +226,8 @@ class WishDetailPage extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: 16,
-            right: 16,
+            left: 13,
+            right: 13,
             bottom: _heroTextBottom,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,58 +263,19 @@ class WishDetailPage extends StatelessWidget {
     );
   }
 
-  /// 没有真实照片时的兜底头图：心愿自己的颜色 + 一团柔光 + 一道地平线弧，
-  /// 撑起"这是一个场景"的感觉，而不是纯色块
-  Widget _heroArt(Color c) {
-    final deep = Color.lerp(c, Colors.black, .55)!;
-    final mid = Color.lerp(c, Colors.black, .12)!;
-    final glow = Color.lerp(c, Colors.white, .55)!;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [deep, mid],
-            ),
-          ),
-        ),
-        Positioned(
-          right: -30,
-          bottom: -20,
-          child: Container(
-            width: 170,
-            height: 170,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  glow.withValues(alpha: .55),
-                  glow.withValues(alpha: 0),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: -24,
-          right: -24,
-          bottom: -34,
-          child: Container(
-            height: 76,
-            decoration: BoxDecoration(
-              color: deep.withValues(alpha: .8),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.elliptical(240, 50),
-                topRight: Radius.elliptical(240, 50),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+  /// 没有真实照片时的兜底头图：五张预置场景图（日出/海浪/山峦/星空/极光），
+  /// 按心愿 id 稳定分到其中一张——同一条心愿每次看到的都一样，不同心愿配不同的图
+  static const _defaultHeroes = [
+    'assets/img/hero/sunrise.jpg',
+    'assets/img/hero/ocean.jpg',
+    'assets/img/hero/mountains.jpg',
+    'assets/img/hero/stars.jpg',
+    'assets/img/hero/aurora.jpg',
+  ];
+
+  Widget _heroArt(Wish w) {
+    final asset = _defaultHeroes[w.id.hashCode.abs() % _defaultHeroes.length];
+    return Image.asset(asset, fit: BoxFit.cover);
   }
 
   Widget _tag(

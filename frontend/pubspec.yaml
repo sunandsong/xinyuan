@@ -88,6 +88,7 @@ flutter:
 
   assets:
     - assets/img/
+    - assets/img/hero/
 
   fonts:
     - family: MiSans
