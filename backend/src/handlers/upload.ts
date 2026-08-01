@@ -35,6 +35,8 @@ export async function upload(req: Req, uid: string) {
   // getUploadMetadata 换来的是"这次上传"的一次性凭证：客户端凭它直接 PUT 到 COS，
   // 字段名和用法完全照抄 @cloudbase/node-sdk 自己 uploadFile() 的实现
   const meta = await app.getUploadMetadata({ cloudPath });
+  // 注意：download_url 带的 ?sign= 是临时签名，几小时就过期。客户端存的是
+  // 去掉签名的稳定链接，展示时走下面的 photoUrls 换新鲜链接。
   const { url, token, authorization, cosFileId, download_url } = meta.data;
   return ok({
     cloudPath,
@@ -48,4 +50,43 @@ export async function upload(req: Req, uid: string) {
     },
     downloadUrl: download_url,
   });
+}
+
+/** POST /api/photo-urls —— body: { urls: string[] }（存的稳定链接，不带签名）。
+ * 存进心愿里的下载链接签名会过期，展示时用这个接口换一批新鲜的临时链接。
+ * 返回 { urls: { 稳定链接: 新鲜临时链接 } }。 */
+export async function photoUrls(req: Req, uid: string) {
+  const body = (req.body ?? {}) as { urls?: unknown };
+  const list = Array.isArray(body.urls) ? body.urls.map(String) : [];
+  if (list.length === 0 || list.length > 50) return bad('invalid_urls');
+  if (IS_MOCK) return ok({ urls: {} });
+
+  // 稳定链接 → cloud:// fileID；只允许换自己目录下的图
+  const entries: Array<[string, string]> = [];
+  for (const u of list) {
+    let parsed: URL;
+    try {
+      parsed = new URL(u);
+    } catch {
+      continue;
+    }
+    const bucket = parsed.hostname.split('.')[0];
+    const path = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+    if (!path.startsWith(`wishes/${uid}/`)) continue;
+    entries.push([u.split('?')[0], `cloud://${ENV_ID}.${bucket}/${path}`]);
+  }
+  if (entries.length === 0) return ok({ urls: {} });
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const cloudbase = require('@cloudbase/node-sdk');
+  const app = cloudbase.init({ env: ENV_ID });
+  const res = await app.getTempFileURL({ fileList: entries.map((e) => e[1]) });
+  const out: Record<string, string> = {};
+  (res.fileList ?? []).forEach(
+    (f: { tempFileURL?: string; download_url?: string }, i: number) => {
+      const u = f.tempFileURL || f.download_url;
+      if (u) out[entries[i][0]] = u;
+    },
+  );
+  return ok({ urls: out });
 }

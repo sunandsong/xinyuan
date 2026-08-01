@@ -13,6 +13,7 @@
       "memorySize": 256,
       "envVariables": {
         "MODE": "cloud",
+        "CLOUDBASE_ENV_ID": "<your-env-id，和上面 envId 一致；部署会整体覆盖线上环境变量，缺了会把它抹掉>",
         "JWT_SECRET": "<run: openssl rand -hex 32>",
         "SMTP_HOST": "<如 smtp.exmail.qq.com>",
         "SMTP_PORT": "465",

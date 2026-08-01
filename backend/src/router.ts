@@ -4,7 +4,7 @@ import * as auth from './handlers/auth';
 import * as me from './handlers/me';
 import * as share from './handlers/share';
 import * as sync from './handlers/sync';
-import { upload } from './handlers/upload';
+import { photoUrls, upload } from './handlers/upload';
 import { dispatch, notFound, ok, Req, Res, route, unauthorized } from './http';
 
 // 路由不带 /api 前缀：CloudBase HTTP 服务会剥掉 /api；本地请求也统一剥掉后匹配。
@@ -25,6 +25,7 @@ function protectedRoutes(uid: string) {
     route('POST', '/sync/push', (r) => sync.push(r, uid)),
     route('POST', '/share', (r) => share.createShare(r, uid)),
     route('POST', '/upload', (r) => upload(r, uid)),
+    route('POST', '/photo-urls', (r) => photoUrls(r, uid)),
   ];
 }
 
