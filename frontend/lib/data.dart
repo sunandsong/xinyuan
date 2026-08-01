@@ -727,6 +727,16 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// 把已完成的心愿变回进行中：清掉完成时间/地点（地图上的点会一起熄灭），
+  /// 当时写的那句话保留在 quote 里不丢
+  void uncompleteWish(Wish w) {
+    w.done = false;
+    w.doneAt = null;
+    w.location = null;
+    _touchWish(w);
+    notifyListeners();
+  }
+
   int doneNumberOf(Wish w) {
     final list = wishes.where((x) => x.done).toList()
       ..sort((a, b) => a.doneAt!.compareTo(b.doneAt!));

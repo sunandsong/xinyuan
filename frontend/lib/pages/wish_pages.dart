@@ -1465,10 +1465,175 @@ class _CompleteWishPageState extends State<CompleteWishPage> {
   }
 }
 
+/// 已实现的心愿列表（点首页顶部统计进来）
+class DoneListPage extends StatelessWidget {
+  const DoneListPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: T.bg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(13, 8, 13, 0),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  PillBtn(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  const Expanded(
+                    child: Center(
+                      child: Text(
+                        '已实现的心愿',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 38),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListenableBuilder(
+                  listenable: AppData.I,
+                  builder: (context, _) {
+                    final done = AppData.I.doneWishes
+                      ..sort((a, b) => b.doneAt!.compareTo(a.doneAt!));
+                    if (done.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          '还没有点亮的心愿\n完成第一个，它就会出现在这里',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            height: 1.8,
+                            color: T.faint,
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      itemCount: done.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, i) => _doneCard(context, done[i]),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _doneCard(BuildContext context, Wish w) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => DoneWishPage(wish: w)),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: T.card,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: T.shadowCard,
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: w.photos.isNotEmpty
+                    ? WishPhoto(
+                        w.photos.last,
+                        fit: BoxFit.cover,
+                        fallback: _heroThumb(w),
+                      )
+                    : _heroThumb(w),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    w.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    [
+                      ymdDots(w.doneAt!),
+                      if (w.location != null) w.location!,
+                    ].join(' · '),
+                    style: const TextStyle(fontSize: 13, color: T.faint),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 18, color: T.faint),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 没有照片时的缩略图：心愿本色打底 + 勋章图标
+  Widget _heroThumb(Wish w) => ColoredBox(
+    color: w.color.withValues(alpha: .16),
+    child: Center(
+      child: Icon(Icons.emoji_events_rounded, size: 20, color: w.color),
+    ),
+  );
+}
+
 /// 已完成详情（凭证）
 class DoneWishPage extends StatelessWidget {
   const DoneWishPage({super.key, required this.wish});
   final Wish wish;
+
+  Future<void> _confirmUncomplete(BuildContext context) {
+    return showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('变回进行中？'),
+        content: const Text('完成时间和地点会清除（地图上的点会熄灭），当时写的话会保留。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              AppData.I.uncompleteWish(wish);
+              // 这页是"已完成凭证"，心愿都不再是完成态了，退出去
+              Navigator.pop(context);
+            },
+            child: const Text('变回进行中'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1489,6 +1654,12 @@ class DoneWishPage extends StatelessWidget {
                     onTap: () => Navigator.pop(context),
                   ),
                   const Spacer(),
+                  // 变回进行中（撤销完成）
+                  PillBtn(
+                    icon: Icons.replay_rounded,
+                    onTap: () => _confirmUncomplete(context),
+                  ),
+                  const SizedBox(width: 8),
                   PillBtn(
                     icon: Icons.ios_share_rounded,
                     onTap: () => Navigator.push(
@@ -1507,15 +1678,25 @@ class DoneWishPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            height: 170,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: wish.hero ?? AppData.heroes[0],
-                              ),
+                          // 封面：有照片用最新一张，没有用默认星空图
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: SizedBox(
+                              height: 170,
+                              width: double.infinity,
+                              child: wish.photos.isNotEmpty
+                                  ? WishPhoto(
+                                      wish.photos.last,
+                                      fit: BoxFit.cover,
+                                      fallback: Image.asset(
+                                        'assets/img/hero/default_cover.jpg',
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      'assets/img/hero/default_cover.jpg',
+                                      fit: BoxFit.cover,
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 12),
