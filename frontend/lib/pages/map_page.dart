@@ -11,11 +11,11 @@ class MapPage extends StatefulWidget {
   State<MapPage> createState() => _MapPageState();
 }
 
-class _MapPageState extends State<MapPage>
-    with SingleTickerProviderStateMixin {
+class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(seconds: 6))
-    ..repeat();
+    vsync: this,
+    duration: const Duration(seconds: 6),
+  )..repeat();
 
   @override
   void dispose() {
@@ -25,8 +25,14 @@ class _MapPageState extends State<MapPage>
 
   @override
   Widget build(BuildContext context) {
-    final lit = mapCities.where((c) => c.lit).length;
-    final next = mapCities.firstWhere((c) => !c.lit).name;
+    final points = mapPoints();
+    final lit = points.where((c) => c.lit).length;
+    final next = points
+        .firstWhere(
+          (c) => !c.lit,
+          orElse: () => const MapPoint('…', 0, 0, false),
+        )
+        .name;
     return Scaffold(
       backgroundColor: T.darkBg,
       body: Container(
@@ -46,21 +52,26 @@ class _MapPageState extends State<MapPage>
                 Row(
                   children: [
                     DarkPill(
-                        icon: Icons.arrow_back_ios_new_rounded,
-                        onTap: () => Navigator.pop(context)),
+                      icon: Icons.arrow_back_ios_new_rounded,
+                      onTap: () => Navigator.pop(context),
+                    ),
                     const Expanded(
                       child: Center(
-                        child: Text('点 亮 地 图',
-                            style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 4,
-                                color: Color(0xFFE8EEF8))),
+                        child: Text(
+                          '点 亮 地 图',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 4,
+                            color: Color(0xFFE8EEF8),
+                          ),
+                        ),
                       ),
                     ),
                     DarkPill(
-                        icon: Icons.ios_share_rounded,
-                        onTap: () => snack(context, '已保存到相册（演示）')),
+                      icon: Icons.ios_share_rounded,
+                      onTap: () => snack(context, '已保存到相册（演示）'),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -70,13 +81,14 @@ class _MapPageState extends State<MapPage>
                       color: Colors.white.withValues(alpha: .03),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: .07)),
+                        color: Colors.white.withValues(alpha: .07),
+                      ),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: AnimatedBuilder(
                       animation: _c,
                       builder: (context, _) => CustomPaint(
-                        painter: _MapPainter(_c.value),
+                        painter: _MapPainter(_c.value, points),
                         size: Size.infinite,
                       ),
                     ),
@@ -86,7 +98,7 @@ class _MapPageState extends State<MapPage>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _stat('$lit', '座城市已点亮'),
+                    _stat('$lit', '处已点亮'),
                     const SizedBox(width: 40),
                     _stat(next, '下一站'),
                   ],
@@ -103,20 +115,25 @@ class _MapPageState extends State<MapPage>
   Widget _stat(String v, String label) {
     return Column(
       children: [
-        Text(v,
-            style: const TextStyle(
-                fontSize: 23, fontWeight: FontWeight.w600, color: T.gold)),
+        Text(
+          v,
+          style: const TextStyle(
+            fontSize: 23,
+            fontWeight: FontWeight.w600,
+            color: T.gold,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(label,
-            style: const TextStyle(fontSize: 15, color: T.darkMuted)),
+        Text(label, style: const TextStyle(fontSize: 15, color: T.darkMuted)),
       ],
     );
   }
 }
 
 class _MapPainter extends CustomPainter {
-  _MapPainter(this.t);
+  _MapPainter(this.t, this.points);
   final double t;
+  final List<MapPoint> points;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -133,43 +150,49 @@ class _MapPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(w, y), gridP);
     }
 
-    Offset pos(MapCity c) => Offset(w * c.fx, h * c.fy);
+    Offset pos(MapPoint c) => Offset(w * c.fx, h * c.fy);
 
     // ---- 航线（点亮城市依次相连，虚线流动）----
-    final litCities = mapCities.where((c) => c.lit).toList();
+    final litCities = points.where((c) => c.lit).toList();
     final lineP = Paint()
       ..color = T.gold.withValues(alpha: .35)
       ..strokeWidth = 1;
     for (var i = 0; i < litCities.length - 1; i++) {
-      _dashedLine(canvas, pos(litCities[i]), pos(litCities[i + 1]), lineP,
-          phase: t * 20);
+      _dashedLine(
+        canvas,
+        pos(litCities[i]),
+        pos(litCities[i + 1]),
+        lineP,
+        phase: t * 20,
+      );
     }
 
     // ---- 城市点 ----
-    for (var i = 0; i < mapCities.length; i++) {
-      final c = mapCities[i];
+    for (var i = 0; i < points.length; i++) {
+      final c = points[i];
       final p = pos(c);
       if (c.lit) {
         // 涟漪
         final rp = (t * 1.4 + i * .23) % 1.0;
         canvas.drawCircle(
-            p,
-            6 + rp * 13,
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1
-              ..color = T.gold.withValues(alpha: (1 - rp) * .5));
+          p,
+          6 + rp * 13,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = T.gold.withValues(alpha: (1 - rp) * .5),
+        );
         // 光晕 + 核
         canvas.drawCircle(
-            p,
-            9,
-            Paint()
-              ..color = T.gold.withValues(alpha: .35)
-              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7));
+          p,
+          9,
+          Paint()
+            ..color = T.gold.withValues(alpha: .35)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+        );
         canvas.drawCircle(p, 3.6, Paint()..color = T.gold);
       } else {
-        canvas.drawCircle(
-            p, 2.6, Paint()..color = const Color(0xFF3E4E74));
+        canvas.drawCircle(p, 2.6, Paint()..color = const Color(0xFF3E4E74));
       }
       // 标签
       final tp = TextPainter(
@@ -187,8 +210,13 @@ class _MapPainter extends CustomPainter {
     }
   }
 
-  void _dashedLine(Canvas canvas, Offset a, Offset b, Paint paint,
-      {double phase = 0}) {
+  void _dashedLine(
+    Canvas canvas,
+    Offset a,
+    Offset b,
+    Paint paint, {
+    double phase = 0,
+  }) {
     const dash = 4.0, gap = 5.0;
     final total = (b - a).distance;
     final dir = (b - a) / total;

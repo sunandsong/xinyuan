@@ -7,7 +7,83 @@ import 'ui.dart';
 
 /// 心愿照片：选图 → 压缩 → 问后端换直传凭证 → 图片本体直接 PUT 给云存储
 /// （不走我们自己的云函数——那层网关请求体限得很小，塞不下一张图）→ 把地址挂到心愿上。
+///
+/// 存的是去掉 ?sign= 的稳定链接（临时签名几小时就过期），展示时通过
+/// /photo-urls 换新鲜临时链接，内存缓存一份。
 final _picker = ImagePicker();
+
+final _freshUrl = <String, String>{}; // 稳定链接 → 当前有效的临时链接
+final _fetching = <String, Future<String?>>{}; // 进行中的请求去重
+
+/// 把存的照片链接换成当前可访问的临时链接（带缓存；旧数据带的过期签名会被剥掉）
+Future<String?> freshPhotoUrl(String stored) {
+  final key = stored.split('?').first;
+  final hit = _freshUrl[key];
+  if (hit != null) return Future.value(hit);
+  return _fetching[key] ??= () async {
+    try {
+      final r = await ApiClient.I.post('/photo-urls', {
+        'urls': [key],
+      });
+      final u = (r['urls'] as Map?)?[key] as String?;
+      if (u == null) debugPrint('[photo] no fresh url for $key, resp=$r');
+      if (u != null) _freshUrl[key] = u;
+      return u;
+    } catch (e) {
+      debugPrint('[photo] fresh url failed for $key: $e');
+      return null;
+    } finally {
+      _fetching.remove(key);
+    }
+  }();
+}
+
+/// 心愿照片统一走这里渲染：先换新鲜链接再 Image.network。
+/// [fallback] 加载失败时显示；[loading] 换链接/下载中显示，缺省用 fallback。
+class WishPhoto extends StatelessWidget {
+  const WishPhoto(
+    this.stored, {
+    super.key,
+    this.width,
+    this.height,
+    this.fit = BoxFit.cover,
+    required this.fallback,
+    this.loading,
+  });
+  final String stored;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+  final Widget fallback;
+  final Widget? loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: freshPhotoUrl(stored),
+      builder: (context, snap) {
+        final url = snap.data;
+        if (url == null) {
+          return snap.connectionState == ConnectionState.done
+              ? fallback
+              : (loading ?? fallback);
+        }
+        return Image.network(
+          url,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (_, __, ___) {
+            _freshUrl.remove(stored.split('?').first); // 可能又过期了，下次重取
+            return fallback;
+          },
+          loadingBuilder: (_, child, p) =>
+              p == null ? child : (loading ?? fallback),
+        );
+      },
+    );
+  }
+}
 
 /// 选一张图并上传；成功返回图片地址，用户取消返回 null。
 /// [fromCamera] 为 true 时直接开相机。
@@ -24,12 +100,15 @@ Future<String?> pickAndUploadWishPhoto(
   try {
     file = await _picker.pickImage(
       source: fromCamera ? ImageSource.camera : ImageSource.gallery,
-      // 传之前先压一压，长边 1600、质量 80，别把手机相册里的原图整个传上去
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 80,
+      // 传之前先压一压，别把原图整个传上去。长边 1280/质量 72：手机上看头图
+      // 和缩略图都够用，体积比 1600/80 小一半以上——上行带宽实测只有几十 KB/s，
+      // 每省 100KB 就是省一两秒
+      maxWidth: 1280,
+      maxHeight: 1280,
+      imageQuality: 72,
     );
-  } catch (_) {
+  } catch (e) {
+    debugPrint('[photo] pick failed: $e');
     if (context.mounted) snack(context, '打不开相册，请检查权限设置');
     return null;
   }
@@ -40,7 +119,8 @@ Future<String?> pickAndUploadWishPhoto(
     if (context.mounted) snack(context, '图片太大了，换一张小一点的');
     return null;
   }
-  if (context.mounted) snack(context, '正在上传…');
+  // 选完图立刻在照片区亮出"上传中"占位格——换凭证 + 直传要好几秒，别让人以为没反应
+  AppData.I.setPhotoUploading(wish.id);
   try {
     final ticket = await UploadApi.ticket(mime: _mimeOf(file.name));
     if (ticket.url.isEmpty) {
@@ -52,16 +132,24 @@ Future<String?> pickAndUploadWishPhoto(
         .put(Uri.parse(ticket.url), headers: ticket.headers, body: bytes)
         .timeout(const Duration(seconds: 30));
     if (res.statusCode < 200 || res.statusCode >= 300) {
+      debugPrint('[photo] COS PUT ${res.statusCode}: ${res.body}');
       if (context.mounted) snack(context, '上传失败，请重试');
       return null;
     }
-    AppData.I.addWishPhoto(wish, ticket.downloadUrl);
+    // 存稳定链接；刚拿到的带签名链接直接当缓存用，传完立刻能显示
+    final stored = ticket.downloadUrl.split('?').first;
+    _freshUrl[stored] = ticket.downloadUrl;
+    AppData.I.addWishPhoto(wish, stored);
     if (context.mounted) snack(context, '照片已存好');
-    return ticket.downloadUrl;
+    return stored;
   } on ApiException catch (e) {
+    debugPrint('[photo] api error: $e');
     if (context.mounted) snack(context, e.message);
-  } catch (_) {
+  } catch (e) {
+    debugPrint('[photo] upload failed: $e');
     if (context.mounted) snack(context, '上传失败，请重试');
+  } finally {
+    AppData.I.setPhotoUploading(null);
   }
   return null;
 }

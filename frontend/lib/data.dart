@@ -18,17 +18,18 @@ DateTime _dayParse(String s) {
   final p = s.split('-');
   return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
 }
+
 int _ms(DateTime d) => d.millisecondsSinceEpoch;
-DateTime _fromMs(num? ms) =>
-    ms == null ? DateTime.now() : DateTime.fromMillisecondsSinceEpoch(ms.toInt());
+DateTime _fromMs(num? ms) => ms == null
+    ? DateTime.now()
+    : DateTime.fromMillisecondsSinceEpoch(ms.toInt());
 
 DateTime dOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 bool sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
 String md(DateTime d) => '${d.month}月${d.day}日';
-String ymDots(DateTime d) =>
-    '${d.year}.${d.month.toString().padLeft(2, '0')}';
+String ymDots(DateTime d) => '${d.year}.${d.month.toString().padLeft(2, '0')}';
 String ymdDots(DateTime d) =>
     '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 const weekNames = ['日', '一', '二', '三', '四', '五', '六'];
@@ -46,25 +47,30 @@ const holidays = {
 
 /// 心愿里程碑：把一个大心愿拆成几步，一步步勾掉
 class WishStep {
-  WishStep({required this.id, required this.title, this.done = false, this.doneAt});
+  WishStep({
+    required this.id,
+    required this.title,
+    this.done = false,
+    this.doneAt,
+  });
   final String id;
   String title;
   bool done;
   DateTime? doneAt;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'done': done,
-        'doneAt': doneAt == null ? null : _ms(doneAt!),
-      };
+    'id': id,
+    'title': title,
+    'done': done,
+    'doneAt': doneAt == null ? null : _ms(doneAt!),
+  };
 
   factory WishStep.fromJson(Map<String, dynamic> j) => WishStep(
-        id: j['id'] as String? ?? '',
-        title: j['title'] as String? ?? '',
-        done: j['done'] as bool? ?? false,
-        doneAt: j['doneAt'] == null ? null : _fromMs(j['doneAt'] as num),
-      );
+    id: j['id'] as String? ?? '',
+    title: j['title'] as String? ?? '',
+    done: j['done'] as bool? ?? false,
+    doneAt: j['doneAt'] == null ? null : _fromMs(j['doneAt'] as num),
+  );
 }
 
 /// 心愿笔记：带时间戳的一句话，记录推进过程
@@ -77,10 +83,10 @@ class WishNote {
   Map<String, dynamic> toJson() => {'id': id, 'text': text, 'at': _ms(at)};
 
   factory WishNote.fromJson(Map<String, dynamic> j) => WishNote(
-        id: j['id'] as String? ?? '',
-        text: j['text'] as String? ?? '',
-        at: _fromMs(j['at'] as num?),
-      );
+    id: j['id'] as String? ?? '',
+    text: j['text'] as String? ?? '',
+    at: _fromMs(j['at'] as num?),
+  );
 }
 
 class Wish {
@@ -101,10 +107,10 @@ class Wish {
     List<WishNote>? notes,
     List<String>? photos,
     this.deleted = false,
-  })  : updatedAt = updatedAt ?? createdAt,
-        steps = steps ?? [],
-        notes = notes ?? [],
-        photos = photos ?? [];
+  }) : updatedAt = updatedAt ?? createdAt,
+       steps = steps ?? [],
+       notes = notes ?? [],
+       photos = photos ?? [];
   final String id;
   String title;
   Color color;
@@ -122,8 +128,9 @@ class Wish {
   List<String> photos; // 真实照片（云存储 fileID / https 链接）
   bool deleted;
 
-  List<Color>? get hero =>
-      heroIndex == null ? null : AppData.heroes[heroIndex! % AppData.heroes.length];
+  List<Color>? get hero => heroIndex == null
+      ? null
+      : AppData.heroes[heroIndex! % AppData.heroes.length];
 
   int get doneStepCount => steps.where((s) => s.done).length;
 
@@ -137,51 +144,49 @@ class Wish {
       : dOnly(targetAt!).difference(dOnly(DateTime.now())).inDays;
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'title': title,
-        'color': _hex(color),
-        'desc': desc,
-        'done': done,
-        'doneAt': doneAt == null ? null : _ms(doneAt!),
-        'quote': quote,
-        'location': location,
-        'heroIndex': heroIndex,
-        'targetAt': targetAt == null ? null : _ms(targetAt!),
-        'steps': [for (final s in steps) s.toJson()],
-        'notes': [for (final n in notes) n.toJson()],
-        'photos': photos,
-        'createdAt': _ms(createdAt),
-        'updatedAt': _ms(updatedAt),
-        'deleted': deleted,
-      };
+    '_id': id,
+    'title': title,
+    'color': _hex(color),
+    'desc': desc,
+    'done': done,
+    'doneAt': doneAt == null ? null : _ms(doneAt!),
+    'quote': quote,
+    'location': location,
+    'heroIndex': heroIndex,
+    'targetAt': targetAt == null ? null : _ms(targetAt!),
+    'steps': [for (final s in steps) s.toJson()],
+    'notes': [for (final n in notes) n.toJson()],
+    'photos': photos,
+    'createdAt': _ms(createdAt),
+    'updatedAt': _ms(updatedAt),
+    'deleted': deleted,
+  };
 
   factory Wish.fromJson(Map<String, dynamic> j) => Wish(
-        id: j['_id'] as String,
-        title: j['title'] as String? ?? '',
-        color: _colorFromHex(j['color'] as String? ?? 'A8B8F8'),
-        createdAt: _fromMs(j['createdAt'] as num?),
-        updatedAt: _fromMs(j['updatedAt'] as num?),
-        done: j['done'] as bool? ?? false,
-        doneAt: j['doneAt'] == null ? null : _fromMs(j['doneAt'] as num),
-        quote: j['quote'] as String?,
-        location: j['location'] as String?,
-        heroIndex: j['heroIndex'] as int?,
-        desc: j['desc'] as String?,
-        targetAt: j['targetAt'] == null ? null : _fromMs(j['targetAt'] as num),
-        // 老数据没有这三个字段，一律兜底成空列表
-        steps: _listOf(j['steps'], WishStep.fromJson),
-        notes: _listOf(j['notes'], WishNote.fromJson),
-        photos: [
-          for (final p in (j['photos'] as List? ?? const [])) p.toString(),
-        ],
-        deleted: j['deleted'] as bool? ?? false,
-      );
+    id: j['_id'] as String,
+    title: j['title'] as String? ?? '',
+    color: _colorFromHex(j['color'] as String? ?? 'A8B8F8'),
+    createdAt: _fromMs(j['createdAt'] as num?),
+    updatedAt: _fromMs(j['updatedAt'] as num?),
+    done: j['done'] as bool? ?? false,
+    doneAt: j['doneAt'] == null ? null : _fromMs(j['doneAt'] as num),
+    quote: j['quote'] as String?,
+    location: j['location'] as String?,
+    heroIndex: j['heroIndex'] as int?,
+    desc: j['desc'] as String?,
+    targetAt: j['targetAt'] == null ? null : _fromMs(j['targetAt'] as num),
+    // 老数据没有这三个字段，一律兜底成空列表
+    steps: _listOf(j['steps'], WishStep.fromJson),
+    notes: _listOf(j['notes'], WishNote.fromJson),
+    photos: [for (final p in (j['photos'] as List? ?? const [])) p.toString()],
+    deleted: j['deleted'] as bool? ?? false,
+  );
 }
 
 List<R> _listOf<R>(dynamic raw, R Function(Map<String, dynamic>) from) => [
-      for (final e in (raw as List? ?? const []))
-        if (e is Map) from(Map<String, dynamic>.from(e)),
-    ];
+  for (final e in (raw as List? ?? const []))
+    if (e is Map) from(Map<String, dynamic>.from(e)),
+];
 
 class Task {
   Task({
@@ -196,8 +201,8 @@ class Task {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.deleted = false,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? createdAt ?? DateTime.now();
   final String id;
   String title;
   DateTime day;
@@ -211,34 +216,34 @@ class Task {
   bool deleted;
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'title': title,
-        'day': _dayStr(day),
-        'time': time,
-        'done': done,
-        'wishId': wishId,
-        if (color != null) 'color': _hex(color!),
-        'desc': desc,
-        'createdAt': _ms(createdAt),
-        'updatedAt': _ms(updatedAt),
-        'deleted': deleted,
-      };
+    '_id': id,
+    'title': title,
+    'day': _dayStr(day),
+    'time': time,
+    'done': done,
+    'wishId': wishId,
+    if (color != null) 'color': _hex(color!),
+    'desc': desc,
+    'createdAt': _ms(createdAt),
+    'updatedAt': _ms(updatedAt),
+    'deleted': deleted,
+  };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
-        id: j['_id'] as String,
-        title: j['title'] as String? ?? '',
-        day: _dayParse(j['day'] as String? ?? _dayStr(DateTime.now())),
-        wishId: j['wishId'] as String?,
-        done: j['done'] as bool? ?? false,
-        time: j['time'] as String?,
-        color: (j['color'] is String && (j['color'] as String).isNotEmpty)
-            ? _colorFromHex(j['color'] as String)
-            : null,
-        desc: j['desc'] as String?,
-        createdAt: _fromMs(j['createdAt'] as num?),
-        updatedAt: _fromMs(j['updatedAt'] as num?),
-        deleted: j['deleted'] as bool? ?? false,
-      );
+    id: j['_id'] as String,
+    title: j['title'] as String? ?? '',
+    day: _dayParse(j['day'] as String? ?? _dayStr(DateTime.now())),
+    wishId: j['wishId'] as String?,
+    done: j['done'] as bool? ?? false,
+    time: j['time'] as String?,
+    color: (j['color'] is String && (j['color'] as String).isNotEmpty)
+        ? _colorFromHex(j['color'] as String)
+        : null,
+    desc: j['desc'] as String?,
+    createdAt: _fromMs(j['createdAt'] as num?),
+    updatedAt: _fromMs(j['updatedAt'] as num?),
+    deleted: j['deleted'] as bool? ?? false,
+  );
 }
 
 /// 时光胶囊：写给未来的信，到指定日期才能开启。
@@ -252,8 +257,8 @@ class Letter {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.deleted = false,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? createdAt ?? DateTime.now();
   final String id;
   String title;
   String content;
@@ -263,24 +268,24 @@ class Letter {
   bool deleted;
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'title': title,
-        'content': content,
-        'openAt': _ms(openAt),
-        'createdAt': _ms(createdAt),
-        'updatedAt': _ms(updatedAt),
-        'deleted': deleted,
-      };
+    '_id': id,
+    'title': title,
+    'content': content,
+    'openAt': _ms(openAt),
+    'createdAt': _ms(createdAt),
+    'updatedAt': _ms(updatedAt),
+    'deleted': deleted,
+  };
 
   factory Letter.fromJson(Map<String, dynamic> j) => Letter(
-        id: j['_id'] as String,
-        title: j['title'] as String? ?? '',
-        content: j['content'] as String? ?? '',
-        openAt: _fromMs(j['openAt'] as num?),
-        createdAt: _fromMs(j['createdAt'] as num?),
-        updatedAt: _fromMs(j['updatedAt'] as num?),
-        deleted: j['deleted'] as bool? ?? false,
-      );
+    id: j['_id'] as String,
+    title: j['title'] as String? ?? '',
+    content: j['content'] as String? ?? '',
+    openAt: _fromMs(j['openAt'] as num?),
+    createdAt: _fromMs(j['createdAt'] as num?),
+    updatedAt: _fromMs(j['updatedAt'] as num?),
+    deleted: j['deleted'] as bool? ?? false,
+  );
 }
 
 /// 全局状态（内存态，无本地磁盘持久化）：数据全部来自后端 API——
@@ -358,7 +363,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   // 得分批推送，不然整批直接被网关 413 拒掉、还静默吞掉
   static const _pushChunkBudget = 80 * 1024;
 
-  List<_PushChunk> _buildPushChunks(List<Wish> ws, List<Task> ts, List<Letter> ls) {
+  List<_PushChunk> _buildPushChunks(
+    List<Wish> ws,
+    List<Task> ts,
+    List<Letter> ls,
+  ) {
     final chunks = <_PushChunk>[];
     var cur = _PushChunk();
     var curSize = 0;
@@ -386,9 +395,13 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _flushPush() async {
-    if (_dirtyWishes.isEmpty && _dirtyTasks.isEmpty && _dirtyLetters.isEmpty) return;
+    if (_dirtyWishes.isEmpty && _dirtyTasks.isEmpty && _dirtyLetters.isEmpty)
+      return;
     final chunks = _buildPushChunks(
-        _dirtyWishes.toList(), _dirtyTasks.toList(), _dirtyLetters.toList());
+      _dirtyWishes.toList(),
+      _dirtyTasks.toList(),
+      _dirtyLetters.toList(),
+    );
     _dirtyWishes.clear();
     _dirtyTasks.clear();
     _dirtyLetters.clear();
@@ -396,9 +409,15 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       final c = chunks[i];
       try {
         await SyncApi.push(
-          wishes: c.wishes.isEmpty ? null : c.wishes.map((w) => w.toJson()).toList(),
-          tasks: c.tasks.isEmpty ? null : c.tasks.map((t) => t.toJson()).toList(),
-          letters: c.letters.isEmpty ? null : c.letters.map((l) => l.toJson()).toList(),
+          wishes: c.wishes.isEmpty
+              ? null
+              : c.wishes.map((w) => w.toJson()).toList(),
+          tasks: c.tasks.isEmpty
+              ? null
+              : c.tasks.map((t) => t.toJson()).toList(),
+          letters: c.letters.isEmpty
+              ? null
+              : c.letters.map((l) => l.toJson()).toList(),
         );
       } catch (_) {
         // 静默失败：把这批和还没发的都放回去，下次该条目再变更（或下次启动）时重推
@@ -425,19 +444,25 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       _dirtyLetters.clear();
       wishes
         ..clear()
-        ..addAll(ws
-            .map((j) => Wish.fromJson(j as Map<String, dynamic>))
-            .where((w) => !w.deleted));
+        ..addAll(
+          ws
+              .map((j) => Wish.fromJson(j as Map<String, dynamic>))
+              .where((w) => !w.deleted),
+        );
       tasks
         ..clear()
-        ..addAll(ts
-            .map((j) => Task.fromJson(j as Map<String, dynamic>))
-            .where((t) => !t.deleted));
+        ..addAll(
+          ts
+              .map((j) => Task.fromJson(j as Map<String, dynamic>))
+              .where((t) => !t.deleted),
+        );
       letters
         ..clear()
-        ..addAll(ls
-            .map((j) => Letter.fromJson(j as Map<String, dynamic>))
-            .where((l) => !l.deleted));
+        ..addAll(
+          ls
+              .map((j) => Letter.fromJson(j as Map<String, dynamic>))
+              .where((l) => !l.deleted),
+        );
       final profile = res['profile'] as Map<String, dynamic>?;
       if (profile != null) {
         final nick = profile['nickname'] as String?;
@@ -455,7 +480,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   /// 为某个已完成心愿生成分享短码，返回短链路径（如 /s/AB12CD）
   Future<String> shareWish(Wish w) async {
     final res = await ShareApi.create(
-        wishId: w.id, title: w.title, quote: w.quote, color: _hex(w.color));
+      wishId: w.id,
+      title: w.title,
+      quote: w.quote,
+      color: _hex(w.color),
+    );
     return (res['path'] as String?) ?? '';
   }
 
@@ -467,8 +496,9 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   ];
 
   List<Wish> get activeWishes => wishes.where((w) => !w.done).toList();
-  List<Wish> get doneWishes => wishes.where((w) => w.done).toList()
-    ..sort((a, b) => b.doneAt!.compareTo(a.doneAt!));
+  List<Wish> get doneWishes =>
+      wishes.where((w) => w.done).toList()
+        ..sort((a, b) => b.doneAt!.compareTo(a.doneAt!));
 
   Wish? wishOf(Task t) {
     if (t.wishId == null) return null;
@@ -521,8 +551,13 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Task addTask(String title, DateTime day,
-      {String? wishId, Color? color, String? desc}) {
+  Task addTask(
+    String title,
+    DateTime day, {
+    String? wishId,
+    Color? color,
+    String? desc,
+  }) {
     final t = Task(
       id: _newId('t'),
       title: title,
@@ -539,11 +574,12 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   Wish addWish(String title, Color color, {String? desc}) {
     final w = Wish(
-        id: _newId('w'),
-        title: title,
-        color: color,
-        createdAt: DateTime.now(),
-        desc: desc);
+      id: _newId('w'),
+      title: title,
+      color: color,
+      createdAt: DateTime.now(),
+      desc: desc,
+    );
     wishes.add(w);
     _touchWish(w);
     notifyListeners();
@@ -626,6 +662,13 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ---------- 照片 ----------
+  /// 正在上传照片的心愿 id（详情页据此显示"上传中"占位格）
+  String? photoUploadingWishId;
+  void setPhotoUploading(String? wishId) {
+    photoUploadingWishId = wishId;
+    notifyListeners();
+  }
+
   void addWishPhoto(Wish w, String url) {
     w.photos.add(url);
     _touchWish(w);
@@ -634,6 +677,14 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   void removeWishPhoto(Wish w, String url) {
     w.photos.remove(url);
+    _touchWish(w);
+    notifyListeners();
+  }
+
+  /// 把某张照片挪到最后 = 设为封面（展示处都取 photos.last）
+  void setCoverPhoto(Wish w, String url) {
+    if (!w.photos.remove(url)) return;
+    w.photos.add(url);
     _touchWish(w);
     notifyListeners();
   }
@@ -660,8 +711,12 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  void completeWish(Wish w,
-      {required String quote, String? location, required int heroIndex}) {
+  void completeWish(
+    Wish w, {
+    required String quote,
+    String? location,
+    required int heroIndex,
+  }) {
     w.done = true;
     w.doneAt = DateTime.now();
     w.quote = quote.isEmpty ? '这一天，终于到了。' : quote;
@@ -682,7 +737,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   /// 写一封时光胶囊信，到 openAt 那天才能开启
   Letter addLetter(String title, String content, DateTime openAt) {
     final l = Letter(
-        id: _newId('l'), title: title, content: content, openAt: openAt);
+      id: _newId('l'),
+      title: title,
+      content: content,
+      openAt: openAt,
+    );
     letters.add(l);
     _touchLetter(l);
     notifyListeners();
@@ -696,7 +755,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   String nickname = '松之';
   String? avatarEmoji; // null = 用昵称首字
   DateTime? accountCreatedAt; // 账号创建时间（后端 profile.createdAt），未登录时为 null
-  void updateProfile({String? nickname, String? avatarEmoji, bool clearEmoji = false}) {
+  void updateProfile({
+    String? nickname,
+    String? avatarEmoji,
+    bool clearEmoji = false,
+  }) {
     if (nickname != null && nickname.isNotEmpty) this.nickname = nickname;
     if (clearEmoji) {
       this.avatarEmoji = null;
@@ -705,18 +768,27 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     }
     notifyListeners();
     if (signedIn) {
-      unawaited(_pushProfile(
+      unawaited(
+        _pushProfile(
           nickname: nickname,
           avatarEmoji: clearEmoji ? null : avatarEmoji,
-          clearEmoji: clearEmoji));
+          clearEmoji: clearEmoji,
+        ),
+      );
     }
   }
 
-  Future<void> _pushProfile(
-      {String? nickname, String? avatarEmoji, bool clearEmoji = false}) async {
+  Future<void> _pushProfile({
+    String? nickname,
+    String? avatarEmoji,
+    bool clearEmoji = false,
+  }) async {
     try {
       await AuthApi.updateProfile(
-          nickname: nickname, avatarEmoji: avatarEmoji, clearEmoji: clearEmoji);
+        nickname: nickname,
+        avatarEmoji: avatarEmoji,
+        clearEmoji: clearEmoji,
+      );
     } catch (_) {
       // 静默失败：资料改动仍留在本地，下次改资料时会一并再推
     }
@@ -739,8 +811,12 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   /// 邮箱登录 / 注册；成功后置登录态、存 token，并拉取云端数据（云端心愿为空会自动导入 50 个人生清单兜底）
   /// （注册需先 AuthApi.sendCode 拿到验证码）
-  Future<void> loginOrRegister(String email, String password,
-      {bool register = false, String? code}) async {
+  Future<void> loginOrRegister(
+    String email,
+    String password, {
+    bool register = false,
+    String? code,
+  }) async {
     final res = register
         ? await AuthApi.register(email, password, code ?? '')
         : await AuthApi.login(email, password);
@@ -788,7 +864,10 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   /// 连续打卡天数：从今天往前数，每天至少完成一个任务，中断即止
   int get streakDays {
-    final doneDays = tasks.where((t) => t.done).map((t) => dOnly(t.day)).toSet();
+    final doneDays = tasks
+        .where((t) => t.done)
+        .map((t) => dOnly(t.day))
+        .toSet();
     var streak = 0;
     var day = dOnly(DateTime.now());
     while (doneDays.contains(day)) {
@@ -809,23 +888,55 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   int get doneTaskCount => tasks.where((t) => t.done).length;
-
 }
 
-/// 点亮地图城市（演示坐标：0~1 分数位置）
-class MapCity {
-  const MapCity(this.name, this.fx, this.fy, this.lit);
+/// 点亮地图上的一个点（fx/fy 是 0~1 的画布位置——这是张风格化星图，不是真地理坐标）
+class MapPoint {
+  const MapPoint(this.name, this.fx, this.fy, this.lit);
   final String name;
   final double fx, fy;
   final bool lit;
 }
 
-const mapCities = [
-  MapCity('大理', .29, .25, true),
-  MapCity('上海', .57, .41, true),
-  MapCity('涛岛', .39, .65, true),
-  MapCity('成都', .65, .79, true),
-  MapCity('东京', .80, .30, false),
-  MapCity('冰岛', .14, .12, false),
-  MapCity('冲绳', .76, .58, false),
+/// 常去的目的地给一个好看的固定位置，其余地名按散列落点
+const presetPlaces = [
+  ('大理', .29, .25),
+  ('上海', .57, .41),
+  ('涛岛', .39, .65),
+  ('成都', .65, .79),
+  ('东京', .80, .30),
+  ('冰岛', .14, .12),
+  ('冲绳', .76, .58),
 ];
+
+/// 由已完成心愿的"在哪儿完成的"生成地图点：
+/// 填过的地点亮着；预设城市没去过的也画出来当"下一站"的念想。
+List<MapPoint> mapPoints() {
+  final lit = <String>{
+    for (final w in AppData.I.wishes)
+      if (w.done && (w.location?.isNotEmpty ?? false)) w.location!,
+  };
+  final points = <MapPoint>[];
+  final used = <String>{};
+  for (final (name, fx, fy) in presetPlaces) {
+    final hit = lit.where((l) => l.contains(name) || name.contains(l)).toList();
+    used.addAll(hit);
+    points.add(MapPoint(name, fx, fy, hit.isNotEmpty));
+  }
+  // 不在预设里的地点：按名字散列一个稳定位置（同一地名永远在同一处）
+  for (final l in lit.difference(used)) {
+    var h = 0;
+    for (final c in l.codeUnits) {
+      h = (h * 31 + c) & 0x7fffffff;
+    }
+    points.add(
+      MapPoint(
+        l,
+        .12 + (h % 997) / 997 * .72,
+        .12 + (h ~/ 997 % 997) / 997 * .72,
+        true,
+      ),
+    );
+  }
+  return points;
+}

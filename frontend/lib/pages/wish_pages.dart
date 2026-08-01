@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import '../data.dart';
 import '../notify.dart';
 import '../photos.dart';
@@ -52,8 +54,7 @@ class WishDetailPage extends StatelessWidget {
                                 builder: (context, c) {
                                   // 头部当前高度：正常=expandedHeight，下拉时更大
                                   final h = c.maxHeight;
-                                  final imgH =
-                                      h - (_pillH - _pillOverlap);
+                                  final imgH = h - (_pillH - _pillOverlap);
                                   return Stack(
                                     clipBehavior: Clip.none,
                                     children: [
@@ -178,26 +179,28 @@ class WishDetailPage extends StatelessWidget {
     );
   }
 
-  /// 头图：有真实照片就用最新一张（"现在进行时"，用当下的样子）；
+  /// 头图：有真实照片就显示照片——多张可以左右滑（默认最新一张）；
   /// 没有就用心愿自己的颜色画一块有质感的抽象场景，而不是一块死板的纯色矩形。
   /// 一直铺到屏幕最顶（含状态栏/刘海那一截）。
   Widget _hero(BuildContext context) {
-    final photo = wish.photos.isNotEmpty ? wish.photos.last : null;
-    return GestureDetector(
-      onTap: () => showEditWishSheet(context, wish),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (photo != null)
-            Image.network(
-              photo,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _heroArt(wish),
-            )
-          else
-            _heroArt(wish),
-          // 底部渐暗遮罩，保证白字在任何图上都读得清楚
-          const DecoratedBox(
+    final photos = wish.photos;
+    // 不绑点击编辑：滑照片容易误触，编辑走右上角"…"菜单
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (photos.length > 1)
+          _PhotoCarousel(
+            photos: photos,
+            topInset: MediaQuery.paddingOf(context).top,
+          )
+        else if (photos.isNotEmpty)
+          WishPhoto(photos.last, fit: BoxFit.cover, fallback: _heroArt(wish))
+        else
+          _heroArt(wish),
+        // 底部渐暗遮罩，保证白字在任何图上都读得清楚。
+        // IgnorePointer：遮罩和文字都不能挡手势，不然下面的照片划不动
+        const IgnorePointer(
+          child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -211,10 +214,12 @@ class WishDetailPage extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
-            left: 13,
-            right: 13,
-            bottom: _heroTextBottom,
+        ),
+        Positioned(
+          left: 13,
+          right: 13,
+          bottom: _heroTextBottom,
+          child: IgnorePointer(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -244,8 +249,8 @@ class WishDetailPage extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -356,66 +361,82 @@ class WishDetailPage extends StatelessWidget {
   }
 
   Widget _stepRow(BuildContext context, WishStep s) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Cb(
-                done: s.done,
-                burstColor: wish.color,
-                onTap: () => AppData.I.toggleStep(wish, s),
-              ),
-              Expanded(
-                child: Container(
-                  width: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 3),
-                  color: s.done ? wish.color.withValues(alpha: .45) : T.field,
+    return Dismissible(
+      key: ValueKey(s.id),
+      direction: DismissDirection.endToStart,
+      // 划过 1/4 就算数，默认的 40% 手感太钝、老弹回去
+      dismissThresholds: const {DismissDirection.endToStart: .25},
+      onDismissed: (_) => AppData.I.deleteStep(wish, s),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 10),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: T.danger,
+          size: 20,
+        ),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              children: [
+                Cb(
+                  done: s.done,
+                  burstColor: wish.color,
+                  onTap: () => AppData.I.toggleStep(wish, s),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 16),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => showTextSheet(
-                  context,
-                  title: '改一步',
-                  hint: '这一步是…',
-                  initial: s.title,
-                  onOk: (t) => AppData.I.renameStep(wish, s, t),
-                  onDelete: () => AppData.I.deleteStep(wish, s),
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    color: s.done ? wish.color.withValues(alpha: .45) : T.field,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        s.title,
-                        style: TextStyle(
-                          fontSize: 15.5,
-                          color: s.done ? T.faint : T.ink,
-                          decoration: s.done
-                              ? TextDecoration.lineThrough
-                              : null,
-                          decorationColor: T.faint,
+              ],
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 16),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => showTextSheet(
+                    context,
+                    title: '改一步',
+                    hint: '这一步是…',
+                    initial: s.title,
+                    onOk: (t) => AppData.I.renameStep(wish, s, t),
+                    onDelete: () => AppData.I.deleteStep(wish, s),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          s.title,
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            color: s.done ? T.faint : T.ink,
+                            decoration: s.done
+                                ? TextDecoration.lineThrough
+                                : null,
+                            decorationColor: T.faint,
+                          ),
                         ),
                       ),
-                    ),
-                    if (s.done && s.doneAt != null)
-                      Text(
-                        md(s.doneAt!),
-                        style: const TextStyle(fontSize: 12, color: T.faint),
-                      ),
-                  ],
+                      if (s.done && s.doneAt != null)
+                        Text(
+                          md(s.doneAt!),
+                          style: const TextStyle(fontSize: 12, color: T.faint),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -524,77 +545,92 @@ class WishDetailPage extends StatelessWidget {
   }
 
   Widget _noteRow(BuildContext context, WishNote n) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              SizedBox(
-                width: 28,
-                child: Center(
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: wish.color,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: wish.color.withValues(alpha: .35),
-                          blurRadius: 4,
-                        ),
-                      ],
+    return Dismissible(
+      key: ValueKey(n.id),
+      direction: DismissDirection.endToStart,
+      dismissThresholds: const {DismissDirection.endToStart: .25},
+      onDismissed: (_) => AppData.I.deleteNote(wish, n),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 10),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: T.danger,
+          size: 20,
+        ),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              children: [
+                SizedBox(
+                  width: 28,
+                  child: Center(
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: wish.color,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: wish.color.withValues(alpha: .35),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: Container(
-                  width: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 3),
-                  color: T.field,
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    color: T.field,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 6, bottom: 16),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => showTextSheet(
-                  context,
-                  title: '改一笔',
-                  hint: '…',
-                  initial: n.text,
-                  maxLines: 4,
-                  onOk: (t) {
-                    n.text = t;
-                    AppData.I.updateWish(wish);
-                  },
-                  onDelete: () => AppData.I.deleteNote(wish, n),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      n.text,
-                      style: const TextStyle(fontSize: 15.5, height: 1.5),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      ymdDots(n.at),
-                      style: const TextStyle(fontSize: 12, color: T.faint),
-                    ),
-                  ],
+              ],
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6, bottom: 16),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => showTextSheet(
+                    context,
+                    title: '改一笔',
+                    hint: '…',
+                    initial: n.text,
+                    maxLines: 4,
+                    onOk: (t) {
+                      n.text = t;
+                      AppData.I.updateWish(wish);
+                    },
+                    onDelete: () => AppData.I.deleteNote(wish, n),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        n.text,
+                        style: const TextStyle(fontSize: 15.5, height: 1.5),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        ymdDots(n.at),
+                        style: const TextStyle(fontSize: 12, color: T.faint),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -662,38 +698,53 @@ class WishDetailPage extends StatelessWidget {
   }
 
   Widget _taskRow(BuildContext context, Task t) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => showEditTaskPage(context, t),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            Cb(
-              done: t.done,
-              burstColor: wish.color,
-              onTap: () => AppData.I.toggleTask(t),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                t.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: t.done ? T.faint : T.ink,
-                  decoration: t.done ? TextDecoration.lineThrough : null,
-                  decorationColor: T.faint,
+    return Dismissible(
+      key: ValueKey(t.id),
+      direction: DismissDirection.endToStart,
+      dismissThresholds: const {DismissDirection.endToStart: .25},
+      onDismissed: (_) => AppData.I.deleteTask(t),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 10),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: T.danger,
+          size: 20,
+        ),
+      ),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showEditTaskPage(context, t),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Cb(
+                done: t.done,
+                burstColor: wish.color,
+                onTap: () => AppData.I.toggleTask(t),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  t.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: t.done ? T.faint : T.ink,
+                    decoration: t.done ? TextDecoration.lineThrough : null,
+                    decorationColor: T.faint,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              md(t.day),
-              style: const TextStyle(fontSize: 13, color: T.faint),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Text(
+                md(t.day),
+                style: const TextStyle(fontSize: 13, color: T.faint),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -702,6 +753,7 @@ class WishDetailPage extends StatelessWidget {
   // ---------- 照片（真实图片，存云存储）----------
   Widget _photos(BuildContext context) {
     final photos = wish.photos;
+    final uploading = AppData.I.photoUploadingWishId == wish.id;
     return SheetCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -730,7 +782,7 @@ class WishDetailPage extends StatelessWidget {
               ),
             ],
           ),
-          if (photos.isEmpty)
+          if (photos.isEmpty && !uploading)
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
@@ -744,13 +796,34 @@ class WishDetailPage extends StatelessWidget {
               height: 96,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: photos.length,
+                itemCount: photos.length + (uploading ? 1 : 0),
                 separatorBuilder: (_, __) => const SizedBox(width: 9),
-                itemBuilder: (context, i) => _photoTile(context, photos[i]),
+                itemBuilder: (context, i) => i < photos.length
+                    ? _photoTile(context, photos[i])
+                    : _uploadingTile(),
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// 上传中的占位格：立刻出现，传完被真图顶掉
+  Widget _uploadingTile() {
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
+        color: T.field,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: T.accent),
+        ),
       ),
     );
   }
@@ -762,13 +835,13 @@ class WishDetailPage extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.network(
+            child: WishPhoto(
               url,
               width: 96,
               height: 96,
               fit: BoxFit.cover,
               // 链接过期或断网时不要炸成红屏，给一块灰底
-              errorBuilder: (_, __, ___) => Container(
+              fallback: Container(
                 width: 96,
                 height: 96,
                 color: T.field,
@@ -778,9 +851,7 @@ class WishDetailPage extends StatelessWidget {
                   color: T.faint,
                 ),
               ),
-              loadingBuilder: (_, child, progress) => progress == null
-                  ? child
-                  : Container(width: 96, height: 96, color: T.field),
+              loading: Container(width: 96, height: 96, color: T.field),
             ),
           ),
           // 长按也能删，但那太隐蔽了，另外放一个看得见的删除角标
@@ -908,10 +979,9 @@ class WishDetailPage extends StatelessWidget {
       ),
     );
   }
-
 }
 
-/// 头图的照片轮播：左右滑动看这条心愿存的每一张照片，默认停在最新一张。
+/// 头图的照片轮播：第一页是最新一张，往左滑翻更早的照片。
 /// 用 StatefulWidget 单独拎出来，是为了让滑到第几张能在页面其它地方触发的
 /// 刷新（勾一个里程碑之类）之间保持住，不会每次 rebuild 就跳回第一张
 class _PhotoCarousel extends StatefulWidget {
@@ -923,19 +993,19 @@ class _PhotoCarousel extends StatefulWidget {
 }
 
 class _PhotoCarouselState extends State<_PhotoCarousel> {
-  late int _page = widget.photos.length - 1;
-  late final PageController _controller = PageController(initialPage: _page);
+  int _page = 0;
+  final PageController _controller = PageController();
+
+  // photos 里旧的在前；展示时反过来，第 0 页 = 最新
+  String _photoAt(int i) => widget.photos[widget.photos.length - 1 - i];
 
   @override
   void didUpdateWidget(_PhotoCarousel old) {
     super.didUpdateWidget(old);
     if (widget.photos.length != old.photos.length) {
-      final next = (widget.photos.length - 1).clamp(
-        0,
-        widget.photos.length - 1,
-      );
-      _page = next;
-      if (_controller.hasClients) _controller.jumpToPage(next);
+      // 加了/删了照片就跳回第一页（最新那张）
+      _page = 0;
+      if (_controller.hasClients) _controller.jumpToPage(0);
     }
   }
 
@@ -954,10 +1024,10 @@ class _PhotoCarouselState extends State<_PhotoCarousel> {
           controller: _controller,
           itemCount: widget.photos.length,
           onPageChanged: (i) => setState(() => _page = i),
-          itemBuilder: (context, i) => Image.network(
-            widget.photos[i],
+          itemBuilder: (context, i) => WishPhoto(
+            _photoAt(i),
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+            fallback: Container(
               color: T.field,
               alignment: Alignment.center,
               child: const Icon(
@@ -1004,9 +1074,241 @@ class CompleteWishPage extends StatefulWidget {
 }
 
 class _CompleteWishPageState extends State<CompleteWishPage> {
-  int _hero = 0;
+  // 没传照片时凭证卡的兜底渐变下标（换底色功能已撤，固定第一组）
+  final int _hero = 0;
+  int _coverPage = 0; // 照片封面选择：0 = 最新一张
   final _quote = TextEditingController();
   final _loc = TextEditingController();
+  bool _locating = false;
+  // 进页面时已有的照片数：封面只认之后新拍/新传的，过程里的旧照片不掺和
+  late final int _photosBefore = widget.wish.photos.length;
+
+  @override
+  void initState() {
+    super.initState();
+    // 进页面就自动定位填好；定不到也不吵，手填/点圆片随时覆盖
+    _useGps(silent: true);
+  }
+
+  /// 用手机定位填"在哪儿完成的"：GPS 坐标 → 系统反地理编码拿城市名（免费无 Key）
+  Future<void> _useGps({bool silent = false}) async {
+    setState(() => _locating = true);
+    try {
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        if (!silent && mounted) snack(context, '没有定位权限，去设置里打开一下');
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+        ),
+      ).timeout(const Duration(seconds: 10));
+      final marks = await Geocoding(
+        locale: const Locale('zh', 'CN'),
+      ).placemarkFromCoordinates(pos.latitude, pos.longitude);
+      final m = marks.isEmpty ? null : marks.first;
+      // 城市名优先，取不到就逐级退：区县 → 省 → 国家
+      final name = [
+        m?.locality,
+        m?.subAdministrativeArea,
+        m?.administrativeArea,
+        m?.country,
+      ].firstWhere((s) => s?.isNotEmpty ?? false, orElse: () => null);
+      if (name == null) {
+        if (!silent && mounted) snack(context, '定位到了，但认不出这是哪儿');
+        return;
+      }
+      // 自动定位不覆盖用户已经手填/选好的内容
+      if (mounted && (!silent || _loc.text.isEmpty)) {
+        setState(() => _loc.text = name);
+      }
+    } catch (e) {
+      debugPrint('[gps] $e');
+      if (!silent && mounted) snack(context, '定位失败，手动填一个也行');
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  List<String> get _newPhotos {
+    final photos = widget.wish.photos;
+    return photos.length > _photosBefore
+        ? photos.sublist(_photosBefore)
+        : const [];
+  }
+
+  /// 封面：此刻新传的照片左右滑挑一张；还没传就是一块"上传照片"的引导区
+  Widget _cover() {
+    return ListenableBuilder(
+      listenable: AppData.I,
+      builder: (context, _) {
+        final photos = _newPhotos;
+        final uploading = AppData.I.photoUploadingWishId == widget.wish.id;
+        if (photos.isEmpty) {
+          return GestureDetector(
+            onTap: uploading ? null : _addPhoto,
+            child: Container(
+              height: 170,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: T.field,
+                border: Border.all(color: T.faint.withValues(alpha: .35)),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    uploading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: T.accent,
+                            ),
+                          )
+                        : Icon(
+                            Icons.add_a_photo_outlined,
+                            size: 26,
+                            color: widget.wish.color,
+                          ),
+                    const SizedBox(height: 8),
+                    Text(
+                      uploading ? '正在上传…' : '拍一张此刻的照片，作为完成的凭证',
+                      style: const TextStyle(fontSize: 14.5, color: T.muted),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 170,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PageView.builder(
+                      itemCount: photos.length,
+                      onPageChanged: (i) => setState(() => _coverPage = i),
+                      itemBuilder: (_, i) => WishPhoto(
+                        photos[photos.length - 1 - i],
+                        fit: BoxFit.cover,
+                        fallback: Container(color: T.field),
+                      ),
+                    ),
+                    Positioned(
+                      right: 9,
+                      bottom: 9,
+                      child: IgnorePointer(
+                        child: _coverChip(
+                          uploading
+                              ? '上传中…'
+                              : photos.length > 1
+                              ? '左右滑，这张当封面 ${_coverPage + 1}/${photos.length}'
+                              : '这张当封面',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: uploading ? null : _addPhoto,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_a_photo_outlined,
+                    size: 16,
+                    color: widget.wish.color,
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    '再加一张',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: T.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _coverChip(String label) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: .35),
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(fontSize: 14, color: Colors.white),
+    ),
+  );
+
+  void _addPhoto() {
+    showAppSheet(
+      context,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TapRow(
+            onTap: () {
+              Navigator.pop(context);
+              pickAndUploadWishPhoto(context, widget.wish);
+            },
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 13, horizontal: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.photo_library_outlined, size: 19),
+                  SizedBox(width: 12),
+                  Text('从相册选', style: TextStyle(fontSize: 16.5)),
+                ],
+              ),
+            ),
+          ),
+          TapRow(
+            onTap: () {
+              Navigator.pop(context);
+              pickAndUploadWishPhoto(context, widget.wish, fromCamera: true);
+            },
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 13, horizontal: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.photo_camera_outlined, size: 19),
+                  SizedBox(width: 12),
+                  Text('拍一张', style: TextStyle(fontSize: 16.5)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1046,41 +1348,7 @@ class _CompleteWishPageState extends State<CompleteWishPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          GestureDetector(
-                            onTap: () => setState(
-                              () => _hero = (_hero + 1) % AppData.heroes.length,
-                            ),
-                            child: Container(
-                              height: 170,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: AppData.heroes[_hero],
-                                ),
-                              ),
-                              alignment: Alignment.bottomRight,
-                              padding: const EdgeInsets.all(9),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: .35),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: const Text(
-                                  '点击换一张（演示）',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                          _cover(),
                           const SizedBox(height: 11),
                           TextField(
                             controller: _quote,
@@ -1090,10 +1358,62 @@ class _CompleteWishPageState extends State<CompleteWishPage> {
                             minLines: 1,
                           ),
                           const SizedBox(height: 9),
-                          TextField(
-                            controller: _loc,
-                            decoration: fieldDeco('在哪儿完成的（可选，会点亮地图）'),
-                            style: const TextStyle(fontSize: 16.5),
+                          // 完成地点 = 当前位置，不可手选；点一下可重新定位
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _locating ? null : _useGps,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: T.field,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  _locating
+                                      ? const SizedBox(
+                                          width: 15,
+                                          height: 15,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: T.accent,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.my_location_rounded,
+                                          size: 16,
+                                          color: T.accent,
+                                        ),
+                                  const SizedBox(width: 9),
+                                  Expanded(
+                                    child: Text(
+                                      _locating
+                                          ? '正在定位…'
+                                          : _loc.text.isEmpty
+                                          ? '未能定位（不影响完成，点我重试）'
+                                          : _loc.text,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: _loc.text.isEmpty
+                                            ? T.faint
+                                            : T.ink,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_loc.text.isNotEmpty)
+                                    const Text(
+                                      '会点亮地图',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: T.faint,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -1116,6 +1436,14 @@ class _CompleteWishPageState extends State<CompleteWishPage> {
   }
 
   void _submit() {
+    // 滑到哪张就把哪张设成封面（photos.last 即封面）；只在此刻新传的里挑
+    final fresh = _newPhotos;
+    if (fresh.isNotEmpty && _coverPage != 0) {
+      AppData.I.setCoverPhoto(
+        widget.wish,
+        fresh[fresh.length - 1 - _coverPage],
+      );
+    }
     AppData.I.completeWish(
       widget.wish,
       quote: _quote.text.trim(),
@@ -1124,10 +1452,16 @@ class _CompleteWishPageState extends State<CompleteWishPage> {
     );
     // 已经完成了就别再到期提醒
     cancelWishReminder(widget.wish);
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => SharePage(wish: widget.wish)),
-    );
+    // 把完成页和已经过时的"进行中详情页"一起关掉再弹点亮卡，
+    // 关掉卡片直接回列表——不然退回旧详情页还挂着"完成这个心愿"，像没完成一样
+    Navigator.of(context)
+      ..pop()
+      ..pop()
+      ..push(
+        MaterialPageRoute(
+          builder: (_) => SharePage(wish: widget.wish, celebrate: true),
+        ),
+      );
   }
 }
 
