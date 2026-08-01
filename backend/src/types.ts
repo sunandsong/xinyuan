@@ -6,6 +6,7 @@ export interface UserProfile {
   passwordHash?: string; // 仅服务端；绝不返回给客户端
   nickname: string;
   avatarEmoji: string | null;
+  avatarUrl?: string | null; // 头像照片（云存储稳定链接），优先于 emoji
   createdAt: number;
   updatedAt: number;
   deleted?: boolean;

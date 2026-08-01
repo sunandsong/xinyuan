@@ -85,12 +85,14 @@ class WishPhoto extends StatelessWidget {
   }
 }
 
-/// 选一张图并上传；成功返回图片地址，用户取消返回 null。
-/// [fromCamera] 为 true 时直接开相机。
-Future<String?> pickAndUploadWishPhoto(
-  BuildContext context,
-  Wish wish, {
+/// 选一张图、压缩并直传云存储；成功返回稳定链接，取消/失败返回 null（内部已弹提示）。
+/// [onPicked] 在选完图、开始上传前回调（用来亮"上传中"占位）。
+Future<String?> pickAndUploadPhoto(
+  BuildContext context, {
   bool fromCamera = false,
+  double maxSide = 1280,
+  int quality = 72,
+  void Function()? onPicked,
 }) async {
   if (!AppData.I.signedIn) {
     snack(context, '登录后才能上传照片');
@@ -103,9 +105,9 @@ Future<String?> pickAndUploadWishPhoto(
       // 传之前先压一压，别把原图整个传上去。长边 1280/质量 72：手机上看头图
       // 和缩略图都够用，体积比 1600/80 小一半以上——上行带宽实测只有几十 KB/s，
       // 每省 100KB 就是省一两秒
-      maxWidth: 1280,
-      maxHeight: 1280,
-      imageQuality: 72,
+      maxWidth: maxSide,
+      maxHeight: maxSide,
+      imageQuality: quality,
     );
   } catch (e) {
     debugPrint('[photo] pick failed: $e');
@@ -119,8 +121,7 @@ Future<String?> pickAndUploadWishPhoto(
     if (context.mounted) snack(context, '图片太大了，换一张小一点的');
     return null;
   }
-  // 选完图立刻在照片区亮出"上传中"占位格——换凭证 + 直传要好几秒，别让人以为没反应
-  AppData.I.setPhotoUploading(wish.id);
+  onPicked?.call();
   try {
     final ticket = await UploadApi.ticket(mime: _mimeOf(file.name));
     if (ticket.url.isEmpty) {
@@ -139,8 +140,6 @@ Future<String?> pickAndUploadWishPhoto(
     // 存稳定链接；刚拿到的带签名链接直接当缓存用，传完立刻能显示
     final stored = ticket.downloadUrl.split('?').first;
     _freshUrl[stored] = ticket.downloadUrl;
-    AppData.I.addWishPhoto(wish, stored);
-    if (context.mounted) snack(context, '照片已存好');
     return stored;
   } on ApiException catch (e) {
     debugPrint('[photo] api error: $e');
@@ -148,10 +147,43 @@ Future<String?> pickAndUploadWishPhoto(
   } catch (e) {
     debugPrint('[photo] upload failed: $e');
     if (context.mounted) snack(context, '上传失败，请重试');
+  }
+  return null;
+}
+
+/// 选一张图并挂到心愿上；成功返回图片地址，用户取消返回 null。
+/// [fromCamera] 为 true 时直接开相机。
+Future<String?> pickAndUploadWishPhoto(
+  BuildContext context,
+  Wish wish, {
+  bool fromCamera = false,
+}) async {
+  try {
+    final stored = await pickAndUploadPhoto(
+      context,
+      fromCamera: fromCamera,
+      // 选完图立刻在照片区亮出"上传中"占位格——换凭证 + 直传要好几秒，别让人以为没反应
+      onPicked: () => AppData.I.setPhotoUploading(wish.id),
+    );
+    if (stored != null) {
+      AppData.I.addWishPhoto(wish, stored);
+      if (context.mounted) snack(context, '照片已存好');
+    }
+    return stored;
   } finally {
     AppData.I.setPhotoUploading(null);
   }
-  return null;
+}
+
+/// 选一张图当头像：小尺寸压缩上传，成功后立即生效并同步云端
+Future<String?> pickAndUploadAvatar(BuildContext context) async {
+  final stored =
+      await pickAndUploadPhoto(context, maxSide: 512, quality: 80);
+  if (stored != null) {
+    AppData.I.setAvatarPhoto(stored);
+    if (context.mounted) snack(context, '头像已更新');
+  }
+  return stored;
 }
 
 String _mimeOf(String name) {

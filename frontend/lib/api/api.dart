@@ -161,16 +161,11 @@ class AuthApi {
 
   static Future<Map<String, dynamic>> updateProfile({
     String? nickname,
-    String? avatarEmoji,
-    bool clearEmoji = false,
+    String? avatarUrl,
   }) {
     final body = <String, dynamic>{};
     if (nickname != null) body['nickname'] = nickname;
-    if (clearEmoji) {
-      body['avatarEmoji'] = null;
-    } else if (avatarEmoji != null) {
-      body['avatarEmoji'] = avatarEmoji;
-    }
+    if (avatarUrl != null) body['avatarUrl'] = avatarUrl;
     return ApiClient.I.patch('/me', body);
   }
 

@@ -5,6 +5,7 @@ import '../pages/map_page.dart';
 import '../pages/misc_pages.dart';
 import '../pages/tree_page.dart';
 import '../pages/wish_edit_page.dart';
+import '../photos.dart';
 import '../theme.dart';
 import '../ui.dart';
 
@@ -145,25 +146,24 @@ class MeTab extends StatelessWidget {
                       ),
                     ),
                     alignment: Alignment.center,
-                    child: !signed
-                        ? const Icon(
+                    child: signed && data.avatarUrl != null
+                        ? ClipOval(
+                            child: WishPhoto(
+                              data.avatarUrl!,
+                              width: 72,
+                              height: 72,
+                              fallback: const Icon(
+                                Icons.person_rounded,
+                                size: 38,
+                                color: Color(0xFFB9C3E8),
+                              ),
+                            ),
+                          )
+                        : const Icon(
                             Icons.person_rounded,
                             size: 38,
                             color: Color(0xFFB9C3E8),
-                          )
-                        : (data.avatarEmoji != null
-                              ? Text(
-                                  data.avatarEmoji!,
-                                  style: const TextStyle(fontSize: 36),
-                                )
-                              : Text(
-                                  _initial(data.nickname),
-                                  style: const TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w600,
-                                    color: T.accent,
-                                  ),
-                                )),
+                          ),
                   ),
                 ),
               ),
@@ -342,71 +342,15 @@ class MeTab extends StatelessWidget {
     );
   }
 
-  String _initial(String s) => s.isEmpty ? '心' : s.characters.first;
-
   // ---------- 编辑资料 ----------
-  static const _avatarEmojis = [
-    '🌟',
-    '🌱',
-    '🐱',
-    '🌊',
-    '🏔️',
-    '🎈',
-    '🍀',
-    '🌸',
-    '🐳',
-    '🔥',
-    '🌈',
-    '🦊',
-  ];
-
   void _editProfile(BuildContext context) {
     final data = AppData.I;
     final ctrl = TextEditingController(text: data.nickname);
-    String? picked = data.avatarEmoji; // null = 文字（昵称首字）
 
     showAppSheet(
       context,
       StatefulBuilder(
         builder: (context, setSheet) {
-          Widget option({String? emoji}) {
-            final sel = picked == emoji;
-            return GestureDetector(
-              onTap: () => setSheet(() => picked = emoji),
-              child: Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFFFFFFF), Color(0xFFE7ECFF)],
-                  ),
-                  border: Border.all(
-                    color: sel ? T.accent : const Color(0xFFE2E5F2),
-                    width: sel ? 2.5 : 1,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: emoji == null
-                    ? Text(
-                        _initial(
-                          ctrl.text.trim().isEmpty
-                              ? data.nickname
-                              : ctrl.text.trim(),
-                        ),
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          color: T.accent,
-                        ),
-                      )
-                    : Text(emoji, style: const TextStyle(fontSize: 26)),
-              ),
-            );
-          }
-
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -419,10 +363,62 @@ class MeTab extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
+              // 头像：点它选图上传，传完立即生效；没有头像时显示默认人形
+              Center(
+                child: GestureDetector(
+                  onTap: () async {
+                    final url = await pickAndUploadAvatar(context);
+                    if (url != null) setSheet(() {});
+                  },
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFFFFFFF), Color(0xFFE7ECFF)],
+                          ),
+                          border: Border.all(color: const Color(0xFFE2E5F2)),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        alignment: Alignment.center,
+                        child: data.avatarUrl != null
+                            ? WishPhoto(
+                                data.avatarUrl!,
+                                width: 76,
+                                height: 76,
+                                fallback: const Icon(Icons.person_rounded,
+                                    size: 40, color: Color(0xFFB9C3E8)),
+                              )
+                            : const Icon(Icons.person_rounded,
+                                size: 40, color: Color(0xFFB9C3E8)),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: T.accent,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: const Icon(Icons.photo_camera,
+                              size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               TextField(
                 controller: ctrl,
-                autofocus: true,
-                onChanged: (_) => setSheet(() {}),
                 maxLength: 12,
                 decoration: InputDecoration(
                   hintText: '昵称',
@@ -440,31 +436,11 @@ class MeTab extends StatelessWidget {
                 ),
                 style: const TextStyle(fontSize: 17),
               ),
-              const SizedBox(height: 14),
-              const Padding(
-                padding: EdgeInsets.only(left: 2, bottom: 10),
-                child: Text(
-                  '选择头像',
-                  style: TextStyle(fontSize: 14, color: T.muted),
-                ),
-              ),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  option(), // 文字
-                  for (final e in _avatarEmojis) option(emoji: e),
-                ],
-              ),
               const SizedBox(height: 18),
               BigBtn(
                 '保存',
                 onTap: () {
-                  data.updateProfile(
-                    nickname: ctrl.text.trim(),
-                    avatarEmoji: picked,
-                    clearEmoji: picked == null,
-                  );
+                  data.updateProfile(nickname: ctrl.text.trim());
                   Navigator.pop(context);
                 },
               ),

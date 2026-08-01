@@ -467,7 +467,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       if (profile != null) {
         final nick = profile['nickname'] as String?;
         if (nick != null && nick.isNotEmpty) nickname = nick;
-        avatarEmoji = profile['avatarEmoji'] as String?;
+        avatarUrl = profile['avatarUrl'] as String?;
         accountCreatedAt = _fromMs(profile['createdAt'] as num?);
       }
       // 云端心愿为空就兜底填入默认清单，不管是新注册还是老账号空着——不允许出现空列表
@@ -763,42 +763,28 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   // 个人资料
   String nickname = '松之';
-  String? avatarEmoji; // null = 用昵称首字
+  String? avatarUrl; // 头像照片（云存储稳定链接）；null = 默认头像
   DateTime? accountCreatedAt; // 账号创建时间（后端 profile.createdAt），未登录时为 null
-  void updateProfile({
-    String? nickname,
-    String? avatarEmoji,
-    bool clearEmoji = false,
-  }) {
+  void updateProfile({String? nickname}) {
     if (nickname != null && nickname.isNotEmpty) this.nickname = nickname;
-    if (clearEmoji) {
-      this.avatarEmoji = null;
-    } else if (avatarEmoji != null) {
-      this.avatarEmoji = avatarEmoji;
-    }
     notifyListeners();
     if (signedIn) {
-      unawaited(
-        _pushProfile(
-          nickname: nickname,
-          avatarEmoji: clearEmoji ? null : avatarEmoji,
-          clearEmoji: clearEmoji,
-        ),
-      );
+      unawaited(_pushProfile(nickname: nickname));
     }
   }
 
-  Future<void> _pushProfile({
-    String? nickname,
-    String? avatarEmoji,
-    bool clearEmoji = false,
-  }) async {
+  /// 上传好的照片设为头像
+  void setAvatarPhoto(String url) {
+    avatarUrl = url;
+    notifyListeners();
+    if (signedIn) {
+      unawaited(_pushProfile(avatarUrl: url));
+    }
+  }
+
+  Future<void> _pushProfile({String? nickname, String? avatarUrl}) async {
     try {
-      await AuthApi.updateProfile(
-        nickname: nickname,
-        avatarEmoji: avatarEmoji,
-        clearEmoji: clearEmoji,
-      );
+      await AuthApi.updateProfile(nickname: nickname, avatarUrl: avatarUrl);
     } catch (_) {
       // 静默失败：资料改动仍留在本地，下次改资料时会一并再推
     }
@@ -848,6 +834,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     signedIn = false;
     email = null;
     accountCreatedAt = null;
+    avatarUrl = null;
     _pushTimer?.cancel();
     _dirtyWishes.clear();
     _dirtyTasks.clear();
