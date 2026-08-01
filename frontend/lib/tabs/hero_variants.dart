@@ -523,50 +523,35 @@ class HeroMedals extends StatelessWidget {
 }
 
 /// ───────────────── F · 年度报告大数据 ─────────────────
-class HeroWrapped extends StatefulWidget {
+class HeroWrapped extends StatelessWidget {
   const HeroWrapped(
       {super.key, required this.done, this.maxH = 280, this.minH = 96});
   final List<Wish> done;
   final double maxH;
   final double minH;
-  @override
-  State<HeroWrapped> createState() => _HeroWrappedState();
-}
-
-class _HeroWrappedState extends State<HeroWrapped>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(seconds: 12))
-        ..repeat();
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    final n = widget.done.length;
+    final n = done.length;
     final total = AppData.I.wishes.length;
     final frac = total == 0 ? 0.0 : n / total;
     return LayoutBuilder(builder: (context, cons) {
       final h = cons.maxHeight;
       final topInset = MediaQuery.paddingOf(context).top;
       // 展开→折叠 进度 t：1=展开(大图) 0=收成顶部摘要条（不消失）
-      final range = widget.maxH - widget.minH;
-      final t = range <= 0 ? 1.0 : ((h - widget.minH) / range).clamp(0.0, 1.0);
+      final range = maxH - minH;
+      final t = range <= 0 ? 1.0 : ((h - minH) / range).clamp(0.0, 1.0);
       final pad = topInset * t;
       final pct = (frac * 100).round();
       final bigOp = ((t - 0.35) / 0.55).clamp(0.0, 1.0); // 展开态可见
       final barOp = ((0.45 - t) / 0.45).clamp(0.0, 1.0); // 收起态可见
-      final barH = (widget.minH - topInset).clamp(40.0, 72.0);
+      final barH = (minH - topInset).clamp(40.0, 72.0);
       return ClipRect(
         child: Stack(children: [
-          // 流动网格光晕背景（始终满宽满高、含刘海区）
+          // 网格光晕背景，定格一帧当静态图（始终满宽满高、含刘海区）
           Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _c,
-              builder: (_, __) => CustomPaint(painter: _MeshPainter(_c.value)),
+            child: RepaintBoundary(
+              child: CustomPaint(painter: _MeshPainter(.3)),
             ),
           ),
           // 大内容（展开态）——随收起淡出，刘海下方居中

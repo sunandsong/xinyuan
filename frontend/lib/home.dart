@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -33,8 +32,15 @@ class _HomeShellState extends State<HomeShell> {
       body: Stack(
         children: [
           const Positioned.fill(child: AuroraBg()),
-          // 切换无动画（瞬间切，保留各页状态）
-          IndexedStack(index: _index, children: _tabs),
+          // 切换无动画（瞬间切，保留各页状态）；
+          // TickerMode 让没在看的 tab 里的循环动画停表，别白烧帧
+          IndexedStack(
+            index: _index,
+            children: [
+              for (var i = 0; i < _tabs.length; i++)
+                TickerMode(enabled: i == _index, child: _tabs[i]),
+            ],
+          ),
         ],
       ),
       bottomNavigationBar: ClipRect(
@@ -140,63 +146,44 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-/// 多彩柔光背景 —— 缓慢漂移的极光
-class AuroraBg extends StatefulWidget {
+/// 多彩柔光背景 —— 静态极光（不动，省一整条 60fps 的帧预算）
+class AuroraBg extends StatelessWidget {
   const AuroraBg({super.key});
-  @override
-  State<AuroraBg> createState() => _AuroraBgState();
-}
 
-class _AuroraBgState extends State<AuroraBg>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(seconds: 26))
-    ..repeat();
-
-  // base left, base top, size, color, 相位
-  static const _blobs = [
-    [-80.0, -60.0, 320.0, 0xFFB9C9FF, 0.0],
-    [180.0, 120.0, 300.0, 0xFFE6C9FF, 1.3],
-    [-60.0, 380.0, 320.0, 0xFFFFCFE6, 2.6],
-    [200.0, 560.0, 300.0, 0xFFC6F0E6, 3.9],
-    [-40.0, 760.0, 340.0, 0xFFCBD8FF, 5.2],
+  // (left, top, size, color)
+  static const _blobs = <(double, double, double, int)>[
+    (-80, -60, 320, 0xFFB9C9FF),
+    (180, 120, 300, 0xFFE6C9FF),
+    (-60, 380, 320, 0xFFFFCFE6),
+    (200, 560, 300, 0xFFC6F0E6),
+    (-40, 760, 340, 0xFFCBD8FF),
   ];
 
   @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Color(0xFFEDEFF8)),
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, _) {
-          final t = _c.value * 2 * math.pi;
-          return Stack(
-            children: [
-              for (final b in _blobs)
-                Positioned(
-                  left: b[0] + math.sin(t + b[4]) * 26,
-                  top: b[1] + math.cos(t + b[4]) * 20,
-                  child: Container(
-                    width: b[2] + math.sin(t + b[4]) * 20,
-                    height: b[2] + math.sin(t + b[4]) * 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(colors: [
-                        Color(b[3].toInt()).withValues(alpha: .7),
-                        Color(b[3].toInt()).withValues(alpha: 0),
-                      ]),
-                    ),
+    return RepaintBoundary(
+      child: DecoratedBox(
+        decoration: const BoxDecoration(color: Color(0xFFEDEFF8)),
+        child: Stack(
+          children: [
+            for (final (left, top, size, color) in _blobs)
+              Positioned(
+                left: left,
+                top: top,
+                child: Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(colors: [
+                      Color(color).withValues(alpha: .7),
+                      Color(color).withValues(alpha: 0),
+                    ]),
                   ),
                 ),
-            ],
-          );
-        },
+              ),
+          ],
+        ),
       ),
     );
   }
