@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter:*)",
+      "Bash(dart:*)",
+      "Bash(xcrun:*)",
+      "Bash(open -a Simulator)",
+      "Bash(pod:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(cat:*)",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(sleep:*)",
+      "Edit(frontend/**)",
+      "Edit(backend/**)",
+      "Edit(docs/**)",
+      "Write(frontend/**)",
+      "Write(backend/**)",
+      "Write(docs/**)"
+    ]
+  }
+}
