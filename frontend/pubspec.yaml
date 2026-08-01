@@ -93,6 +93,8 @@ flutter:
   assets:
     - assets/img/
     - assets/img/hero/
+    - assets/posters/
+    - assets/icon/logo_mark.png
 
   fonts:
     - family: MiSans

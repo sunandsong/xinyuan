@@ -8,9 +8,31 @@ import '../photos.dart';
 import '../theme.dart';
 import '../ui.dart';
 
-/// 分享卡片：金箔描边、流光扫过、烫金标题、点亮入场动画。
-/// 两种形态：已完成 = 「已点亮」凭证；进行中 = 「我要去做」宣告卡（说出去更容易做到）。
+/// 分享卡片：描边、流光扫过、渐变标题、点亮入场动画。
+/// 两种形态：已完成 = 「已点亮」金色凭证；进行中 = 「我要去做」热血宣告卡
+/// （熔岩橙红 + 必达印章，说出去更容易做到）。
 /// [celebrate] 只在刚完成心愿跳进来时为 true：放一场烟花 + 达成提示。
+
+// 宣告卡（热血版）配色：熔岩橙红
+const _flameGrad = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFFFFB25C), Color(0xFFFF5A3C), Color(0xFFD92A2A)],
+);
+const _flameTextGrad = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [Color(0xFFFFE3B0), Color(0xFFFFA85C), Color(0xFFFF6B4A)],
+);
+const _flame = Color(0xFFFF5A3C);
+
+/// 宣告卡默认封面：登山 / 火炬 / 冲刺，可左右滑切换
+const _declareCovers = [
+  'assets/img/hero/declare_cover.jpg',
+  'assets/img/hero/declare_cover2.jpg',
+  'assets/img/hero/declare_cover3.jpg',
+];
+
 class SharePage extends StatefulWidget {
   SharePage({
     super.key,
@@ -27,6 +49,7 @@ class SharePage extends StatefulWidget {
 
 class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
   final _cardKey = GlobalKey();
+  int _coverPage = 0; // 宣告卡默认封面当前页（指示点用）
   late final AnimationController _intro = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1500),
@@ -128,16 +151,23 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
         fit: StackFit.expand,
         children: [
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
+              // 宣告卡用暗红余烬底，凭证卡保持暗夜蓝
               gradient: RadialGradient(
-                center: Alignment(0, -1),
+                center: const Alignment(0, -1),
                 radius: 1.6,
-                colors: [
-                  Color(0xFF16233F),
-                  Color(0xFF0B1120),
-                  Color(0xFF080C17),
-                ],
-                stops: [0, .55, 1],
+                colors: widget.declare
+                    ? const [
+                        Color(0xFF3B1712),
+                        Color(0xFF1C0D0A),
+                        Color(0xFF120807),
+                      ]
+                    : const [
+                        Color(0xFF16233F),
+                        Color(0xFF0B1120),
+                        Color(0xFF080C17),
+                      ],
+                stops: const [0, .55, 1],
               ),
             ),
             child: SafeArea(
@@ -154,12 +184,16 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                         Expanded(
                           child: Center(
                             child: Text(
-                              widget.declare ? '我 要 去 做' : '已 点 亮',
-                              style: const TextStyle(
+                              widget.declare ? '此 愿 必 达' : '已 点 亮',
+                              style: TextStyle(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: widget.declare
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
                                 letterSpacing: 4,
-                                color: Color(0xFFE8EEF8),
+                                color: widget.declare
+                                    ? const Color(0xFFFFD9C4)
+                                    : const Color(0xFFE8EEF8),
                               ),
                             ),
                           ),
@@ -172,17 +206,37 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                       key: _cardKey,
                       child: _card(w, no, total, days),
                     ),
+                    // 封面指示点：提示宣告卡默认封面可以左右滑
+                    if (widget.declare && w.photos.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (var i = 0; i < _declareCovers.length; i++)
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: _coverPage == i ? 14 : 5,
+                                height: 5,
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(
+                                      alpha: _coverPage == i ? .9 : .35),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     const Spacer(),
                     BigBtn(
                       '保存图片',
-                      gradient: T.goldGrad,
-                      fg: const Color(0xFF3A2C10),
+                      gradient: widget.declare ? _flameGrad : T.goldGrad,
+                      fg: widget.declare
+                          ? Colors.white
+                          : const Color(0xFF3A2C10),
                       onTap: () => _saveCard(context),
-                    ),
-                    const SizedBox(height: 9),
-                    const Text(
-                      '竖版 9:16，适配朋友圈与小红书',
-                      style: TextStyle(fontSize: 15, color: T.darkMuted),
                     ),
                   ],
                 ),
@@ -220,24 +274,22 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
     }
   }
 
-  /// 这条心愿写下来多少天了（宣告卡用）
-  int _wantDays(Wish w) =>
-      dOnly(DateTime.now()).difference(dOnly(w.createdAt)).inDays;
-
-  /// 没有真实照片时的默认封面：暗夜星空图，跟卡片的暗底金字一个调子
+  /// 没有真实照片时的默认封面：宣告卡用破晓登山（热血橙红），凭证卡用暗夜星空
   Widget _coverGradient(Wish w) => Image.asset(
-    'assets/img/hero/default_cover.jpg',
+    widget.declare
+        ? 'assets/img/hero/declare_cover.jpg'
+        : 'assets/img/hero/default_cover.jpg',
     height: 210,
     width: double.infinity,
     fit: BoxFit.cover,
   );
 
   Widget _card(Wish w, int no, int total, int days) {
-    // 金箔描边框
+    final hot = widget.declare; // 宣告卡 = 熔岩橙红；凭证卡 = 金箔
     return Container(
       padding: const EdgeInsets.all(1.5),
       decoration: BoxDecoration(
-        gradient: T.foilGrad,
+        gradient: hot ? _flameGrad : T.foilGrad,
         borderRadius: BorderRadius.circular(19),
         boxShadow: [
           const BoxShadow(
@@ -246,7 +298,7 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
             offset: Offset(0, 16),
           ),
           BoxShadow(
-            color: T.gold.withValues(alpha: .3),
+            color: (hot ? _flame : T.gold).withValues(alpha: .3),
             blurRadius: 26,
             spreadRadius: -6,
           ),
@@ -278,6 +330,20 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                             ),
                           ),
                         )
+                      else if (widget.declare)
+                        // 宣告卡默认封面有三张（登山/火炬/冲刺），左右滑挑一张
+                        SizedBox(
+                          height: 210,
+                          width: double.infinity,
+                          child: PageView(
+                            onPageChanged: (i) =>
+                                setState(() => _coverPage = i),
+                            children: [
+                              for (final a in _declareCovers)
+                                Image.asset(a, fit: BoxFit.cover),
+                            ],
+                          ),
+                        )
                       else
                         _coverGradient(w),
                       // IgnorePointer：遮罩不能挡手势，不然照片划不动
@@ -298,18 +364,89 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                           ),
                         ),
                       ),
+                      // 左上角：头像 + 昵称
+                      Positioned(
+                        top: 10,
+                        left: 12,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 30,
+                              height: 30,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: .25),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: .5),
+                                ),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: AppData.I.avatarUrl != null
+                                  ? WishPhoto(
+                                      AppData.I.avatarUrl!,
+                                      width: 30,
+                                      height: 30,
+                                      fallback: const Icon(
+                                        Icons.person_rounded,
+                                        size: 17,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.person_rounded,
+                                      size: 17,
+                                      color: Colors.white,
+                                    ),
+                            ),
+                            const SizedBox(width: 7),
+                            Text(
+                              AppData.I.nickname,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(
+                                    color: Color(0x66000000),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       Positioned(
                         top: 10,
                         right: 12,
-                        child: Text(
-                          widget.declare
-                              ? '清 单 之 一 / $total'
-                              : 'No.$no / $total',
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            letterSpacing: 2,
-                            color: Colors.white.withValues(alpha: .8),
-                            fontFeatures: const [FontFeature.tabularFigures()],
+                        // 和左边 30px 头像行同高垂直居中，跟昵称一条线
+                        child: SizedBox(
+                          height: 30,
+                          child: Row(
+                            children: [
+                              Image.asset(
+                                'assets/icon/logo_mark.png',
+                                width: 22,
+                                color: Colors.white.withValues(alpha: .95),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '人生清单',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1,
+                                  color: Colors.white.withValues(alpha: .9),
+                                  shadows: const [
+                                    Shadow(
+                                      color: Color(0x66000000),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -317,73 +454,154 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                   ),
                   // 文字区
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _stars(),
-                        const SizedBox(height: 8),
-                        _fade(
-                          .45,
-                          .75,
-                          child: ShaderMask(
-                            shaderCallback: (r) =>
-                                T.goldTextGrad.createShader(r),
-                            child: Text(
-                              w.title,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, hot ? 10 : 16),
+                    child: hot
+                        // 宣告卡：宣言、信息行在上；最底一行标题居左、必达印章居右，同一条中心线
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _fade(
+                                .55,
+                                .85,
+                                child: Text(
+                                  [
+                                    if (w.targetAt != null)
+                                      '${ymdDots(w.targetAt!)} 之前',
+                                    if (w.steps.isNotEmpty)
+                                      '里程碑 ${w.doneStepCount}/${w.steps.length}',
+                                  ].join(' · '),
+                                  style: const TextStyle(
+                                    fontSize: 14.5,
+                                    letterSpacing: 1.5,
+                                    color: T.darkMuted,
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 10),
+                              _fade(
+                                .65,
+                                .95,
+                                // 左边标题+宣言两行，「必达」印章对着两行的垂直中线
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          ShaderMask(
+                                            shaderCallback: (r) =>
+                                                _flameTextGrad
+                                                    .createShader(r),
+                                            child: Text(
+                                              w.title,
+                                              style: const TextStyle(
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.w800,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '「${(w.desc?.isNotEmpty ?? false) ? w.desc : '不是说说而已，我说到就会做到'}」',
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              height: 1.8,
+                                              color: Color(0xFFEBC9B8),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Transform.rotate(
+                                      angle: -.16,
+                                      child: Container(
+                                        padding: const EdgeInsets.fromLTRB(
+                                            10, 5, 6, 5),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                            color: _flame.withValues(
+                                                alpha: .9),
+                                            width: 2,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          '必达',
+                                          style: TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 4,
+                                            color: Color(0xFFFF6B4A),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        // 凭证卡：星花 + 烫金标题 + 引言 + 信息行，保持原样
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _stars(T.gold),
+                              const SizedBox(height: 8),
+                              _fade(
+                                .45,
+                                .75,
+                                child: ShaderMask(
+                                  shaderCallback: (r) =>
+                                      T.goldTextGrad.createShader(r),
+                                  child: Text(
+                                    w.title,
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              _fade(
+                                .55,
+                                .85,
+                                child: Text(
+                                  '「${w.quote ?? ''}」',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    height: 1.8,
+                                    color: Color(0xFFC6D2E8),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _fade(
+                                .65,
+                                .95,
+                                child: Text(
+                                  [
+                                    if (w.doneAt != null) ymdDots(w.doneAt!),
+                                    if (w.location != null) w.location!,
+                                    '第 $no 个心愿',
+                                    '$days 天',
+                                  ].join(' · '),
+                                  style: const TextStyle(
+                                    fontSize: 14.5,
+                                    letterSpacing: 1.5,
+                                    color: T.darkMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 7),
-                        _fade(
-                          .55,
-                          .85,
-                          child: Text(
-                            widget.declare
-                                ? '「${(w.desc?.isNotEmpty ?? false) ? w.desc : '这件事，我一定会去做'}」'
-                                : '「${w.quote ?? ''}」',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              height: 1.8,
-                              color: Color(0xFFC6D2E8),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _fade(
-                          .65,
-                          .95,
-                          child: Text(
-                            (widget.declare
-                                    ? [
-                                        '写下 ${_wantDays(w)} 天',
-                                        if (w.targetAt != null)
-                                          '${ymdDots(w.targetAt!)} 之前',
-                                        if (w.steps.isNotEmpty)
-                                          '里程碑 ${w.doneStepCount}/${w.steps.length}',
-                                      ]
-                                    : [
-                                        if (w.doneAt != null)
-                                          ymdDots(w.doneAt!),
-                                        if (w.location != null) w.location!,
-                                        '第 $no 个心愿',
-                                        '$days 天',
-                                      ])
-                                .join(' · '),
-                            style: const TextStyle(
-                              fontSize: 14.5,
-                              letterSpacing: 1.5,
-                              color: T.darkMuted,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),
@@ -425,7 +643,7 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _stars() {
+  Widget _stars(Color color) {
     return Row(
       children: [
         for (var i = 0; i < 3; i++)
@@ -444,12 +662,9 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                 '✦',
                 style: TextStyle(
                   fontSize: 18,
-                  color: T.gold,
+                  color: color,
                   shadows: [
-                    Shadow(
-                      color: T.gold.withValues(alpha: .85),
-                      blurRadius: 12,
-                    ),
+                    Shadow(color: color.withValues(alpha: .85), blurRadius: 12),
                   ],
                 ),
               ),

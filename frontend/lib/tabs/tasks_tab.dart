@@ -1,13 +1,8 @@
-import 'dart:io' show Directory, File;
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:share_plus/share_plus.dart';
 import '../data.dart';
 import '../pages/login_page.dart';
+import '../share_poster.dart';
 import '../sheets.dart';
 import '../theme.dart';
 import '../ui.dart';
@@ -134,7 +129,7 @@ class _TasksTabState extends State<TasksTab> {
               color: Colors.white.withValues(alpha: .2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.emoji_events_rounded,
+            child: const Icon(Icons.ios_share_rounded,
                 size: 18, color: Colors.white),
           ),
         ),
@@ -479,7 +474,7 @@ class _TasksTabState extends State<TasksTab> {
   }
 }
 
-/// 战报：月度 / 年度 / 总计的完成任务统计 + 一键复制文字去显摆
+/// 成绩单：月度 / 年度 / 总计的完成任务统计 + 一键复制文字去显摆
 class _MonthReportPage extends StatefulWidget {
   const _MonthReportPage({required this.month});
   final DateTime month; // 当月 1 号
@@ -490,7 +485,6 @@ class _MonthReportPage extends StatefulWidget {
 
 class _MonthReportPageState extends State<_MonthReportPage> {
   int scope = 0; // 0 = 月度, 1 = 年度, 2 = 总计
-  final _posterKey = GlobalKey();
 
   String _dayLabel(Task t) => switch (scope) {
         0 => '${t.day.day}日',
@@ -529,9 +523,6 @@ class _MonthReportPageState extends State<_MonthReportPage> {
                 '${month.year}',
                 '总计'
               ][scope];
-              final brag = '$period我${scope == 2 ? '一共' : ''}完成了 '
-                  '${done.length} 个任务，打卡 $days 天'
-                  '${wishCount == 0 ? '' : '，向 $wishCount 个心愿各迈近了一步'} ✨';
               return Column(
                 children: [
                   Row(
@@ -541,7 +532,7 @@ class _MonthReportPageState extends State<_MonthReportPage> {
                           onTap: () => Navigator.pop(context)),
                       const Expanded(
                         child: Center(
-                          child: Text('战报',
+                          child: Text('人生清单',
                               style: TextStyle(
                                   fontSize: 20, fontWeight: FontWeight.w600)),
                         ),
@@ -626,9 +617,9 @@ class _MonthReportPageState extends State<_MonthReportPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  BigBtn('分享战报 · 去显摆',
+                  BigBtn('分享',
                       onTap: () =>
-                          _showPoster(done, days, wishCount, period, brag)),
+                          _showPoster(done, days, wishCount, period)),
                 ],
               );
             },
@@ -639,151 +630,21 @@ class _MonthReportPageState extends State<_MonthReportPage> {
   }
 
   void _showPoster(
-      List<Task> done, int days, int wishCount, String period, String brag) {
+      List<Task> done, int days, int wishCount, String period) {
     final bigLabel = [
       '${widget.month.year}.${widget.month.month}',
       '${widget.month.year}',
       '总计'
     ][scope];
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: T.card,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(ctx).padding.bottom + 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: SingleChildScrollView(
-                child: RepaintBoundary(
-                  key: _posterKey,
-                  child: _poster(done, days, wishCount, period, bigLabel),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            BigBtn('分享图片', onTap: () => _sharePosterImage(ctx)),
-            TextButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: brag));
-                snack(ctx, '已复制战报文字');
-              },
-              child: const Text('只复制文字',
-                  style: TextStyle(fontSize: 15, color: T.muted)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _sharePosterImage(BuildContext ctx) async {
-    final boundary =
-        _posterKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-    final image = await boundary.toImage(pixelRatio: 3);
-    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-    final file = File('${Directory.systemTemp.path}/zhanbao.png');
-    await file.writeAsBytes(bytes!.buffer.asUint8List());
-    await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
-  }
-
-  /// 分享海报本体：渐变底 + 大数字 + 任务清单（截 12 条）
-  Widget _poster(
-      List<Task> done, int days, int wishCount, String period, String bigLabel) {
-    final shown = done.take(12).toList();
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF4B84DB), Color(0xFF4FA394), Color(0xFF5EB87C)],
-          stops: [0, .55, 1],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(bigLabel,
-              style: const TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1,
-                  color: Colors.white,
-                  height: 1)),
-          const SizedBox(height: 10),
-          Text('$period我${scope == 2 ? '一共' : ''}完成了 ${done.length} 个任务',
-              style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
-          const SizedBox(height: 4),
-          Text(
-              '打卡 $days 天${wishCount == 0 ? '' : ' · 推进 $wishCount 个心愿'}',
-              style: TextStyle(
-                  fontSize: 14, color: Colors.white.withValues(alpha: .8))),
-          if (shown.isNotEmpty) ...[
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              height: 1,
-              color: Colors.white.withValues(alpha: .25),
-            ),
-            for (final t in shown)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                          color: Colors.white, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(t.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 15, color: Colors.white)),
-                    ),
-                    Text(_dayLabel(t),
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            color: Colors.white.withValues(alpha: .75),
-                            fontFeatures: const [
-                              FontFeature.tabularFigures()
-                            ])),
-                  ],
-                ),
-              ),
-            if (done.length > shown.length)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text('……还有 ${done.length - shown.length} 个',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: .75))),
-              ),
-          ],
-          const SizedBox(height: 14),
-          Center(
-            child: Text('人生清单',
-                style: TextStyle(
-                    fontSize: 13,
-                    letterSpacing: 2,
-                    color: Colors.white.withValues(alpha: .6))),
-          ),
-        ],
-      ),
+    showPosterShare(
+      context,
+      subtitle: '人生清单 · $bigLabel成绩单',
+      summary: '$period我${scope == 2 ? '一共' : ''}完成了 ${done.length} 个任务',
+      stats: [
+        ('完成任务', '${done.length}'),
+        ('打卡天数', '$days'),
+        if (wishCount > 0) ('推进心愿', '$wishCount'),
+      ],
     );
   }
 
@@ -806,7 +667,6 @@ class _MonthReportPageState extends State<_MonthReportPage> {
     );
   }
 }
-
 /// 年月选择器（底部弹层）
 class _MonthPicker extends StatefulWidget {
   const _MonthPicker({required this.initial});
