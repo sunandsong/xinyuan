@@ -1605,7 +1605,7 @@ class DoneListPage extends StatelessWidget {
   );
 }
 
-/// 已完成详情（凭证）
+/// 已完成详情（凭证）：全幅头图压标题 + 引言卡 + 数据条 + 时间线 + 过程笔记
 class DoneWishPage extends StatelessWidget {
   const DoneWishPage({super.key, required this.wish});
   final Wish wish;
@@ -1637,179 +1637,366 @@ class DoneWishPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
     final tasks = AppData.I.tasksOfWish(wish.id);
-    final firstTask = tasks.isEmpty ? null : tasks.last.day;
     final days = wish.doneAt!.difference(wish.createdAt).inDays;
+    final no = AppData.I.doneNumberOf(wish);
     return Scaffold(
       backgroundColor: T.bg,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(13, 8, 13, 12),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  PillBtn(
-                    icon: Icons.arrow_back_ios_new_rounded,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  const Spacer(),
-                  // 变回进行中（撤销完成）
-                  PillBtn(
-                    icon: Icons.replay_rounded,
-                    onTap: () => _confirmUncomplete(context),
-                  ),
-                  const SizedBox(width: 8),
-                  PillBtn(
-                    icon: Icons.ios_share_rounded,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => SharePage(wish: wish)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    SheetCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 封面：有照片用最新一张，没有用默认星空图
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              height: 170,
-                              width: double.infinity,
-                              child: wish.photos.isNotEmpty
-                                  ? WishPhoto(
-                                      wish.photos.last,
-                                      fit: BoxFit.cover,
-                                      fallback: Image.asset(
-                                        'assets/img/hero/default_cover.jpg',
-                                        fit: BoxFit.cover,
-                                      ),
-                                    )
-                                  : Image.asset(
-                                      'assets/img/hero/default_cover.jpg',
-                                      fit: BoxFit.cover,
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  wish.title,
-                                  style: const TextStyle(
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: T.accentSoft,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Text(
-                                  '已完成',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: T.accent,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '「${wish.quote}」',
-                            style: const TextStyle(fontSize: 16.5, height: 1.8),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            [
-                              if (wish.location != null) wish.location!,
-                              ymdDots(wish.doneAt!),
-                            ].join(' · '),
-                            style: const TextStyle(
-                              fontSize: 15.5,
-                              color: T.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _hero(context, top, no)),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(13, 14, 13, 30),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    if (wish.quote?.isNotEmpty ?? false) ...[
+                      _quoteCard(),
+                      const SizedBox(height: 11),
+                    ],
+                    _statsRow(days, tasks.length),
                     const SizedBox(height: 11),
-                    SheetCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '这条心愿的一生',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _step(ymDots(wish.createdAt), '写下心愿'),
-                          if (firstTask != null)
-                            _step(ymDots(firstTask), '第一个任务'),
-                          _step(
-                            ymDots(wish.doneAt!),
-                            '完成 · 共 $days 天${tasks.isNotEmpty ? ' · ${tasks.length} 个任务' : ''}',
-                            bold: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    _timelineCard(tasks, days),
+                    if (wish.notes.isNotEmpty) ...[
+                      const SizedBox(height: 11),
+                      _notesCard(),
+                    ],
+                  ]),
                 ),
               ),
             ],
           ),
+          // 顶栏浮在头图上
+          Positioned(
+            top: top + 8,
+            left: 13,
+            right: 13,
+            child: Row(
+              children: [
+                DarkPill(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  onTap: () => Navigator.pop(context),
+                ),
+                const Spacer(),
+                DarkPill(
+                  icon: Icons.replay_rounded,
+                  onTap: () => _confirmUncomplete(context),
+                ),
+                const SizedBox(width: 8),
+                DarkPill(
+                  icon: Icons.ios_share_rounded,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => SharePage(wish: wish)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- 头图：照片轮播/默认封面 + 压暗 + 序号标题地点 ----------
+  Widget _hero(BuildContext context, double top, int no) {
+    return SizedBox(
+      height: 340,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (wish.photos.isNotEmpty)
+            _PhotoCarousel(photos: wish.photos, topInset: top)
+          else
+            Image.asset('assets/img/hero/default_cover.jpg', fit: BoxFit.cover),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0, .35, 1],
+                colors: [
+                  Color(0x59000000),
+                  Color(0x1A000000),
+                  Color(0xD9000000),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 22,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: T.gold.withValues(alpha: .9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '第 $no 个实现',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: .5,
+                      color: Color(0xFF3A2C10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  wish.title,
+                  style: const TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                    color: Colors.white,
+                    shadows: [Shadow(color: Color(0x66000000), blurRadius: 8)],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    if (wish.location?.isNotEmpty ?? false) ...[
+                      const Icon(Icons.place_rounded,
+                          size: 14, color: Colors.white70),
+                      const SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          wish.location!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 13.5, color: Colors.white70),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    const Icon(Icons.event_available_rounded,
+                        size: 14, color: Colors.white70),
+                    const SizedBox(width: 3),
+                    Text(
+                      ymdDots(wish.doneAt!),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: Colors.white70,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- 当时写下的那句话 ----------
+  Widget _quoteCard() {
+    return SheetCard(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '\u201C',
+            style: TextStyle(
+              fontSize: 46,
+              height: 1,
+              fontWeight: FontWeight.w700,
+              color: T.accent.withValues(alpha: .25),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 2, top: 2),
+            child: Text(
+              wish.quote!,
+              style: const TextStyle(
+                fontSize: 16.5,
+                height: 1.85,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- 三格数据条 ----------
+  Widget _statsRow(int days, int taskCount) {
+    final stepDone = wish.doneStepCount;
+    return Row(
+      children: [
+        _stat('$days', '天走完'),
+        const SizedBox(width: 10),
+        _stat('$taskCount', '个任务'),
+        const SizedBox(width: 10),
+        _stat(
+          wish.steps.isEmpty ? '${wish.photos.length}' : '$stepDone',
+          wish.steps.isEmpty ? '张照片' : '个里程碑',
+        ),
+      ],
+    );
+  }
+
+  Widget _stat(String value, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: T.card,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: T.shadowCard,
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                height: 1,
+                color: T.accent,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(label,
+                style: const TextStyle(fontSize: 12.5, color: T.muted)),
+          ],
         ),
       ),
     );
   }
 
-  Widget _step(String date, String text, {bool bold = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+  // ---------- 时间线：写下 → 第一个任务 → 里程碑 → 实现 ----------
+  Widget _timelineCard(List<Task> tasks, int days) {
+    final rows = <(DateTime, String)>[
+      (wish.createdAt, '写下这个心愿'),
+      if (tasks.isNotEmpty) (tasks.last.day, '迈出第一步'),
+      for (final s in wish.steps)
+        if (s.done && s.doneAt != null) (s.doneAt!, s.title),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    return SheetCard(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 56,
-            child: Text(
-              date,
-              style: const TextStyle(
-                fontSize: 15.5,
-                color: T.accent,
-                fontFeatures: [FontFeature.tabularFigures()],
-              ),
-            ),
+          const Text(
+            '这条心愿的一生',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(height: 14),
+          for (final (at, text) in rows) _node(ymdDots(at), text),
+          _node(ymdDots(wish.doneAt!), '实现了 · 一共走了 $days 天',
+              last: true, gold: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _node(String date, String text,
+      {bool last = false, bool gold = false}) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                margin: const EdgeInsets.only(top: 3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: gold ? T.gold : T.accent.withValues(alpha: .45),
+                  boxShadow: gold
+                      ? [
+                          BoxShadow(
+                              color: T.gold.withValues(alpha: .5),
+                              blurRadius: 8),
+                        ]
+                      : null,
+                ),
+              ),
+              if (!last)
+                Expanded(child: Container(width: 1.5, color: T.field)),
+            ],
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: last ? 0 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      height: 1.2,
+                      fontWeight: gold ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    date,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: T.faint,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- 过程笔记 ----------
+  Widget _notesCard() {
+    return SheetCard(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '一路上的 ${wish.notes.length} 条记录',
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          for (final n in wish.notes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(n.text,
+                      style: const TextStyle(fontSize: 15, height: 1.6)),
+                  const SizedBox(height: 2),
+                  Text(
+                    ymdDots(n.at),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: T.faint,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

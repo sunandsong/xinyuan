@@ -98,29 +98,33 @@ class _WishEditPageState extends State<WishEditPage> {
             ),
           ),
         ),
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () =>
-              _multi ? _exitMulti() : setState(() => _multi = all.isNotEmpty),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: Text(
-              _multi ? '取消' : '多选',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: T.accent,
+        _multi
+            ? GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _exitMulti,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  child: Text(
+                    '取消',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: T.accent,
+                    ),
+                  ),
+                ),
+              )
+            : PillBtn(
+                icon: Icons.delete_outline_rounded,
+                onTap: () => setState(() => _multi = all.isNotEmpty),
               ),
-            ),
-          ),
-        ),
       ],
     );
   }
 
   /// 列表顶部：普通态是操作提示，多选态是「已选 N 个 / 全选」
   Widget _hintBar(List<Wish> all) {
-    if (!_multi) return _hint('左滑删除，轻点修改，右上角可多选');
+    if (!_multi) return _hint('左滑删除，轻点修改，右上角批量删除');
     final allOn = _sel.length == all.length;
     return Padding(
       padding: const EdgeInsets.only(left: 4, right: 4, bottom: 8),
