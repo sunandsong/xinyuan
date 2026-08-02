@@ -123,29 +123,8 @@ class WishesTab extends StatelessWidget {
     );
   }
 
-  // 上半部分主视觉方案：
-  // 0=星空 1=登顶 2=星愿罐 3=记忆卡墙 4=金色奖章 5=年度报告 6=宇宙轨道 7=全息卡
-  static const int heroVariant = 5;
-  Widget _hero(List<Wish> done, double maxH, double minH) {
-    switch (heroVariant) {
-      case 1:
-        return HeroSummit(done: done);
-      case 2:
-        return HeroJar(done: done);
-      case 3:
-        return HeroWall(done: done);
-      case 4:
-        return HeroMedals(done: done);
-      case 5:
-        return HeroWrapped(done: done, maxH: maxH, minH: minH);
-      case 6:
-        return HeroOrbit(done: done);
-      case 7:
-        return HeroFoilCard(done: done);
-      default:
-        return HeroConstellation(done: done);
-    }
-  }
+  Widget _hero(List<Wish> done, double maxH, double minH) =>
+      HeroWrapped(done: done, maxH: maxH, minH: minH);
 
   // 独立白卡 + 左侧竖色条 + 加粗标题
   Widget _activeCard(BuildContext context, Wish w) {
