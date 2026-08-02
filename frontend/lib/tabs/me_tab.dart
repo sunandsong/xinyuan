@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data.dart';
 import '../pages/login_page.dart';
-import '../pages/map_page.dart';
+import '../pages/world_page.dart';
 import '../pages/misc_pages.dart';
 import '../pages/tree_page.dart';
 import '../pages/wish_edit_page.dart';
@@ -48,15 +48,9 @@ class MeTab extends StatelessWidget {
                     ),
                     _row(
                       context,
-                      '点亮地图',
-                      '${mapPoints().where((p) => p.lit).length} 处',
-                      () => _push(context, const MapPage()),
-                    ),
-                    _row(
-                      context,
-                      '${DateTime.now().year} 年度回顾',
-                      '',
-                      () => _push(context, const AnnualPage()),
+                      '点亮世界',
+                      '${litPlaceCount()} 处',
+                      () => _push(context, const WorldPage()),
                     ),
                     _row(
                       context,
