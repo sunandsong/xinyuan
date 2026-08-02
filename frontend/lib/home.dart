@@ -27,14 +27,15 @@ class _HomeShellState extends State<HomeShell>
   // 点亮记录在 AppData.achvUnlocked（本机 + 云端持久化）；这里只负责发现新达成并庆祝
   bool _achvReady = false;
   bool _achvBusy = false;
-  late final AnimationController _fx = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2600));
+  late final AnimationController _fx;
 
   static const _tabs = [TasksTab(), WishesTab(), MeTab()];
 
   @override
   void initState() {
     super.initState();
+    _fx = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 2600));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 120), () {
         if (mounted) setState(() => _warmedUp = true);
