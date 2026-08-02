@@ -1,10 +1,73 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../data.dart';
+import '../theme.dart';
 import '../ui.dart';
-import 'wish_pages.dart';
 
-/// 荣誉殿堂 —— 已完成心愿是金属立体奖章，进行中的是待点亮的暗格
+/// 一枚成就：达成条件由现有数据现算；点亮记录（recordedAt）云端持久化，拿到即永久
+class Achv {
+  const Achv(this.emoji, this.name, this.desc, this.goal, this.value,
+      this.color, this.recordedAt);
+  final String emoji;
+  final String name;
+  final String desc;
+  final int goal;
+  final int value;
+  final Color color;
+  final int? recordedAt; // 点亮时间(ms)；非空 = 永久点亮
+  bool get met => value >= goal; // 当前条件是否满足
+  bool get done => recordedAt != null || met;
+}
+
+/// 使用 App 的成就清单（按进阶顺序排列）
+List<Achv> achievements(AppData d) {
+  final doneTasks = d.doneTaskCount;
+  final streak = d.streakDays;
+  final doneWishes = d.wishes.where((w) => w.done).length;
+  final total = d.wishes.length;
+  final pct = total == 0 ? 0 : doneWishes * 100 ~/ total;
+  final hasStep =
+      d.wishes.any((w) => w.steps.any((s) => s.done)) ? 1 : 0;
+  final hasPhoto = d.wishes.any((w) => w.photos.isNotEmpty) ? 1 : 0;
+  final hasNote = d.wishes.any((w) => w.notes.isNotEmpty) ? 1 : 0;
+  final hasLetter = d.letters.isNotEmpty ? 1 : 0;
+  final rec = d.achvUnlocked;
+  Achv a(String emoji, String name, String desc, int goal, int value,
+          Color color) =>
+      Achv(emoji, name, desc, goal, value, color, rec[name]);
+  return [
+    a('🎯', '初试身手', '完成第 1 个任务', 1, doneTasks,
+        const Color(0xFF6FA8DC)),
+    a('✅', '渐入佳境', '完成 10 个任务', 10, doneTasks,
+        const Color(0xFF5EB87C)),
+    a('💯', '百炼成钢', '完成 100 个任务', 100, doneTasks,
+        const Color(0xFFB07E2E)),
+    a('🔥', '三日之约', '连续 3 天完成任务', 3, streak,
+        const Color(0xFFE0855A)),
+    a('📆', '七日成习', '连续 7 天完成任务', 7, streak,
+        const Color(0xFFD96A8B)),
+    a('🏔️', '三十而立', '连续 30 天完成任务', 30, streak,
+        const Color(0xFF8B5AD9)),
+    a('⭐', '首愿达成', '点亮第 1 个心愿', 1, doneWishes,
+        const Color(0xFFF3C877)),
+    a('🌟', '五愿成真', '点亮 5 个心愿', 5, doneWishes,
+        const Color(0xFFE8B44C)),
+    a('👑', '十全十美', '点亮 10 个心愿', 10, doneWishes,
+        const Color(0xFFDA9A2B)),
+    a('🌗', '心愿过半', '清单完成度达到 50%', 50, pct,
+        const Color(0xFF7A8FD8)),
+    a('🧩', '拆解行家', '完成 1 个心愿里程碑', 1, hasStep,
+        const Color(0xFF4FA394)),
+    a('📸', '留下印记', '给心愿传第 1 张照片', 1, hasPhoto,
+        const Color(0xFF6A5AE0)),
+    a('📝', '过程记录者', '写下第 1 条心愿笔记', 1, hasNote,
+        const Color(0xFF5C8A6E)),
+    a('✉️', '时光旅人', '写 1 封给未来的信', 1, hasLetter,
+        const Color(0xFFA06AD8)),
+  ];
+}
+
+/// 荣誉殿堂 —— 使用 App 攒下的成就奖章：达成是金属立体奖章，未达成是待点亮的暗格
 class TreePage extends StatelessWidget {
   const TreePage({super.key});
 
@@ -15,35 +78,14 @@ class TreePage extends StatelessWidget {
   static const _goldLo = Color(0xFFB07E2E);
   static const _lightInk = Color(0xFFE8EEF8);
 
-  // 从心愿标题猜一个奖章图标
-  static String _emoji(String t) {
-    bool has(String s) => t.contains(s);
-    if (has('马拉松') || has('跑')) return '🏃';
-    if (has('潜')) return '🤿';
-    if (has('游泳')) return '🏊';
-    if (has('菜') || has('做饭') || has('厨')) return '🍳';
-    if (has('出版')) return '✍️';
-    if (has('读') || has('书')) return '📚';
-    if (has('十万') || has('攒') || has('钱') || has('存')) return '💰';
-    if (has('极光') || has('冰岛')) return '🌌';
-    if (has('吉他') || has('弹') || has('琴')) return '🎸';
-    if (has('海')) return '🏖️';
-    if (has('爸妈') || has('周末') || has('家')) return '🏡';
-    if (has('旅') || has('远方')) return '🧳';
-    return '🏅';
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: AppData.I,
       builder: (context, _) {
-        final data = AppData.I;
-        final unlocked = data.doneWishes;
-        final locked = data.activeWishes;
-        final total = data.wishes.length;
-        final got = unlocked.length;
-        final all = [...unlocked, ...locked];
+        final all = achievements(AppData.I);
+        final got = all.where((a) => a.done).length;
+        final total = all.length;
 
         return Scaffold(
           backgroundColor: _bg2,
@@ -100,9 +142,7 @@ class TreePage extends StatelessWidget {
                                       color: _lightInk)),
                             ),
                           ),
-                          DarkPill(
-                              icon: Icons.ios_share_rounded,
-                              onTap: () => snack(context, '已保存到相册（演示）')),
+                          const SizedBox(width: 38),
                         ],
                       ),
                     ),
@@ -112,9 +152,9 @@ class TreePage extends StatelessWidget {
                         children: [
                           _hero(got, total),
                           const SizedBox(height: 26),
-                          _shelfLabel('已 点 亮'),
+                          _shelfLabel('成 就'),
                           const SizedBox(height: 16),
-                          _grid(context, unlocked, locked, all),
+                          _grid(context, all),
                         ],
                       ),
                     ),
@@ -178,7 +218,7 @@ class TreePage extends StatelessWidget {
                     color: _goldHi,
                     fontFeatures: [FontFeature.tabularFigures()])),
             TextSpan(
-                text: '  / $total 枚荣誉',
+                text: '  / $total 枚成就',
                 style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -186,7 +226,10 @@ class TreePage extends StatelessWidget {
           ]),
         ),
         const SizedBox(height: 8),
-        Text('再点亮 ${total - got} 枚，收满整座殿堂',
+        Text(
+            got >= total
+                ? '殿堂已收满，了不起'
+                : '再点亮 ${total - got} 枚，收满整座殿堂',
             style: TextStyle(
                 fontSize: 12.5, color: _lightInk.withValues(alpha: .4))),
       ],
@@ -217,8 +260,7 @@ class TreePage extends StatelessWidget {
     );
   }
 
-  Widget _grid(BuildContext context, List<Wish> unlocked, List<Wish> locked,
-      List<Wish> all) {
+  Widget _grid(BuildContext context, List<Achv> all) {
     return GridView.count(
       crossAxisCount: 3,
       shrinkWrap: true,
@@ -233,24 +275,18 @@ class TreePage extends StatelessWidget {
     );
   }
 
-  Widget _slot(BuildContext context, Wish w) {
-    final locked = !w.done;
+  Widget _slot(BuildContext context, Achv a) {
+    final locked = !a.done;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              locked ? WishDetailPage(wish: w) : DoneWishPage(wish: w),
-        ),
-      ),
+      onTap: () => _showDetail(context, a),
       child: Column(
         children: [
-          _Medallion(color: w.color, emoji: _emoji(w.title), locked: locked),
+          _Medallion(color: a.color, emoji: a.emoji, locked: locked),
           const SizedBox(height: 12),
           Text(
-            w.title,
-            maxLines: 2,
+            a.name,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -263,14 +299,49 @@ class TreePage extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            locked ? '未点亮' : ymDots(w.doneAt!),
+            locked
+                ? '${a.value.clamp(0, a.goal)}/${a.goal}'
+                : a.recordedAt != null
+                    ? ymDots(DateTime.fromMillisecondsSinceEpoch(
+                        a.recordedAt!))
+                    : '已点亮',
             style: TextStyle(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
                 color: locked
                     ? _lightInk.withValues(alpha: .25)
                     : _gold.withValues(alpha: .8)),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showDetail(BuildContext context, Achv a) {
+    showBlurDialog(
+      context,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(a.emoji,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 44)),
+          const SizedBox(height: 10),
+          Text(a.name,
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(
+            a.done ? a.desc : '${a.desc}\n当前进度 ${a.value.clamp(0, a.goal)}/${a.goal}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 15, height: 1.6, color: T.muted),
+          ),
+          const SizedBox(height: 18),
+          BigBtn(a.done ? '真棒' : '继续加油',
+              onTap: () => Navigator.pop(context)),
         ],
       ),
     );

@@ -19,6 +19,7 @@ export async function patchMe(req: Req, uid: string) {
   if (typeof b.nickname === 'string') patch.nickname = b.nickname.slice(0, 20);
   if (b.avatarEmoji === null || typeof b.avatarEmoji === 'string') patch.avatarEmoji = b.avatarEmoji;
   if (b.avatarUrl === null || typeof b.avatarUrl === 'string') patch.avatarUrl = b.avatarUrl;
+  if (b.achievements && typeof b.achievements === 'object') patch.achievements = b.achievements;
   if (Object.keys(patch).length === 0) return bad('nothing_to_update');
   const profile = await getDb().upsertProfile(uid, patch);
   return ok({ profile: pub(profile) });

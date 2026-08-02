@@ -38,6 +38,10 @@ void showPosterShare(
   bool forWishes = false, // true 用心愿背景组
 }) {
   final styles = forWishes ? _wishStyles : _taskStyles;
+  // 弹层滑入的同时预热解码背景图，别等滑到那页才卡一下
+  for (final st in styles) {
+    precacheImage(AssetImage(st.asset), context);
+  }
   var page = 0;
   final keys = List.generate(styles.length, (_) => GlobalKey());
   final controller = PageController(viewportFraction: .88);

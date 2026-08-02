@@ -7,6 +7,7 @@ export interface UserProfile {
   nickname: string;
   avatarEmoji: string | null;
   avatarUrl?: string | null; // 头像照片（云存储稳定链接），优先于 emoji
+  achievements?: Record<string, number>; // 成就名 → 点亮时间(ms)，拿到即永久
   createdAt: number;
   updatedAt: number;
   deleted?: boolean;

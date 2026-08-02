@@ -66,6 +66,19 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
 
   // 烟花放在全局 Overlay 上（且在弹窗之后插入），才能盖在恭喜弹窗上面一起放
   OverlayEntry? _fxEntry;
+  bool _precached = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 预热三张默认封面的解码，滑动切换不掉帧
+    if (!_precached && widget.declare) {
+      _precached = true;
+      for (final a in _declareCovers) {
+        precacheImage(AssetImage(a), context);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -80,7 +93,7 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
               animation: _fireworks,
               builder: (_, __) => CustomPaint(
                 size: Size.infinite,
-                painter: _FireworksPainter(_fireworks.value),
+                painter: FireworksPainter(_fireworks.value),
               ),
             ),
           ),
@@ -687,8 +700,8 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
 
 /// 一场烟花：几朵错峰绽放的彩色粒子环，带一点下坠和拖尾感。
 /// 参数写死成一张表（位置/起爆时刻/颜色），不用随机数也够热闹。
-class _FireworksPainter extends CustomPainter {
-  _FireworksPainter(this.t);
+class FireworksPainter extends CustomPainter {
+  FireworksPainter(this.t);
   final double t; // 0~1 整场进度
 
   // (fx, fy, 起爆时刻0~1, 色相颜色)
@@ -750,5 +763,5 @@ class _FireworksPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_FireworksPainter old) => old.t != t;
+  bool shouldRepaint(FireworksPainter old) => old.t != t;
 }

@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:convert' show jsonEncode, utf8;
+import 'dart:convert' show jsonDecode, jsonEncode, utf8;
 import 'dart:math' show Random;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'api/api.dart';
 import 'presets.dart';
 import 'session.dart';
@@ -469,6 +470,15 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         if (nick != null && nick.isNotEmpty) nickname = nick;
         avatarUrl = profile['avatarUrl'] as String?;
         accountCreatedAt = _fromMs(profile['createdAt'] as num?);
+        final cloudAchv = ((profile['achievements'] as Map?) ?? const {})
+            .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+        final localOnly =
+            achvUnlocked.keys.any((k) => !cloudAchv.containsKey(k));
+        achvUnlocked = {...achvUnlocked, ...cloudAchv};
+        _saveAchvLocal();
+        if (localOnly) {
+          unawaited(_pushProfile(achievements: achvUnlocked));
+        }
       }
       // 云端心愿为空就兜底填入默认清单，不管是新注册还是老账号空着——不允许出现空列表
       if (wishes.isEmpty) _fillLifeGoals();
@@ -773,6 +783,45 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  // ---------- 成就（勋章）----------
+  /// 成就名 → 点亮时间(ms)。拿到即永久：本机存一份，登录后与云端合并双向同步
+  Map<String, int> achvUnlocked = {};
+  static const _achvKey = 'achv_unlocked';
+
+  Future<void> _loadAchvLocal() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString(_achvKey);
+      if (raw != null) {
+        achvUnlocked = (jsonDecode(raw) as Map)
+            .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+      }
+    } catch (_) {}
+  }
+
+  void _saveAchvLocal() {
+    unawaited(SharedPreferences.getInstance()
+        .then((p) => p.setString(_achvKey, jsonEncode(achvUnlocked))));
+  }
+
+  /// 点亮一批成就（幂等）：记本机 + 推云端
+  void unlockAchvs(Iterable<String> names) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var changed = false;
+    for (final n in names) {
+      if (!achvUnlocked.containsKey(n)) {
+        achvUnlocked[n] = now;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    _saveAchvLocal();
+    if (signedIn) {
+      unawaited(_pushProfile(achievements: achvUnlocked));
+    }
+    notifyListeners();
+  }
+
   /// 上传好的照片设为头像
   void setAvatarPhoto(String url) {
     avatarUrl = url;
@@ -782,9 +831,17 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _pushProfile({String? nickname, String? avatarUrl}) async {
+  Future<void> _pushProfile({
+    String? nickname,
+    String? avatarUrl,
+    Map<String, int>? achievements,
+  }) async {
     try {
-      await AuthApi.updateProfile(nickname: nickname, avatarUrl: avatarUrl);
+      await AuthApi.updateProfile(
+        nickname: nickname,
+        avatarUrl: avatarUrl,
+        achievements: achievements,
+      );
     } catch (_) {
       // 静默失败：资料改动仍留在本地，下次改资料时会一并再推
     }
@@ -796,6 +853,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   /// 启动时装回本地会话；已登录则用云端数据整体替换本地演示数据
   Future<void> initSession() async {
+    await _loadAchvLocal();
     await Session.load();
     signedIn = Session.isLoggedIn;
     email = await Session.email();
@@ -835,6 +893,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     email = null;
     accountCreatedAt = null;
     avatarUrl = null;
+    achvUnlocked = {};
+    _saveAchvLocal();
     _pushTimer?.cancel();
     _dirtyWishes.clear();
     _dirtyTasks.clear();
@@ -885,55 +945,4 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   int get doneTaskCount => tasks.where((t) => t.done).length;
-}
-
-/// 点亮地图上的一个点（fx/fy 是 0~1 的画布位置——这是张风格化星图，不是真地理坐标）
-class MapPoint {
-  const MapPoint(this.name, this.fx, this.fy, this.lit);
-  final String name;
-  final double fx, fy;
-  final bool lit;
-}
-
-/// 常去的目的地给一个好看的固定位置，其余地名按散列落点
-const presetPlaces = [
-  ('大理', .29, .25),
-  ('上海', .57, .41),
-  ('涛岛', .39, .65),
-  ('成都', .65, .79),
-  ('东京', .80, .30),
-  ('冰岛', .14, .12),
-  ('冲绳', .76, .58),
-];
-
-/// 由已完成心愿的"在哪儿完成的"生成地图点：
-/// 填过的地点亮着；预设城市没去过的也画出来当"下一站"的念想。
-List<MapPoint> mapPoints() {
-  final lit = <String>{
-    for (final w in AppData.I.wishes)
-      if (w.done && (w.location?.isNotEmpty ?? false)) w.location!,
-  };
-  final points = <MapPoint>[];
-  final used = <String>{};
-  for (final (name, fx, fy) in presetPlaces) {
-    final hit = lit.where((l) => l.contains(name) || name.contains(l)).toList();
-    used.addAll(hit);
-    points.add(MapPoint(name, fx, fy, hit.isNotEmpty));
-  }
-  // 不在预设里的地点：按名字散列一个稳定位置（同一地名永远在同一处）
-  for (final l in lit.difference(used)) {
-    var h = 0;
-    for (final c in l.codeUnits) {
-      h = (h * 31 + c) & 0x7fffffff;
-    }
-    points.add(
-      MapPoint(
-        l,
-        .12 + (h % 997) / 997 * .72,
-        .12 + (h ~/ 997 % 997) / 997 * .72,
-        true,
-      ),
-    );
-  }
-  return points;
 }

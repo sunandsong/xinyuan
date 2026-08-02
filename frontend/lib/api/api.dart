@@ -162,10 +162,12 @@ class AuthApi {
   static Future<Map<String, dynamic>> updateProfile({
     String? nickname,
     String? avatarUrl,
+    Map<String, int>? achievements,
   }) {
     final body = <String, dynamic>{};
     if (nickname != null) body['nickname'] = nickname;
     if (avatarUrl != null) body['avatarUrl'] = avatarUrl;
+    if (achievements != null) body['achievements'] = achievements;
     return ApiClient.I.patch('/me', body);
   }
 

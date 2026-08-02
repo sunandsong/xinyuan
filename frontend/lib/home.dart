@@ -1,10 +1,14 @@
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'data.dart';
+import 'pages/share_page.dart' show FireworksPainter;
+import 'pages/tree_page.dart' show achievements, Achv;
 import 'tabs/me_tab.dart';
 import 'tabs/tasks_tab.dart';
 import 'tabs/wishes_tab.dart';
 import 'theme.dart';
+import 'ui.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, this.initialIndex = 0});
@@ -13,10 +17,107 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell>
+    with SingleTickerProviderStateMixin {
   late int _index = widget.initialIndex;
+  // 启动后把重页面以 1% 透明度画一帧，提前编译着色器（首次切页不卡），画完即拆
+  bool _warmedUp = false;
+
+  // ---------- 成就点亮监听 ----------
+  // 点亮记录在 AppData.achvUnlocked（本机 + 云端持久化）；这里只负责发现新达成并庆祝
+  bool _achvReady = false;
+  bool _achvBusy = false;
+  late final AnimationController _fx = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 2600));
 
   static const _tabs = [TasksTab(), WishesTab(), MeTab()];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 120), () {
+        if (mounted) setState(() => _warmedUp = true);
+      });
+    });
+    _initAchvWatch();
+  }
+
+  Future<void> _initAchvWatch() async {
+    final p = await SharedPreferences.getInstance();
+    // 老数据首次升级：把已达成的静默入账（记录会推云端），别开屏放一串烟花
+    if (!(p.getBool('achv_seeded') ?? false)) {
+      AppData.I.unlockAchvs(
+          achievements(AppData.I).where((a) => a.met).map((a) => a.name));
+      await p.setBool('achv_seeded', true);
+    }
+    _achvReady = true;
+    AppData.I.addListener(_checkNewAchv);
+  }
+
+  void _checkNewAchv() {
+    if (!_achvReady || _achvBusy || !mounted) return;
+    final fresh = achievements(AppData.I)
+        .where((a) => a.met && a.recordedAt == null)
+        .toList();
+    if (fresh.isEmpty) return;
+    // 一次数据变更只弹第一枚，其余静默入账（比如登录整体拉取时别连环弹窗）
+    _achvBusy = true;
+    AppData.I.unlockAchvs(fresh.map((a) => a.name));
+    _achvBusy = false;
+    final a = fresh.first;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _celebrateAchv(a);
+    });
+  }
+
+  /// 点亮成就：烟花盖全屏 + 恭喜弹窗
+  void _celebrateAchv(Achv a) {
+    HapticFeedback.mediumImpact();
+    final entry = OverlayEntry(
+      builder: (_) => IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _fx,
+          builder: (_, __) => CustomPaint(
+            size: Size.infinite,
+            painter: FireworksPainter(_fx.value),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context, rootOverlay: true).insert(entry);
+    _fx.forward(from: 0).whenComplete(entry.remove);
+    showBlurDialog(
+      context,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(a.emoji,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 44)),
+          const SizedBox(height: 10),
+          const Text('点亮新成就！',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text('「${a.name}」\n${a.desc}',
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(fontSize: 15, height: 1.6, color: T.muted)),
+          const SizedBox(height: 18),
+          BigBtn('去殿堂看看', onTap: () => Navigator.pop(context)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    AppData.I.removeListener(_checkNewAchv);
+    _fx.dispose();
+    super.dispose();
+  }
 
   void _go(int i) {
     if (i == _index) return;
@@ -41,33 +142,39 @@ class _HomeShellState extends State<HomeShell> {
                 TickerMode(enabled: i == _index, child: _tabs[i]),
             ],
           ),
-        ],
-      ),
-      bottomNavigationBar: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .6),
-              border: Border(
-                  top: BorderSide(
-                      color: Colors.white.withValues(alpha: .5), width: .5)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    _item(0, Icons.calendar_today_outlined,
-                        Icons.calendar_month_rounded, '任务'),
-                    _item(1, Icons.star_outline_rounded, Icons.star_rounded,
-                        '人生清单'),
-                    _item(2, Icons.person_outline_rounded,
-                        Icons.person_rounded, '我的'),
-                  ],
+          if (!_warmedUp && _index != 1)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: .01,
+                  child: TickerMode(
+                      enabled: false, child: const WishesTab()),
                 ),
               ),
+            ),
+        ],
+      ),
+      // ponytail: 实时背景模糊太贵（每帧重算），换成高不透明度纯色；想要毛玻璃再换回 BackdropFilter
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(
+              top: BorderSide(
+                  color: Colors.white.withValues(alpha: .5), width: .5)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                _item(0, Icons.calendar_today_outlined,
+                    Icons.calendar_month_rounded, '任务'),
+                _item(1, Icons.star_outline_rounded, Icons.star_rounded,
+                    '人生清单'),
+                _item(2, Icons.person_outline_rounded,
+                    Icons.person_rounded, '我的'),
+              ],
             ),
           ),
         ),
