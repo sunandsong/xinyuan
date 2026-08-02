@@ -396,8 +396,9 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _flushPush() async {
-    if (_dirtyWishes.isEmpty && _dirtyTasks.isEmpty && _dirtyLetters.isEmpty)
+    if (_dirtyWishes.isEmpty && _dirtyTasks.isEmpty && _dirtyLetters.isEmpty) {
       return;
+    }
     final chunks = _buildPushChunks(
       _dirtyWishes.toList(),
       _dirtyTasks.toList(),
