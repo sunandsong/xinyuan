@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../data.dart';
-import '../theme.dart';
 import '../ui.dart';
 
 /// 一枚成就：达成条件由现有数据现算；点亮记录（recordedAt）云端持久化，拿到即永久
@@ -319,31 +318,14 @@ class TreePage extends StatelessWidget {
   }
 
   void _showDetail(BuildContext context, Achv a) {
-    showBlurDialog(
+    showPosterDialog(
       context,
-      Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(a.emoji,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 44)),
-          const SizedBox(height: 10),
-          Text(a.name,
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Text(
-            a.done ? a.desc : '${a.desc}\n当前进度 ${a.value.clamp(0, a.goal)}/${a.goal}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 15, height: 1.6, color: T.muted),
-          ),
-          const SizedBox(height: 18),
-          BigBtn(a.done ? '真棒' : '继续加油',
-              onTap: () => Navigator.pop(context)),
-        ],
-      ),
+      title: a.name,
+      body: a.done
+          ? '${a.emoji}  ${a.desc}'
+          : '${a.emoji}  ${a.desc}\n当前进度 ${a.value.clamp(0, a.goal)}/${a.goal}',
+      action: a.done ? '真棒' : '继续加油',
+      asset: 'assets/img/hero/declare_cover.jpg',
     );
   }
 }

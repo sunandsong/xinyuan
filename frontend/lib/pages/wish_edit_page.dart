@@ -321,26 +321,12 @@ class _WishEditPageState extends State<WishEditPage> {
     required String body,
     required VoidCallback onOk,
   }) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              onOk();
-            },
-            style: TextButton.styleFrom(foregroundColor: T.danger),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    showConfirmDialog(
+      context,
+      emoji: '🗑️',
+      title: title,
+      body: body,
+      onConfirm: onOk,
     );
   }
 }

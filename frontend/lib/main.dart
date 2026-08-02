@@ -33,6 +33,37 @@ class XinyuanApp extends StatelessWidget {
         highlightColor: Colors.transparent,
         fontFamily: 'MiSans',
         fontFamilyFallback: const ['PingFang SC', 'sans-serif'],
+        // 日期选择器：整体白底墨字，选中日期用深色圆底，不出现主题绿
+        datePickerTheme: DatePickerThemeData(
+          backgroundColor: T.card,
+          surfaceTintColor: Colors.transparent,
+          headerBackgroundColor: T.card,
+          headerForegroundColor: T.ink,
+          dividerColor: T.line,
+          dayForegroundColor: WidgetStateProperty.resolveWith(
+            (st) => st.contains(WidgetState.selected) ? Colors.white : T.ink,
+          ),
+          dayBackgroundColor: WidgetStateProperty.resolveWith(
+            (st) => st.contains(WidgetState.selected) ? T.ink : null,
+          ),
+          dayOverlayColor: const WidgetStatePropertyAll(T.field),
+          todayForegroundColor: WidgetStateProperty.resolveWith(
+            (st) => st.contains(WidgetState.selected) ? Colors.white : T.ink,
+          ),
+          todayBackgroundColor: WidgetStateProperty.resolveWith(
+            (st) => st.contains(WidgetState.selected) ? T.ink : null,
+          ),
+          todayBorder: const BorderSide(color: T.muted),
+          yearForegroundColor: WidgetStateProperty.resolveWith(
+            (st) => st.contains(WidgetState.selected) ? Colors.white : T.ink,
+          ),
+          yearBackgroundColor: WidgetStateProperty.resolveWith(
+            (st) => st.contains(WidgetState.selected) ? T.ink : null,
+          ),
+          weekdayStyle: const TextStyle(color: T.muted),
+          confirmButtonStyle: TextButton.styleFrom(foregroundColor: T.ink),
+          cancelButtonStyle: TextButton.styleFrom(foregroundColor: T.muted),
+        ),
       ),
       home: const SplashPage(),
     );

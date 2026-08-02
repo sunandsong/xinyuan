@@ -594,3 +594,264 @@ class SelChip extends StatelessWidget {
     );
   }
 }
+
+
+// ══════════════ 统一弹窗：大图 + 右上角叉号，不用大按钮 ══════════════
+
+const _dialogScrim = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  stops: [0, .42, 1],
+  colors: [Color(0x40000000), Color(0x14000000), Color(0xE6000000)],
+);
+
+Widget _dialogClose(BuildContext ctx) => Positioned(
+      top: 12,
+      right: 12,
+      child: GestureDetector(
+        onTap: () => Navigator.pop(ctx),
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: .35),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: .25)),
+          ),
+          child: const Icon(Icons.close_rounded, size: 17, color: Colors.white),
+        ),
+      ),
+    );
+
+Future<void> _showImageDialog(BuildContext context, Widget card) {
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: '',
+    barrierColor: Colors.black.withValues(alpha: .3),
+    transitionDuration: const Duration(milliseconds: 280),
+    pageBuilder: (ctx, _, __) => Material(
+      type: MaterialType.transparency,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 38),
+          child: card,
+        ),
+      ),
+    ),
+    transitionBuilder: (ctx, anim, __, child) => BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 16 * anim.value, sigmaY: 16 * anim.value),
+      child: FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: Tween(begin: .9, end: 1.0).animate(
+              CurvedAnimation(parent: anim, curve: Curves.easeOutBack)),
+          child: child,
+        ),
+      ),
+    ),
+  );
+}
+
+/// 庆祝/告知类弹窗（满图海报）：3:4 大图压标题，底部一行文字操作。
+/// [image] 传心愿自己的照片组件时用它当底图，否则用 [asset]。
+Future<void> showPosterDialog(
+  BuildContext context, {
+  required String title,
+  required String body,
+  required String action,
+  String asset = 'assets/posters/wish3.jpg',
+  Widget? image,
+  VoidCallback? onAction,
+}) {
+  return _showImageDialog(
+    context,
+    Builder(builder: (ctx) {
+      return AspectRatio(
+        aspectRatio: 3 / 4,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              image ?? Image.asset(asset, fit: BoxFit.cover),
+              const DecoratedBox(
+                  decoration: BoxDecoration(gradient: _dialogScrim)),
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 20,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          height: 1.25,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(color: Color(0x66000000), blurRadius: 10)
+                          ],
+                        )),
+                    const SizedBox(height: 8),
+                    Text(body,
+                        style: TextStyle(
+                            fontSize: 14,
+                            height: 1.6,
+                            color: Colors.white.withValues(alpha: .85))),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        onAction?.call();
+                      },
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Text(action,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _dialogClose(ctx),
+            ],
+          ),
+        ),
+      );
+    }),
+  );
+}
+
+/// 确认类弹窗（大图 + 白边圆徽章）：左「再想想」右红色确认，没有大按钮
+Future<void> showConfirmDialog(
+  BuildContext context, {
+  required String emoji,
+  required String title,
+  required String body,
+  required VoidCallback onConfirm,
+  String confirmText = '删除',
+  String cancelText = '再想想',
+  String asset = 'assets/img/hero/default_cover.jpg',
+}) {
+  return _showImageDialog(
+    context,
+    Builder(builder: (ctx) {
+      return AspectRatio(
+        aspectRatio: 4 / 5,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(asset, fit: BoxFit.cover),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0, .35, 1],
+                    colors: [
+                      Color(0x59000000),
+                      Color(0x33000000),
+                      Color(0xF20B1120),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 46,
+                child: Center(
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: .16),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: .75), width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: .35),
+                            blurRadius: 20),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(emoji, style: const TextStyle(fontSize: 44)),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 20,
+                child: Column(
+                  children: [
+                    Text(title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white)),
+                    const SizedBox(height: 8),
+                    Text(body,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 14,
+                            height: 1.6,
+                            color: Colors.white.withValues(alpha: .82))),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => Navigator.pop(ctx),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            child: Text(cancelText,
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    color:
+                                        Colors.white.withValues(alpha: .7))),
+                          ),
+                        ),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            onConfirm();
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            child: Text(confirmText,
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFFF8A8A))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              _dialogClose(ctx),
+            ],
+          ),
+        ),
+      );
+    }),
+  );
+}

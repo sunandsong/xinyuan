@@ -429,24 +429,12 @@ class _TasksTabState extends State<TasksTab> {
   }
 
   void _confirmDeleteTask(Task t) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除任务'),
-        content: Text('确定删除「${t.title}」吗？'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              AppData.I.deleteTask(t);
-            },
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFE05A5A)),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    showConfirmDialog(
+      context,
+      emoji: '🗑️',
+      title: '删除这个任务？',
+      body: '「${t.title}」\n删除后无法恢复',
+      onConfirm: () => AppData.I.deleteTask(t),
     );
   }
 

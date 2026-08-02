@@ -88,28 +88,12 @@ class _HomeShellState extends State<HomeShell>
     );
     Overlay.of(context, rootOverlay: true).insert(entry);
     _fx.forward(from: 0).whenComplete(entry.remove);
-    showBlurDialog(
+    showPosterDialog(
       context,
-      Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(a.emoji,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 44)),
-          const SizedBox(height: 10),
-          const Text('点亮新成就！',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Text('「${a.name}」\n${a.desc}',
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 15, height: 1.6, color: T.muted)),
-          const SizedBox(height: 18),
-          BigBtn('去殿堂看看', onTap: () => Navigator.pop(context)),
-        ],
-      ),
+      title: '点亮新成就',
+      body: '${a.emoji}  「${a.name}」\n${a.desc}',
+      action: '去殿堂看看',
+      asset: 'assets/img/hero/declare_cover.jpg',
     );
   }
 

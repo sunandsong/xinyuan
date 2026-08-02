@@ -163,7 +163,7 @@ void main() {
     await settle(t, 500);
     AppData.I.toggleTask(task); // 完成 → 触发「初试身手」
     await settle(t, 2500);
-    expect(find.text('点亮新成就！'), findsOneWidget);
+    expect(find.text('点亮新成就'), findsOneWidget); // 大图海报弹窗
     await t.tap(find.text('去殿堂看看'));
     await settle(t, 1000);
     AppData.I.deleteTask(task); // 收拾干净

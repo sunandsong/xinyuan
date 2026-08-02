@@ -452,53 +452,30 @@ class MeTab extends StatelessWidget {
   }
 
   void _confirmSignOut(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定退出当前账号吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              AppData.I.logout();
-              snack(context, '已退出登录');
-            },
-            child: const Text('退出'),
-          ),
-        ],
-      ),
+    showConfirmDialog(
+      context,
+      emoji: '👋',
+      title: '退出登录？',
+      body: '云端数据都还在，重新登录就回来了',
+      confirmText: '退出',
+      onConfirm: () {
+        AppData.I.logout();
+        snack(context, '已退出登录');
+      },
     );
   }
 
   void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('注销账号'),
-        content: const Text('注销后账号及数据将无法恢复，确定继续吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              AppData.I.deleteAccountRemote();
-              snack(context, '账号已注销');
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFE05A5A),
-            ),
-            child: const Text('确认注销'),
-          ),
-        ],
-      ),
+    showConfirmDialog(
+      context,
+      emoji: '⚠️',
+      title: '注销账号？',
+      body: '账号和全部数据将无法恢复\n这一步没有后悔药',
+      confirmText: '确认注销',
+      onConfirm: () {
+        AppData.I.deleteAccountRemote();
+        snack(context, '账号已注销');
+      },
     );
   }
 }

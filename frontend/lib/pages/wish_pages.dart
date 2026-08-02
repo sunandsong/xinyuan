@@ -882,26 +882,13 @@ class WishDetailPage extends StatelessWidget {
   }
 
   Future<void> _confirmDeletePhoto(BuildContext context, String url) {
-    return showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除照片'),
-        content: const Text('把这张照片从心愿里移除？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              AppData.I.removeWishPhoto(wish, url);
-            },
-            style: TextButton.styleFrom(foregroundColor: T.danger),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    return showConfirmDialog(
+      context,
+      emoji: '📷',
+      title: '移除这张照片？',
+      body: '照片会从这个心愿里拿掉',
+      confirmText: '移除',
+      onConfirm: () => AppData.I.removeWishPhoto(wish, url),
     );
   }
 
@@ -1611,27 +1598,17 @@ class DoneWishPage extends StatelessWidget {
   final Wish wish;
 
   Future<void> _confirmUncomplete(BuildContext context) {
-    return showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('变回进行中？'),
-        content: const Text('完成时间和地点会清除（地图上的点会熄灭），当时写的话会保留。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              AppData.I.uncompleteWish(wish);
-              // 这页是"已完成凭证"，心愿都不再是完成态了，退出去
-              Navigator.pop(context);
-            },
-            child: const Text('变回进行中'),
-          ),
-        ],
-      ),
+    return showConfirmDialog(
+      context,
+      emoji: '↩️',
+      title: '变回进行中？',
+      body: '完成时间和地点会清除\n（世界地图上的点会熄灭），当时写的话保留',
+      confirmText: '变回进行中',
+      onConfirm: () {
+        AppData.I.uncompleteWish(wish);
+        // 这页是"已完成凭证"，心愿都不再是完成态了，退出去
+        Navigator.pop(context);
+      },
     );
   }
 

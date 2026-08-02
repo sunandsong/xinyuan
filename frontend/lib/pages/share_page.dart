@@ -110,34 +110,22 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
   }
 
   void _showCongrats() {
-    final no = AppData.I.doneNumberOf(widget.wish);
-    showBlurDialog(
+    final w = widget.wish;
+    final no = AppData.I.doneNumberOf(w);
+    showPosterDialog(
       context,
-      Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            '🎉',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 44),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            '恭喜！心愿达成',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '「${widget.wish.title}」\n你点亮的第 $no 个心愿',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 15, height: 1.6, color: T.muted),
-          ),
-          const SizedBox(height: 18),
-          BigBtn('太棒了', onTap: () => Navigator.pop(context)),
-        ],
-      ),
+      title: '心愿达成',
+      body: '「${w.title}」\n你点亮的第 $no 个心愿',
+      action: '收下这一刻',
+      // 有自己拍的照片就用它当底图，没有才用兜底封面
+      image: w.photos.isEmpty
+          ? null
+          : WishPhoto(
+              w.photos.last,
+              fit: BoxFit.cover,
+              fallback:
+                  Image.asset('assets/posters/wish3.jpg', fit: BoxFit.cover),
+            ),
     );
   }
 

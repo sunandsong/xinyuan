@@ -518,32 +518,18 @@ Future<void> showEditWishSheet(BuildContext context, Wish w,
 /// 删除单个心愿的确认框；[after] 在真的删掉之后回调（比如把详情页 pop 掉）
 void confirmDeleteWish(BuildContext context, Wish w, {VoidCallback? after}) {
   final related = AppData.I.tasksOfWish(w.id).length;
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('删除心愿'),
-      content: Text(
-        related == 0
-            ? '确定把「${w.title}」从清单里删掉吗？'
-            : '确定把「${w.title}」从清单里删掉吗？关联的 $related 个任务会变成杂事。',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('取消'),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.pop(ctx);
-            AppData.I.deleteWish(w);
-            snack(context, '已删除');
-            after?.call();
-          },
-          style: TextButton.styleFrom(foregroundColor: T.danger),
-          child: const Text('删除'),
-        ),
-      ],
-    ),
+  showConfirmDialog(
+    context,
+    emoji: '🗑️',
+    title: '删除这个心愿？',
+    body: related == 0
+        ? '「${w.title}」\n删除后无法恢复'
+        : '「${w.title}」\n关联的 $related 个任务会变成杂事',
+    onConfirm: () {
+      AppData.I.deleteWish(w);
+      snack(context, '已删除');
+      after?.call();
+    },
   );
 }
 
