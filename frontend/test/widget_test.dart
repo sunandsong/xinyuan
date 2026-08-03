@@ -215,19 +215,16 @@ void main() {
     }
   });
 
-  testWidgets('平板放大字号，手机不动，且不覆盖系统无障碍设置', (tester) async {
-    Future<double> scaleAt(Size size, {double userScale = 1.0}) async {
-      late double got;
+  testWidgets('平板整体放大：手机原样，平板按等效尺寸渲染再缩放', (tester) async {
+    Future<MediaQueryData> mqAt(Size size, EdgeInsets padding) async {
+      late MediaQueryData got;
       await tester.pumpWidget(MediaQuery(
-        data: MediaQueryData(
-          size: size,
-          textScaler: TextScaler.linear(userScale),
-        ),
+        data: MediaQueryData(size: size, padding: padding, viewPadding: padding),
         child: Builder(
           builder: (outer) => tabletTextScale(
             outer,
             Builder(builder: (inner) {
-              got = MediaQuery.textScalerOf(inner).scale(10) / 10;
+              got = MediaQuery.of(inner);
               return const SizedBox();
             }),
           ),
@@ -236,15 +233,23 @@ void main() {
       return got;
     }
 
-    // iPhone 16 Pro 逻辑尺寸：最短边 393
-    expect(await scaleAt(const Size(393, 852)), closeTo(1.0, 1e-6),
-        reason: '手机上不该被放大');
-    // iPad Pro 11 逻辑尺寸：最短边 834
-    expect(await scaleAt(const Size(834, 1210)), closeTo(1.22, 1e-6),
-        reason: '平板上统一放大');
-    // 用户自己在系统里调大过字号：要叠加，不能被覆盖掉
-    expect(await scaleAt(const Size(834, 1210), userScale: 1.3),
-        closeTo(1.3 * 1.22, 1e-6),
-        reason: '无障碍设置必须保留');
+    // iPhone 16 Pro 逻辑尺寸：最短边 393 —— 一点不动
+    final phone = await mqAt(const Size(393, 852), const EdgeInsets.only(top: 59));
+    expect(phone.size, const Size(393, 852), reason: '手机上不该缩放');
+    expect(phone.padding.top, 59);
+
+    // iPad Pro 11 逻辑尺寸：最短边 834 —— 按 1.4 缩小逻辑尺寸，再整体放大回去
+    final pad = await mqAt(const Size(834, 1210), const EdgeInsets.only(top: 24));
+    expect(pad.size.width, closeTo(834 / 1.4, .01),
+        reason: '布局要按等效窄屏来排，间距/行高才会跟着变大');
+    expect(pad.padding.top, closeTo(24 / 1.4, .01),
+        reason: '安全区也要一起缩，否则避让位置算错');
+    expect(find.byType(Transform), findsWidgets, reason: '缩回真实尺寸靠 Transform');
+
+    // 光看 MediaQuery 的值不够——外层是紧约束，孩子很可能仍按真实尺寸排版，
+    // 再放大就整个溢出屏幕。必须验孩子真实拿到的布局宽度。
+    final box = tester.renderObject<RenderBox>(find.byType(SizedBox).last);
+    expect(box.size.width, closeTo(834 / 1.4, .01),
+        reason: '孩子必须真的按等效窄屏排版，否则会被放大到屏幕外');
   });
 }

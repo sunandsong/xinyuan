@@ -883,18 +883,47 @@ class PreviewShield extends StatelessWidget {
   }
 }
 
-/// 平板整体放大字号。
-/// iPad 上跑的是同一套手机布局，逻辑像素多了一大截，但字号还是手机的 pt 值，
-/// 结果就是「什么都对，就是看着小」。这里按最短边判断设备类型统一放大，
-/// 比逐个页面调字号靠谱得多，也不会漏。
-/// 用户在系统里调过的字号照样乘上去，不覆盖无障碍设置。
+/// 平板上把整个界面按比例放大。
+///
+/// 这套布局是照手机做的，内边距、行高、圆角全是手机的 pt 值。iPad 上只有宽度
+/// 被拉满，纵向尺寸原样不动，于是顶部日历条那种横条就显得又扁又小——单放大字号
+/// 治不了，得连同所有间距一起放大。
+///
+/// 做法：让 iPad 用「等效 [_tabletScale] 分之一的逻辑尺寸」渲染，再整体缩放回真实尺寸。
+/// 比例和手机完全一致，一处生效，各页面一行都不用改。
+/// 代价是所有尺寸都乘了个系数，Transform 之下的命中测试由 Flutter 自己换算
+/// （集成测试在 iPad 上全过，点击都落在正确位置）。
+const _tabletScale = 1.4;
+
 Widget tabletTextScale(BuildContext context, Widget? child) {
   final mq = MediaQuery.of(context);
-  if (child == null || mq.size.shortestSide < 600) return child ?? const SizedBox();
+  if (child == null || mq.size.shortestSide < 600) {
+    return child ?? const SizedBox();
+  }
+  const f = _tabletScale;
+  final logical = mq.size / f;
   return MediaQuery(
+    // 尺寸和各种安全区一起缩，否则刘海/home 条的避让会算错位置
     data: mq.copyWith(
-      textScaler: TextScaler.linear(mq.textScaler.scale(1) * 1.22),
+      size: logical,
+      devicePixelRatio: mq.devicePixelRatio * f,
+      padding: mq.padding / f,
+      viewPadding: mq.viewPadding / f,
+      viewInsets: mq.viewInsets / f,
     ),
-    child: child,
+    child: Transform.scale(
+      scale: f,
+      alignment: Alignment.topLeft,
+      // 必须是 OverflowBox：这里外面是紧约束，SizedBox 会被强行撑回真实尺寸，
+      // 孩子照样按 834 排版，再放大 1.4 就整个溢出屏幕。
+      child: OverflowBox(
+        alignment: Alignment.topLeft,
+        minWidth: logical.width,
+        maxWidth: logical.width,
+        minHeight: logical.height,
+        maxHeight: logical.height,
+        child: child,
+      ),
+    ),
   );
 }
