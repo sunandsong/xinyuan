@@ -218,4 +218,30 @@ void main() {
     await settle(t, 1000);
     AppData.I.deleteTask(task); // 收拾干净
   });
+
+  testWidgets('未登录预览：能滚能看，点一下就弹登录', (t) async {
+    stubCloud();
+    await AppData.I.logout(); // 回到未登录预览态（50 条本地清单）
+    await t.pumpWidget(const app.XinyuanApp());
+    await settle(t, 3500);
+
+    expect(find.text('不留遗憾，活成自己想要的样子'), findsOneWidget);
+    expect(AppData.I.wishes.length, 50, reason: '未登录也要有 50 条可看');
+
+    // 点任意一条心愿：不该进详情，该弹登录
+    final title = AppData.I.wishes.first.title;
+    await t.tap(find.text(title).first);
+    await settle(t, 1200);
+    expect(find.text('登录后，心愿与勋章将云端同步'), findsOneWidget,
+        reason: '未登录时点心愿必须弹登录');
+    await t.tapAt(const Offset(200, 60)); // 点空白关掉弹层
+    await settle(t);
+
+    // 「我的」页的入口同样要拦
+    await tapIcon(t, Icons.person_outline_rounded);
+    await t.tap(find.text('荣誉陈列馆'));
+    await settle(t, 1200);
+    expect(find.text('登录后，心愿与勋章将云端同步'), findsOneWidget,
+        reason: '未登录时「我的」页入口也要拦');
+  });
 }
