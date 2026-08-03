@@ -2,6 +2,7 @@
 // 成就 / 里程碑模板。不联网、不开模拟器，`flutter test` 直接跑。
 // 界面交互见 widget_test.dart，真机流程见 integration_test/app_test.dart。
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xinyuan/data.dart';
@@ -299,6 +300,15 @@ void main() {
       final slugs = achievements(d).map((a) => a.slug).toList();
       expect(slugs.every((s) => s.isNotEmpty), isTrue);
       expect(slugs.toSet().length, slugs.length, reason: '图标文件名不能撞');
+    });
+
+    test('14 枚奖杯图标都真的打进包里了', () async {
+      for (final a in achievements(d)) {
+        expect(await rootBundle.load(a.icon).then((_) => true, onError: (_) => false),
+            isTrue,
+            reason: '${a.name} 的图标 ${a.icon} 找不到——'
+                '要么文件没放，要么 slug 和文件名对不上');
+      }
     });
   });
 
