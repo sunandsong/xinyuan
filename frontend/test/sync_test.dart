@@ -211,18 +211,18 @@ void main() {
     });
 
     test('成就：本地和云端取并集，本地独有的会回推给云端', () async {
-      d.achvUnlocked['初试身手'] = 1730000000000;
+      d.achvUnlocked['first_task'] = 1730000000000;
       await login(pull: {
         'now': 1,
         'wishes': [],
         'profile': {
           'nickname': '松之',
           'createdAt': 1730000000000,
-          'achievements': {'首愿达成': 1740000000000},
+          'achievements': {'first_wish': 1740000000000},
         },
       });
 
-      expect(d.achvUnlocked.keys, containsAll(['初试身手', '首愿达成']),
+      expect(d.achvUnlocked.keys, containsAll(['first_task', 'first_wish']),
           reason: '两边的成就都要留着，拿到即永久');
       expect(d.nickname, '松之');
       expect(d.accountCreatedAt, isNotNull);
@@ -243,7 +243,7 @@ void main() {
         'profile': {
           'nickname': '松之',
           'createdAt': 1730000000000,
-          'achievements': {'初试身手': 1730000000000},
+          'achievements': {'first_task': 1730000000000},
         },
       });
       expect(d.signedIn, isTrue);

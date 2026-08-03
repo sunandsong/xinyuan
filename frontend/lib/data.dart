@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api/api.dart';
+import 'pages/tree_page.dart' show achvSlugByName;
 import 'presets.dart';
 import 'session.dart';
 import 'theme.dart';
@@ -320,9 +321,15 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   final tasks = <Task>[];
   final letters = <Letter>[];
   int _idSeq = 0;
+  final _rand = Random();
+  /// 序号每次启动从 0 重来，只靠「毫秒 + 序号」的话，同一账号两台设备
+  /// 都刚启动、同一毫秒建记录就会撞出同一个 id，服务端按 LWW 只留一条，
+  /// 另一条无声消失。补一段随机量把这条路堵死。
   String _newId(String prefix) {
     _idSeq++;
-    return '${prefix}_${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}${_idSeq.toRadixString(36)}';
+    final ms = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    final r = _rand.nextInt(1679616).toRadixString(36).padLeft(4, '0'); // 36^4
+    return '${prefix}_$ms${_idSeq.toRadixString(36)}$r';
   }
 
   // 待推送到云端的变更（合并推送，避免批量导入时逐条打接口）
@@ -492,6 +499,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         final localOnly =
             achvUnlocked.keys.any((k) => !cloudAchv.containsKey(k));
         achvUnlocked = {...achvUnlocked, ...cloudAchv};
+        _migrateAchvKeys(); // 云端可能还是老的中文名 key
         _saveAchvLocal();
         if (localOnly) {
           unawaited(_pushProfile(achievements: achvUnlocked));
@@ -801,8 +809,36 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   // ---------- 成就（勋章）----------
   /// 成就名 → 点亮时间(ms)。拿到即永久：本机存一份，登录后与云端合并双向同步
+  /// 点亮记录：key 是成就的 slug（不是显示名）。
+  /// 早期版本用中文显示名当 key，改个文案就会让所有人的勋章集体熄灭；
+  /// 读进来时统一迁移成 slug，见 [_migrateAchvKeys]。
   Map<String, int> achvUnlocked = {};
   static const _achvKey = 'achv_unlocked';
+
+  @visibleForTesting
+  void migrateAchvKeysForTest() => _migrateAchvKeys();
+
+  /// 老数据兼容：把中文名 key 换成 slug。两边都有时保留更早的那次点亮时间。
+  void _migrateAchvKeys() {
+    if (achvUnlocked.isEmpty) return;
+    final bySlug = <String, int>{};
+    var changed = false;
+    achvUnlocked.forEach((k, v) {
+      final slug = achvSlugByName[k];
+      if (slug == null) {
+        bySlug[k] = bySlug.containsKey(k) ? (bySlug[k]! < v ? bySlug[k]! : v) : v;
+      } else {
+        changed = true;
+        bySlug[slug] =
+            bySlug.containsKey(slug) && bySlug[slug]! < v ? bySlug[slug]! : v;
+      }
+    });
+    if (changed) {
+      achvUnlocked = bySlug;
+      _saveAchvLocal();
+      if (signedIn) unawaited(_pushProfile(achievements: achvUnlocked));
+    }
+  }
 
   Future<void> _loadAchvLocal() async {
     try {
@@ -811,6 +847,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       if (raw != null) {
         achvUnlocked = (jsonDecode(raw) as Map)
             .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+        _migrateAchvKeys();
       }
     } catch (_) {}
   }
@@ -820,11 +857,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         .then((p) => p.setString(_achvKey, jsonEncode(achvUnlocked))));
   }
 
-  /// 点亮一批成就（幂等）：记本机 + 推云端
-  void unlockAchvs(Iterable<String> names) {
+  /// 点亮一批成就（幂等）：记本机 + 推云端。传的是 slug，不是显示名。
+  void unlockAchvs(Iterable<String> slugs) {
     final now = DateTime.now().millisecondsSinceEpoch;
     var changed = false;
-    for (final n in names) {
+    for (final n in slugs) {
       if (!achvUnlocked.containsKey(n)) {
         achvUnlocked[n] = now;
         changed = true;

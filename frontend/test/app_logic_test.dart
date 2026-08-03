@@ -282,18 +282,18 @@ void main() {
     });
 
     test('点亮记录让成就永久亮着，哪怕条件后来不满足了', () {
-      d.unlockAchvs(['初试身手']);
-      expect(d.achvUnlocked.containsKey('初试身手'), isTrue);
+      d.unlockAchvs(['first_task']); // 传 slug，不是显示名
+      expect(d.achvUnlocked.containsKey('first_task'), isTrue);
       final a = achievements(d).firstWhere((x) => x.name == '初试身手');
       expect(a.met, isFalse, reason: '现在一个任务都没有');
       expect(a.done, isTrue, reason: '但拿到过就永久算拿到');
     });
 
     test('重复点亮不覆盖第一次的时间', () {
-      d.unlockAchvs(['首愿达成']);
-      final first = d.achvUnlocked['首愿达成'];
-      d.unlockAchvs(['首愿达成']);
-      expect(d.achvUnlocked['首愿达成'], first);
+      d.unlockAchvs(['first_wish']);
+      final first = d.achvUnlocked['first_wish'];
+      d.unlockAchvs(['first_wish']);
+      expect(d.achvUnlocked['first_wish'], first);
     });
 
     test('每个成就都有奖杯图标名，且互不重复', () {
@@ -326,6 +326,50 @@ void main() {
 
     test('实在匹配不上就返回空，界面不硬塞不相干的步骤', () {
       expect(stepTemplateFor('qwerty'), isEmpty);
+    });
+  });
+
+  group('防撞车 / 老数据迁移', () {
+    test('连续生成的 id 互不相同，且带随机段（多设备同毫秒也不会撞）', () {
+      final ids = <String>{};
+      for (var i = 0; i < 500; i++) {
+        ids.add(d.addWish('心愿$i', red).id);
+      }
+      expect(ids.length, 500, reason: '同一进程内不能撞');
+
+      // 结构：w_<毫秒36><序号36><4 位随机36>
+      final one = ids.first;
+      expect(one.startsWith('w_'), isTrue);
+      expect(one.length, greaterThan(10), reason: '光靠毫秒+序号太短，必须带随机段');
+
+      // 两条同毫秒生成的 id，去掉随机段之后可能一样，带上就不一样了
+      final tails = ids.map((s) => s.substring(s.length - 4)).toSet();
+      expect(tails.length, greaterThan(1), reason: '随机段得真的在变');
+    });
+
+    test('老数据用中文名当 key，加载后自动迁移成 slug，时间不丢', () {
+      d.achvUnlocked
+        ..clear()
+        ..addAll({'初试身手': 1730000000000, 'first_wish': 1740000000000});
+      d.migrateAchvKeysForTest();
+
+      expect(d.achvUnlocked.containsKey('初试身手'), isFalse, reason: '中文名 key 要换掉');
+      expect(d.achvUnlocked['first_task'], 1730000000000, reason: '点亮时间不能丢');
+      expect(d.achvUnlocked['first_wish'], 1740000000000, reason: '已经是 slug 的原样保留');
+
+      // 迁移后成就仍然是点亮状态（改文案不会让勋章熄灭）
+      final a = achievements(d).firstWhere((x) => x.name == '初试身手');
+      expect(a.done, isTrue);
+      expect(a.recordedAt, 1730000000000);
+    });
+
+    test('同一枚成就两种 key 都有时，保留更早的那次点亮', () {
+      d.achvUnlocked
+        ..clear()
+        ..addAll({'初试身手': 1700000000000, 'first_task': 1750000000000});
+      d.migrateAchvKeysForTest();
+      expect(d.achvUnlocked['first_task'], 1700000000000,
+          reason: '拿到即永久，应该记最早那次');
     });
   });
 }

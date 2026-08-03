@@ -28,6 +28,11 @@ function noId<T extends Record<string, any>>(o: T): Omit<T, '_id'> {
   return rest;
 }
 
+/** 单次查询能带回的最大条数（CloudBase 上限） */
+const QUERY_LIMIT = 1000;
+/** 批量 upsert 每批条数，必须 <= QUERY_LIMIT，否则查不全存在性会误当新记录覆盖 */
+const UPSERT_BATCH = 500;
+
 // ---------------- cloud（CloudBase 文档库）----------------
 // 说明：CloudBase Node SDK 的 database API —— db.collection(x).where(...).get()/update()/add()，
 // db.command 作比较运算。以下为标准写法；首次部署后按控制台实际返回微调即可。
@@ -78,14 +83,40 @@ class CloudDb implements Db {
     await this.db.collection(COL.users).doc(uid).update(noId({ ...patch, updatedAt: now }));
     return next;
   }
+  /** 按 updatedAt 升序取一页，这样被截断时还能拿最后一条当游标续拉 */
+  private page(col: string, uid: string, since: number) {
+    return this.db
+      .collection(col)
+      .where({ uid, updatedAt: this.cmd.gt(since) })
+      .orderBy('updatedAt', 'asc')
+      .limit(QUERY_LIMIT)
+      .get();
+  }
+
   async pull(uid: string, since: number): Promise<PullResult> {
     const [w, t, l, p] = await Promise.all([
-      this.db.collection(COL.wishes).where({ uid, updatedAt: this.cmd.gt(since) }).limit(1000).get(),
-      this.db.collection(COL.tasks).where({ uid, updatedAt: this.cmd.gt(since) }).limit(1000).get(),
-      this.db.collection(COL.letters).where({ uid, updatedAt: this.cmd.gt(since) }).limit(1000).get(),
+      this.page(COL.wishes, uid, since),
+      this.page(COL.tasks, uid, since),
+      this.page(COL.letters, uid, since),
       this.getProfile(uid),
     ]);
-    return { now: Date.now(), wishes: w.data ?? [], tasks: t.data ?? [], letters: l.data ?? [], profile: p };
+    const wishes = w.data ?? [];
+    const tasks = t.data ?? [];
+    const letters = l.data ?? [];
+
+    // 有集合被截断时，绝不能把 now 报成当前时间：客户端会把水位推到那里，
+    // 没返回的记录就永远拉不到了。改成报「已经返回到哪一条」，下次从这儿续。
+    const cut: number[] = [];
+    for (const list of [wishes, tasks, letters]) {
+      if (list.length === QUERY_LIMIT) cut.push(list[list.length - 1].updatedAt);
+    }
+    const now = cut.length === 0
+      ? Date.now()
+      // 多个集合都截断时取最小的游标，保证谁都不会被跳过（重复拉到的记录合并是幂等的）
+      // ponytail: 同一毫秒挤满 1000 条会卡住游标，现实里不可能；真出现就得改成 (updatedAt,_id) 复合游标
+      : Math.max(Math.min(...cut), since + 1);
+
+    return { now, wishes, tasks, letters, profile: p };
   }
   /// 批量 upsert：先一次查出这批 id 里已存在的，再并发写。
   /// 原来是逐条 get 再 set，推 50 条要 100 次串行往返，云函数执行时间（按 GBs 计费）
@@ -95,11 +126,24 @@ class CloudDb implements Db {
     uid: string,
     items: Array<{ _id: string; updatedAt: number } & Record<string, any>>,
   ) {
+    // 一次查存在性最多能带回 QUERY_LIMIT 条，所以必须按这个粒度分批。
+    // 不分批的话：超出部分查不到已存在记录 → 当成新记录 .set() 整文档覆盖，
+    // 绕过 LWW 和归属校验，把别人的或更新的版本盖掉。
+    for (let i = 0; i < items.length; i += UPSERT_BATCH) {
+      await this.upsertBatch(col, uid, items.slice(i, i + UPSERT_BATCH));
+    }
+  }
+
+  private async upsertBatch(
+    col: string,
+    uid: string,
+    items: Array<{ _id: string; updatedAt: number } & Record<string, any>>,
+  ) {
     if (items.length === 0) return;
     const r = await this.db
       .collection(col)
       .where({ _id: this.cmd.in(items.map((i) => i._id)) })
-      .limit(1000)
+      .limit(QUERY_LIMIT)
       .get();
     const exist = new Map<string, any>((r.data ?? []).map((d: any) => [d._id, d]));
     await Promise.all(

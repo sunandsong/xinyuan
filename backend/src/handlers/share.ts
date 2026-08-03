@@ -1,5 +1,5 @@
 import { getDb } from '../db';
-import { bad, notFound, ok, Req } from '../http';
+import { bad, json, notFound, ok, Req } from '../http';
 import { Share } from '../types';
 
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -15,9 +15,15 @@ export async function createShare(req: Req, uid: string) {
   if (!b.wishId || typeof b.title !== 'string') return bad('wishId_and_title_required');
 
   const db = getDb();
-  // 取一个未占用的短码
+  // 取一个未占用的短码。循环结束还撞的话直接报错——绝不能硬写：
+  // _id 是 s_<code>，硬写会 .set() 覆盖别人的分享，别人打开自己的短链看到的是你的心愿。
   let code = genCode();
-  for (let i = 0; i < 5 && (await db.getShareByCode(code)); i++) code = genCode();
+  let tries = 0;
+  while ((await db.getShareByCode(code)) && tries < 8) {
+    code = genCode();
+    tries++;
+  }
+  if (await db.getShareByCode(code)) return json(500, { error: 'share_code_conflict' });
 
   const now = Date.now();
   const share: Share = {

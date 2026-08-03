@@ -22,6 +22,24 @@ class Achv {
   bool get done => recordedAt != null || met;
 }
 
+/// 显示名 → slug。只为兼容早期用中文名当 key 的点亮记录，迁移完就没人读了。
+const achvSlugByName = <String, String>{
+  '初试身手': 'first_task',
+  '渐入佳境': 'task_10',
+  '百炼成钢': 'task_100',
+  '三日之约': 'streak_3',
+  '七日成习': 'streak_7',
+  '三十而立': 'streak_30',
+  '首愿达成': 'first_wish',
+  '五愿成真': 'wish_5',
+  '十全十美': 'wish_10',
+  '心愿过半': 'half_way',
+  '拆解行家': 'first_step',
+  '留下印记': 'first_photo',
+  '过程记录者': 'first_note',
+  '时光旅人': 'first_letter',
+};
+
 /// 使用 App 的成就清单（按进阶顺序排列）
 List<Achv> achievements(AppData d) {
   final doneTasks = d.doneTaskCount;
@@ -37,7 +55,7 @@ List<Achv> achievements(AppData d) {
   final rec = d.achvUnlocked;
   Achv a(String emoji, String name, String desc, int goal, int value,
           Color color, String slug) =>
-      Achv(emoji, name, desc, goal, value, color, rec[name], slug);
+      Achv(emoji, name, desc, goal, value, color, rec[slug], slug);
   return [
     a('🎯', '初试身手', '完成第 1 个任务', 1, doneTasks,
         const Color(0xFF6FA8DC), 'first_task'),

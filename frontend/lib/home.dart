@@ -50,7 +50,7 @@ class _HomeShellState extends State<HomeShell>
     // 老数据首次升级：把已达成的静默入账（记录会推云端），别开屏放一串烟花
     if (!(p.getBool('achv_seeded') ?? false)) {
       AppData.I.unlockAchvs(
-          achievements(AppData.I).where((a) => a.met).map((a) => a.name));
+          achievements(AppData.I).where((a) => a.met).map((a) => a.slug));
       await p.setBool('achv_seeded', true);
     }
     _achvReady = true;
@@ -65,7 +65,7 @@ class _HomeShellState extends State<HomeShell>
     if (fresh.isEmpty) return;
     // 一次数据变更只弹第一枚，其余静默入账（比如登录整体拉取时别连环弹窗）
     _achvBusy = true;
-    AppData.I.unlockAchvs(fresh.map((a) => a.name));
+    AppData.I.unlockAchvs(fresh.map((a) => a.slug));
     _achvBusy = false;
     final a = fresh.first;
     WidgetsBinding.instance.addPostFrameCallback((_) {

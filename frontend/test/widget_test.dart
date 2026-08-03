@@ -83,10 +83,10 @@ void main() {
     final gone = achievements(d).firstWhere((a) => a.name == '初试身手');
     expect(gone.met, isFalse);
     // 但只要有点亮记录，勋章依然算点亮（拿到即永久）
-    d.achvUnlocked['初试身手'] = 1730000000000;
+    d.achvUnlocked['first_task'] = 1730000000000;
     final kept = achievements(d).firstWhere((a) => a.name == '初试身手');
     expect(kept.done, isTrue);
-    d.achvUnlocked.remove('初试身手');
+    d.achvUnlocked.remove('first_task');
   });
 
   testWidgets('奖杯弹窗：能弹出、显示名称与进度，轻点收起', (tester) async {
