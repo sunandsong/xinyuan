@@ -1,18 +1,14 @@
-// 数据访问层：mock（内存）与 cloud（CloudBase 文档库）两套实现，同一接口。
+// 数据访问层：只有 CloudBase 文档库一套实现，所有数据都落云。
 // 同步统一用 Last-Write-Wins（updatedAt 大者胜），软删除用 deleted 传播。
 
-import { COL, ENV_ID, IS_MOCK } from './config';
-import { EmailCode, Letter, PullResult, Share, Task, UserProfile, Wish } from './types';
+import { COL, ENV_ID } from './config';
+import { Letter, PullResult, Share, Task, UserProfile, Wish } from './types';
 
 export interface Db {
-  getUserByEmail(email: string): Promise<UserProfile | null>;
+  getUserByAccount(account: string): Promise<UserProfile | null>;
   createUser(user: UserProfile): Promise<void>;
   getProfile(uid: string): Promise<UserProfile | null>;
   upsertProfile(uid: string, patch: Partial<UserProfile>): Promise<UserProfile>;
-
-  getEmailCode(email: string, purpose: string): Promise<EmailCode | null>;
-  saveEmailCode(rec: EmailCode): Promise<void>;
-  deleteEmailCode(email: string, purpose: string): Promise<void>;
 
   pull(uid: string, since: number): Promise<PullResult>;
   upsertWishes(uid: string, items: Array<Partial<Wish> & { _id: string; updatedAt: number }>): Promise<void>;
@@ -24,108 +20,6 @@ export interface Db {
   bumpShareViews(code: string): Promise<void>;
 
   softDeleteUser(uid: string): Promise<void>;
-}
-
-// ---------------- mock（内存，供本地开发/测试，不消耗云额度）----------------
-class MockDb implements Db {
-  private profiles = new Map<string, UserProfile>();
-  private wishes: Wish[] = [];
-  private tasks: Task[] = [];
-  private letters: Letter[] = [];
-  private shares: Share[] = [];
-  private emailCodes = new Map<string, EmailCode>();
-
-  async getUserByEmail(email: string) {
-    for (const u of this.profiles.values()) if (u.email === email && !u.deleted) return u;
-    return null;
-  }
-  async createUser(user: UserProfile) {
-    this.profiles.set(user._id, user);
-  }
-  async getProfile(uid: string) {
-    return this.profiles.get(uid) ?? null;
-  }
-  async upsertProfile(uid: string, patch: Partial<UserProfile>) {
-    const now = Date.now();
-    const cur =
-      this.profiles.get(uid) ??
-      ({
-        _id: uid,
-        email: patch.email ?? `${uid}@mock.local`,
-        nickname: '我',
-        avatarEmoji: null,
-        createdAt: now,
-        updatedAt: now,
-      } as UserProfile);
-    const next = { ...cur, ...patch, _id: uid, updatedAt: now };
-    this.profiles.set(uid, next);
-    return next;
-  }
-  async getEmailCode(email: string, purpose: string) {
-    return this.emailCodes.get(`${purpose}:${email}`) ?? null;
-  }
-  async saveEmailCode(rec: EmailCode) {
-    this.emailCodes.set(`${rec.purpose}:${rec.email}`, rec);
-  }
-  async deleteEmailCode(email: string, purpose: string) {
-    this.emailCodes.delete(`${purpose}:${email}`);
-  }
-  async pull(uid: string, since: number): Promise<PullResult> {
-    return {
-      now: Date.now(),
-      wishes: this.wishes.filter((w) => w.uid === uid && w.updatedAt > since),
-      tasks: this.tasks.filter((t) => t.uid === uid && t.updatedAt > since),
-      letters: this.letters.filter((l) => l.uid === uid && l.updatedAt > since),
-      profile: this.profiles.get(uid) ?? null,
-    };
-  }
-  async upsertWishes(uid: string, items: Array<Partial<Wish> & { _id: string; updatedAt: number }>) {
-    for (const it of items) {
-      const i = this.wishes.findIndex((w) => w._id === it._id && w.uid === uid);
-      if (i < 0) {
-        this.wishes.push({ ...(it as Wish), uid });
-      } else if (it.updatedAt >= this.wishes[i].updatedAt) {
-        this.wishes[i] = { ...this.wishes[i], ...it, uid };
-      }
-    }
-  }
-  async upsertTasks(uid: string, items: Array<Partial<Task> & { _id: string; updatedAt: number }>) {
-    for (const it of items) {
-      const i = this.tasks.findIndex((t) => t._id === it._id && t.uid === uid);
-      if (i < 0) {
-        this.tasks.push({ ...(it as Task), uid });
-      } else if (it.updatedAt >= this.tasks[i].updatedAt) {
-        this.tasks[i] = { ...this.tasks[i], ...it, uid };
-      }
-    }
-  }
-  async upsertLetters(uid: string, items: Array<Partial<Letter> & { _id: string; updatedAt: number }>) {
-    for (const it of items) {
-      const i = this.letters.findIndex((l) => l._id === it._id && l.uid === uid);
-      if (i < 0) {
-        this.letters.push({ ...(it as Letter), uid });
-      } else if (it.updatedAt >= this.letters[i].updatedAt) {
-        this.letters[i] = { ...this.letters[i], ...it, uid };
-      }
-    }
-  }
-  async createShare(share: Share) {
-    this.shares.push(share);
-  }
-  async getShareByCode(code: string) {
-    return this.shares.find((s) => s.code === code) ?? null;
-  }
-  async bumpShareViews(code: string) {
-    const s = this.shares.find((x) => x.code === code);
-    if (s) s.views += 1;
-  }
-  async softDeleteUser(uid: string) {
-    const p = this.profiles.get(uid);
-    if (p) p.deleted = true;
-    this.wishes.forEach((w) => w.uid === uid && (w.deleted = true));
-    this.tasks.forEach((t) => t.uid === uid && (t.deleted = true));
-    this.letters.forEach((l) => l.uid === uid && (l.deleted = true));
-  }
 }
 
 // CloudBase 文档库不允许 payload 含 _id（它是文档主键）
@@ -148,8 +42,14 @@ class CloudDb implements Db {
     this.cmd = this.db.command;
   }
 
-  async getUserByEmail(email: string): Promise<UserProfile | null> {
-    const r = await this.db.collection(COL.users).where({ email }).limit(1).get();
+  async getUserByAccount(account: string): Promise<UserProfile | null> {
+    // 必须排除已注销的：否则注销后那条记录仍占着账号名，
+    // 重新注册报 account_exists、登录报 invalid_credentials，账号名等于废掉
+    const r = await this.db
+      .collection(COL.users)
+      .where({ account, deleted: this.cmd.neq(true) })
+      .limit(1)
+      .get();
     return r.data?.[0] ?? null;
   }
   async createUser(user: UserProfile) {
@@ -165,7 +65,7 @@ class CloudDb implements Db {
     if (!exist) {
       const doc: UserProfile = {
         _id: uid,
-        email: patch.email ?? '',
+        account: patch.account ?? '',
         nickname: patch.nickname ?? '我',
         avatarEmoji: patch.avatarEmoji ?? null,
         createdAt: now,
@@ -177,21 +77,6 @@ class CloudDb implements Db {
     const next = { ...exist, ...patch, _id: uid, updatedAt: now };
     await this.db.collection(COL.users).doc(uid).update(noId({ ...patch, updatedAt: now }));
     return next;
-  }
-  async getEmailCode(email: string, purpose: string): Promise<EmailCode | null> {
-    const r = await this.db.collection(COL.emailCodes).where({ email, purpose }).limit(1).get();
-    return r.data?.[0] ?? null;
-  }
-  async saveEmailCode(rec: EmailCode) {
-    const exist = await this.getEmailCode(rec.email, rec.purpose);
-    if (exist) {
-      await this.db.collection(COL.emailCodes).where({ email: rec.email, purpose: rec.purpose }).update(noId(rec));
-    } else {
-      await this.db.collection(COL.emailCodes).add(noId(rec));
-    }
-  }
-  async deleteEmailCode(email: string, purpose: string) {
-    await this.db.collection(COL.emailCodes).where({ email, purpose }).remove();
   }
   async pull(uid: string, since: number): Promise<PullResult> {
     const [w, t, l, p] = await Promise.all([
@@ -257,6 +142,6 @@ class CloudDb implements Db {
 
 let _db: Db | null = null;
 export function getDb(): Db {
-  if (!_db) _db = IS_MOCK ? new MockDb() : new CloudDb();
+  if (!_db) _db = new CloudDb();
   return _db;
 }

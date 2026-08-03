@@ -1,5 +1,9 @@
 set -u
-B=http://127.0.0.1:8799
+# 默认直接打线上（已经没有 mock 后端了）。本地起 npm run dev 时：
+#   API_BASE=http://127.0.0.1:8787 sh test-api.sh
+B=${API_BASE:-https://renshengqingdan-d8feva5q55d12bab-1258070735.ap-shanghai.app.tcloudbase.com/api}
+# 账号名带时间戳，免得重复跑撞上「已注册」
+U=t$(date +%s)
 pass=0; fail=0
 t() { # t 名称 期望片段 实际
   if echo "$3" | grep -q "$2"; then echo "  ✅ $1"; pass=$((pass+1));
@@ -7,15 +11,13 @@ t() { # t 名称 期望片段 实际
 }
 echo "【鉴权】"
 t "健康检查" '"ok":true' "$(curl -s $B/health)"
-t "发验证码" 'ok\|code' "$(curl -s -XPOST $B/auth/send-code -H 'content-type: application/json' -d '{"email":"t@e.com"}')"
-curl -s -XPOST $B/auth/send-code -H 'content-type: application/json' -d '{"email":"reg@e.com"}' > /dev/null
-sleep 1
-CODE=$(grep -o '验证码: [0-9]*' /tmp/be.log | tail -1 | grep -o '[0-9]*')
-REG=$(curl -s -XPOST $B/auth/register -H 'content-type: application/json' -d "{\"email\":\"reg@e.com\",\"password\":\"pw123456\",\"code\":\"${CODE:-000000}\"}")
+REG=$(curl -s -XPOST $B/auth/register -H 'content-type: application/json' -d '{"account":"'"$U"'","password":"pw123456"}')
 t "注册返回 token" '"token"' "$REG"
+t "非法账号被拒" 'invalid_account' "$(curl -s -XPOST $B/auth/register -H 'content-type: application/json' -d '{"account":"a b","password":"pw123456"}')"
+t "重复账号被拒" 'account_exists' "$(curl -s -XPOST $B/auth/register -H 'content-type: application/json' -d '{"account":"'"$U"'","password":"pw123456"}')"
 TOK=$(echo "$REG" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-t "登录" '"token"' "$(curl -s -XPOST $B/auth/login -H 'content-type: application/json' -d '{"email":"reg@e.com","password":"pw123456"}')"
-t "错密码被拒" 'error\|401\|invalid' "$(curl -s -XPOST $B/auth/login -H 'content-type: application/json' -d '{"email":"reg@e.com","password":"wrong"}')"
+t "登录" '"token"' "$(curl -s -XPOST $B/auth/login -H 'content-type: application/json' -d '{"account":"'"$U"'","password":"pw123456"}')"
+t "错密码被拒" 'error\|401\|invalid' "$(curl -s -XPOST $B/auth/login -H 'content-type: application/json' -d '{"account":"'"$U"'","password":"wrong"}')"
 t "无 token 访问 /me 被拒" 'error\|401\|unauth' "$(curl -s $B/me)"
 A="-H authorization:Bearer${TOK:+ Bearer $TOK}"
 H_AUTH="authorization: Bearer $TOK"
@@ -41,5 +43,9 @@ t "换直传凭证" 'url\|downloadUrl' "$(curl -s -XPOST $B/upload -H "$H_AUTH" 
 t "换新鲜图片链接" 'urls' "$(curl -s -XPOST $B/photo-urls -H "$H_AUTH" -H 'content-type: application/json' -d '{"urls":["https://x/a.jpg"]}')"
 echo "【注销】"
 t "注销账号" 'deleted\|true' "$(curl -s -XDELETE $B/auth/account -H "$H_AUTH")"
+t "注销后老密码登不进去" 'invalid_credentials' "$(curl -s -XPOST $B/auth/login -H 'content-type: application/json' -d '{"account":"'"$U"'","password":"pw123456"}')"
+# 已注销的记录不能再占着账号名，否则这个名字就废了
+t "注销后同名可重新注册" '"token"' "$(curl -s -XPOST $B/auth/register -H 'content-type: application/json' -d '{"account":"'"$U"'","password":"newpw123"}')"
+t "重注册后用新密码能登录" '"token"' "$(curl -s -XPOST $B/auth/login -H 'content-type: application/json' -d '{"account":"'"$U"'","password":"newpw123"}')"
 echo
 echo "后端结果：$pass 通过 / $fail 失败"

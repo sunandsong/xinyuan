@@ -3,6 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xinyuan/data.dart';
+import 'package:xinyuan/pages/login_page.dart';
+import 'package:xinyuan/tabs/me_tab.dart';
+import 'package:xinyuan/ui.dart';
 import 'package:xinyuan/pages/tree_page.dart';
 
 void main() {
@@ -84,5 +87,131 @@ void main() {
     final kept = achievements(d).firstWhere((a) => a.name == '初试身手');
     expect(kept.done, isTrue);
     d.achvUnlocked.remove('初试身手');
+  });
+
+  testWidgets('奖杯弹窗：能弹出、显示名称与进度，轻点收起', (tester) async {
+    final a = achievements(AppData.I).firstWhere((x) => x.name == '三十而立');
+    late BuildContext ctx;
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(builder: (c) {
+        ctx = c;
+        return const SizedBox();
+      }),
+    ));
+
+    showTrophyDialog(ctx, a);
+    await tester.pumpAndSettle();
+    expect(find.text('三十而立'), findsOneWidget);
+    expect(find.text('连续 30 天完成任务'), findsOneWidget);
+    expect(find.text('${a.value.clamp(0, a.goal)} / 30'), findsOneWidget,
+        reason: '未点亮时底部应显示进度');
+
+    await tester.tap(find.text('轻点任意处收起'));
+    await tester.pumpAndSettle();
+    expect(find.text('三十而立'), findsNothing);
+  });
+
+  testWidgets('注册表单：登录态只有一个密码框，注册态要两个且必须一致', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(body: SingleChildScrollView(child: LoginForm())),
+    ));
+
+    // 登录态：只有一个密码框
+    expect(find.text('再输一次密码'), findsNothing);
+
+    // 切到注册态：确认密码框出现
+    await tester.tap(find.text('没有账号？去注册'));
+    await tester.pumpAndSettle();
+    expect(find.text('再输一次密码'), findsOneWidget);
+    expect(find.text('注册并登录'), findsOneWidget);
+
+    // 两次密码不一致：本地拦下，报错且不发请求（发了会因无网抛异常，报错文案就不是这句）
+    await tester.enterText(find.byType(TextField).at(0), 'songzhang');
+    await tester.enterText(find.byType(TextField).at(1), 'pw123456');
+    await tester.enterText(find.byType(TextField).at(2), 'pw654321');
+    await tester.tap(find.text('注册并登录'));
+    await tester.pump();
+    expect(find.text('两次输入的密码不一致'), findsOneWidget);
+
+    // 切回登录态：确认框收起，之前填的确认密码被清掉
+    await tester.tap(find.text('已有账号？去登录'));
+    await tester.pumpAndSettle();
+    expect(find.text('再输一次密码'), findsNothing);
+    await tester.tap(find.text('没有账号？去注册'));
+    await tester.pumpAndSettle();
+    expect(
+        tester.widget<TextField>(find.byType(TextField).at(2)).controller!.text,
+        isEmpty,
+        reason: '来回切换后确认密码框应清空，避免残留旧值');
+  });
+
+  testWidgets('未登录预览：点击被拦下跳登录，滚动仍然能用', (tester) async {
+    final d = AppData.I;
+    d.signedIn = false;
+    var blocked = 0;
+
+    final scroll = ScrollController();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: PreviewShield(
+          onBlocked: () => blocked++,
+          child: ListView(
+            controller: scroll,
+            children: [
+              for (var i = 0; i < 50; i++)
+                SizedBox(
+                  height: 80,
+                  child: GestureDetector(
+                    onTap: () => fail('未登录时不该触发卡片自己的点击'),
+                    child: Text('心愿 $i'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ));
+
+    // 点击：被罩子接住，底下的卡片没反应
+    await tester.tap(find.text('心愿 0'));
+    await tester.pump();
+    expect(blocked, 1, reason: '任何点击都该跳登录');
+
+    // 滚动：手势输给列表，浏览不受影响
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.pump();
+    expect(scroll.offset, greaterThan(0), reason: '只读不等于不能翻');
+    expect(blocked, 1, reason: '滑动不该被当成点击');
+
+    // 登录后罩子整个消失
+    d.signedIn = true;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: PreviewShield(
+          onBlocked: () => blocked++,
+          child: const Text('内容'),
+        ),
+      ),
+    ));
+    expect(find.byType(GestureDetector), findsNothing, reason: '登录后不该还罩着');
+    d.signedIn = false;
+  });
+
+  testWidgets('未登录点「我的」页的入口：不跳页，先弹登录', (tester) async {
+    final d = AppData.I;
+    d.signedIn = false;
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: MeTab())));
+    await tester.pumpAndSettle();
+
+    for (final entry in ['人生清单编辑', '荣誉陈列馆', '点亮世界', '时光胶囊']) {
+      await tester.tap(find.text(entry));
+      await tester.pumpAndSettle();
+      expect(find.text('登录后，心愿与勋章将云端同步'), findsOneWidget,
+          reason: '$entry 未登录时应该先弹登录，而不是直接进去');
+      // 关掉弹层，确认没有跳走（「我的」页还在）
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+      expect(find.text('荣誉陈列馆'), findsOneWidget, reason: '不该离开「我的」页');
+    }
   });
 }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import 'data.dart';
 import 'theme.dart';
 
 /// 列表错峰入场 —— 逐条淡入 + 上滑
@@ -854,4 +855,30 @@ Future<void> showConfirmDialog(
       );
     }),
   );
+}
+
+/// 未登录预览罩：底下的内容只能看和滚，任何点击都拦下来跳登录。
+/// 覆盖层只认 onTap，滑动手势会在竞技场里输给下面的列表，所以不影响滚动浏览。
+/// 已登录时原样返回 child，一层多余的 Widget 都不加。
+class PreviewShield extends StatelessWidget {
+  const PreviewShield({super.key, required this.child, required this.onBlocked});
+
+  final Widget child;
+  final VoidCallback onBlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    if (AppData.I.signedIn) return child;
+    return Stack(
+      children: [
+        child,
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: onBlocked,
+          ),
+        ),
+      ],
+    );
+  }
 }

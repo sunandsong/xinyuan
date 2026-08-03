@@ -1,7 +1,7 @@
 // 图片直传：CloudBase 的 HTTP 网关对请求体大小限得很死（实测约 100KB，
 // 报错码 EXCEED_MAX_PAYLOAD_SIZE），base64 图片经这层网关根本传不过去。
 // 所以这里只发一次性直传凭证，图片本体由客户端直接 PUT 到云存储，不经过这个云函数。
-import { ENV_ID, IS_MOCK } from '../config';
+import { ENV_ID } from '../config';
 import { bad, ok, Req } from '../http';
 
 /** 允许的图片类型 → 扩展名 */
@@ -23,11 +23,6 @@ export async function upload(req: Req, uid: string) {
   const cloudPath = `wishes/${uid}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2, 8)}.${ext}`;
-
-  if (IS_MOCK) {
-    // 本地开发没有真实云存储，客户端看到 url 为空就跳过直传
-    return ok({ cloudPath, url: '', headers: {}, downloadUrl: '', mock: true });
-  }
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const cloudbase = require('@cloudbase/node-sdk');
@@ -59,7 +54,6 @@ export async function photoUrls(req: Req, uid: string) {
   const body = (req.body ?? {}) as { urls?: unknown };
   const list = Array.isArray(body.urls) ? body.urls.map(String) : [];
   if (list.length === 0 || list.length > 50) return bad('invalid_urls');
-  if (IS_MOCK) return ok({ urls: {} });
 
   // 稳定链接 → cloud:// fileID；只允许换自己目录下的图
   const entries: Array<[string, string]> = [];

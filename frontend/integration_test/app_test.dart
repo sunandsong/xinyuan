@@ -1,11 +1,21 @@
 // 全功能回归测试：在模拟器上真跑 App，逐个页面点过去。
 // 跑法：flutter test integration_test/app_test.dart -d <设备ID>
+//
+// App 本身已经没有任何 mock/假数据了：没登录就只有登录页，内容全来自云端。
+// 所以这里用 MockClient 顶掉网络层，喂一份固定的"云端返回"，
+// 这样回归测试既不打生产库、也不产生垃圾账号，结果还稳定可复现。
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:xinyuan/api/api.dart';
 import 'package:xinyuan/data.dart';
 import 'package:xinyuan/main.dart' as app;
 import 'package:xinyuan/pages/wish_pages.dart';
+import 'package:xinyuan/presets.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -18,8 +28,47 @@ void main() {
     }
   }
 
+  /// 假装云端有一个登录用户和一份心愿清单
+  http.Response jsonRes(Map<String, dynamic> b) => http.Response.bytes(
+      utf8.encode(jsonEncode(b)), 200,
+      headers: {'content-type': 'application/json; charset=utf-8'});
+
+  void stubCloud() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final wishes = [
+      for (var i = 0; i < 20; i++)
+        {
+          '_id': 'w$i',
+          'title': lifeGoals[i],
+          'color': 'A8B8F8',
+          'createdAt': now,
+          'updatedAt': now,
+        }
+    ];
+    ApiClient.http_ = MockClient((req) async {
+      final p = req.url.path;
+      if (p.endsWith('/auth/login') || p.endsWith('/auth/register')) {
+        return jsonRes({
+          'token': 'it-token',
+          'profile': {'nickname': '松之', 'createdAt': now},
+        });
+      }
+      if (p.endsWith('/sync/pull')) {
+        return jsonRes({
+          'now': now,
+          'wishes': wishes,
+          'profile': {'nickname': '松之', 'createdAt': now},
+        });
+      }
+      return jsonRes(const {});
+    });
+  }
+
   Future<void> boot(WidgetTester t) async {
+    stubCloud();
     await AppData.I.initSession(); // 和 main() 一样先装会话，再挂界面
+    // App 现在是强制登录的，先登进去才有主界面可测
+    await AppData.I.loginOrRegister('itester', 'pw123456');
     await t.pumpWidget(const app.XinyuanApp());
     await settle(t, 3500); // 等开屏动画走完（默认落在人生清单页）
   }
@@ -163,8 +212,9 @@ void main() {
     await settle(t, 500);
     AppData.I.toggleTask(task); // 完成 → 触发「初试身手」
     await settle(t, 2500);
-    expect(find.text('点亮新成就'), findsOneWidget); // 大图海报弹窗
-    await t.tap(find.text('去殿堂看看'));
+    expect(find.text('新 荣 誉 到 手'), findsOneWidget); // 奖杯弹窗
+    expect(find.text('初试身手'), findsWidgets);
+    await t.tap(find.text('轻点任意处收起'));
     await settle(t, 1000);
     AppData.I.deleteTask(task); // 收拾干净
   });

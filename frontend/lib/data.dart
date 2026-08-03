@@ -300,7 +300,7 @@ class _PushChunk {
 
 class AppData extends ChangeNotifier with WidgetsBindingObserver {
   AppData._() {
-    _fillLifeGoals();
+    _seedLifeGoals(); // 未登录时的本地预览，见 _seedLifeGoals 注释
     WidgetsBinding.instance.addObserver(this);
   }
   static final AppData I = AppData._();
@@ -481,8 +481,6 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           unawaited(_pushProfile(achievements: achvUnlocked));
         }
       }
-      // 云端心愿为空就兜底填入默认清单，不管是新注册还是老账号空着——不允许出现空列表
-      if (wishes.isEmpty) _fillLifeGoals();
     } catch (_) {
       // 拉取失败：保留当前本地数据，不阻断登录/启动流程
     }
@@ -712,9 +710,10 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// 填入前 50 条「人生必做清单」：未登录时作为本地预览（不会同步，登录后被云端数据整体替换）；
-  /// 新注册账号在云端为空时也用它兜底，此时会正常同步上云
-  void _fillLifeGoals() {
+  /// 播下前 50 条「人生必做清单」。
+  /// - 未登录时：纯本地预览，_touchWish 会提前 return，不进脏队列、不上云；
+  /// - 注册新账号后：此时已是登录态，每条都会进脏队列并同步到云端，成为真实数据。
+  void _seedLifeGoals() {
     final rand = Random();
     final n = lifeGoals.length < 50 ? lifeGoals.length : 50;
     for (var i = 0; i < n; i++) {
@@ -850,40 +849,41 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   // 登录态（接后端）
   bool signedIn = false;
-  String? email;
+  String? account;
 
   /// 启动时装回本地会话；已登录则用云端数据整体替换本地演示数据
   Future<void> initSession() async {
     await _loadAchvLocal();
     await Session.load();
     signedIn = Session.isLoggedIn;
-    email = await Session.email();
+    account = await Session.account();
     final nick = await Session.nick();
     if (nick != null && nick.isNotEmpty) nickname = nick;
     if (signedIn) await _pullFromCloud();
     notifyListeners();
   }
 
-  /// 邮箱登录 / 注册；成功后置登录态、存 token，并拉取云端数据（云端心愿为空会自动导入 50 个人生清单兜底）
-  /// （注册需先 AuthApi.sendCode 拿到验证码）
+  /// 账号密码登录 / 注册；成功后置登录态、存 token，并拉取云端数据。
+  /// 新注册的账号会自动生成 50 条人生清单并推送上云——它们从第一秒起就是这个账号
+  /// 在云端的真实数据，不是本地假数据（登录老账号不会重复播种）。
   Future<void> loginOrRegister(
-    String email,
+    String account,
     String password, {
     bool register = false,
-    String? code,
   }) async {
     final res = register
-        ? await AuthApi.register(email, password, code ?? '')
-        : await AuthApi.login(email, password);
+        ? await AuthApi.register(account, password)
+        : await AuthApi.login(account, password);
     final token = res['token'] as String?;
     if (token == null) throw ApiException(0, '登录失败');
     final profile = res['profile'] as Map<String, dynamic>?;
     final nick = profile?['nickname'] as String?;
-    await Session.save(token: token, email: email, nick: nick);
-    this.email = email;
+    await Session.save(token: token, account: account, nick: nick);
+    this.account = account;
     if (nick != null && nick.isNotEmpty) nickname = nick;
     signedIn = true;
-    await _pullFromCloud(); // 云端为空会在 _pullFromCloud 里自动兜底填默认清单
+    await _pullFromCloud();
+    if (register && wishes.isEmpty) _seedLifeGoals(); // 会随防抖推送上云
     notifyListeners();
   }
 
@@ -891,7 +891,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> logout() async {
     await Session.clear();
     signedIn = false;
-    email = null;
+    account = null;
     accountCreatedAt = null;
     avatarUrl = null;
     achvUnlocked = {};
@@ -903,7 +903,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     wishes.clear();
     tasks.clear();
     letters.clear();
-    _fillLifeGoals();
+    _seedLifeGoals(); // 退出后回到未登录预览
     notifyListeners();
   }
 

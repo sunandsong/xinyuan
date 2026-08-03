@@ -1,7 +1,8 @@
-// 本地开发服务器（MODE=mock，不打云、不耗额度）。
+// 本地开发服务器：只是把云函数的 handler 挂到本机 HTTP 端口上，
+// 数据照样读写 CloudBase（需要 CLOUDBASE_ENV_ID + 已 tcb login）。
 // 运行：npm run dev  → http://127.0.0.1:8787
-// 鉴权用 x-mock-uid 头模拟登录用户（默认 u_dev）。
 import http from 'http';
+import { ENV_ID } from './config';
 import { Req } from './http';
 import { handle } from './router';
 
@@ -33,4 +34,4 @@ const server = http.createServer((rawReq, rawRes) => {
   });
 });
 
-server.listen(PORT, () => console.log(`[mock] 本地后端 http://127.0.0.1:${PORT}  (MODE=mock)`));
+server.listen(PORT, () => console.log(`本地后端 http://127.0.0.1:${PORT} → CloudBase ${ENV_ID || '(未设置 CLOUDBASE_ENV_ID)'}`));

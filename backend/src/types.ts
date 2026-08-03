@@ -2,7 +2,7 @@
 
 export interface UserProfile {
   _id: string; // uid
-  email: string;
+  account: string; // 登录账号（唯一）
   passwordHash?: string; // 仅服务端；绝不返回给客户端
   nickname: string;
   avatarEmoji: string | null;
@@ -70,16 +70,6 @@ export interface Letter {
   createdAt: number;
   updatedAt: number;
   deleted: boolean;
-}
-
-export interface EmailCode {
-  _id: string;
-  email: string;
-  purpose: 'register';
-  code: string;
-  expiresAt: number;
-  attempts: number;
-  lastSentAt: number;
 }
 
 export interface Share {

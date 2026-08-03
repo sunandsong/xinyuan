@@ -78,8 +78,7 @@ EdgeOne 更接近腾讯版 Cloudflare：
 ```jsonc
 {
   "_id": "uid_xxx",              // 用户 ID
-  "email": "user@example.com",   // 登录标识（唯一索引，小写存储）
-  "emailVerified": false,        // 邮箱是否验证（二期做验证邮件）
+  "account": "songzhang",        // 登录账号（唯一索引，3-20 位字母/数字/下划线，小写存储）
   "passwordHash": "...",         // bcrypt/argon2；第三方登录则空
   "nickname": "松",
   "avatarEmoji": "🌟",           // null = 用昵称首字
@@ -138,7 +137,7 @@ EdgeOne 更接近腾讯版 Cloudflare：
 }
 ```
 
-**索引建议**：`users.email` 唯一（小写）；`wishes {uid:1, updatedAt:1}`；`tasks {uid:1, day:1}`；`shares.code` 唯一。
+**索引建议**：`users.account` 唯一（小写）；`wishes {uid:1, updatedAt:1}`；`tasks {uid:1, day:1}`；`shares.code` 唯一。
 
 ---
 
@@ -149,8 +148,8 @@ EdgeOne 更接近腾讯版 Cloudflare：
 ### 4.1 账号
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/auth/register` | 邮箱/密码注册，返回 token |
-| POST | `/api/auth/login` | 邮箱/密码登录，返回 token + 用户资料 |
+| POST | `/api/auth/register` | 账号/密码注册，返回 token |
+| POST | `/api/auth/login` | 账号/密码登录，返回 token + 用户资料 |
 | POST | `/api/auth/logout` | 退出（前端清 token；如做黑名单则记 KV） |
 | DELETE | `/api/auth/account` | 注销：软删除用户 + 级联标记数据 deleted |
 | GET | `/api/me` | 获取当前用户资料 |
@@ -205,7 +204,7 @@ EdgeOne 更接近腾讯版 Cloudflare：
 2. **身份认证**：开启邮箱登录（方案 A）。
 3. **文档数据库**：建集合 `users / wishes / tasks / shares`，建索引（见 §3）。
 4. **云函数**：Node.js 函数，开启 **HTTP 访问服务**，暴露 `/api/*` 路由；环境变量存必要密钥。
-5. **App 接入**：把本地 mock 换成 API 调用（先 auth + sync），加 loading / 失败重试 / **离线兜底**（本地先写、联网再同步）。
+5. **App 接入**：全部走 API（auth + sync），加 loading / 失败重试 / **离线兜底**（本地先写、联网再同步）。
 6. **联调**：注册→登录→本地改心愿→push→换设备 pull 验证一致。
 
 **第二阶段：接入 EdgeOne（加速 + 分享）**
@@ -233,9 +232,9 @@ EdgeOne 更接近腾讯版 Cloudflare：
 ---
 
 ## 9. 已定 / 下一步
-- [x] 登录标识：**邮箱**（起步不接短信；微信登录后期再说）。
+- [x] 登录标识：**账号**（自定义账号 + 密码；不发邮件、不接短信，微信登录后期再说）。
 - [x] 后端底座：**CloudBase 云开发（免费额度）** 起步；日活起来再迁腾讯云 MongoDB。
 - [x] 鉴权：优先 **CloudBase 内置邮箱认证（方案 A）**。
 - [x] 云函数语言：**TypeScript**。
-- [x] 开发不浪费额度：脚手架内置 **mock / cloud 双模式**，平时走本地 mock + 云函数本地运行，仅联调时打云端。
+- [x] **不保留 mock 模式**：数据只有云端一个来源，App 未登录只给登录页，不再有本地假数据（曾经的 mock / 50 条预置心愿已全部删除）。
 - [ ] 搭 `backend/` 脚手架（进行中）：CloudBase 云函数路由 + 数据访问 + 同步逻辑 + 分享页模板。

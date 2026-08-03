@@ -276,8 +276,12 @@ class MeTab extends StatelessWidget {
     color: Colors.white.withValues(alpha: .2),
   );
 
-  void _push(BuildContext context, Widget page) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  /// 「我的」页四个入口的唯一出口：未登录一律先弹登录。
+  /// 这一页没被 PreviewShield 罩（不然点不到登录按钮），所以拦在这儿。
+  void _push(BuildContext context, Widget page) {
+    if (!AppData.I.signedIn) return _showLogin(context);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  }
 
   Widget _row(
     BuildContext context,
@@ -472,9 +476,11 @@ class MeTab extends StatelessWidget {
       title: '注销账号？',
       body: '账号和全部数据将无法恢复\n这一步没有后悔药',
       confirmText: '确认注销',
-      onConfirm: () {
-        AppData.I.deleteAccountRemote();
-        snack(context, '账号已注销');
+      onConfirm: () async {
+        await AppData.I.deleteAccountRemote();
+        if (!context.mounted) return;
+        snack(context, '账号已注销，请重新登录');
+        _showLogin(context); // 老账号已作废，直接把登录/注册摆到面前
       },
     );
   }

@@ -3,7 +3,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'data.dart';
 import 'pages/share_page.dart' show FireworksPainter;
-import 'pages/tree_page.dart' show achievements, Achv;
+import 'pages/login_page.dart';
+import 'pages/tree_page.dart' show achievements, Achv, showTrophyDialog;
 import 'tabs/me_tab.dart';
 import 'tabs/tasks_tab.dart';
 import 'tabs/wishes_tab.dart';
@@ -88,13 +89,7 @@ class _HomeShellState extends State<HomeShell>
     );
     Overlay.of(context, rootOverlay: true).insert(entry);
     _fx.forward(from: 0).whenComplete(entry.remove);
-    showPosterDialog(
-      context,
-      title: '点亮新成就',
-      body: '${a.emoji}  「${a.name}」\n${a.desc}',
-      action: '去殿堂看看',
-      asset: 'assets/img/hero/declare_cover.jpg',
-    );
+    showTrophyDialog(context, a, justUnlocked: true);
   }
 
   @override
@@ -124,7 +119,17 @@ class _HomeShellState extends State<HomeShell>
             index: _index,
             children: [
               for (var i = 0; i < _tabs.length; i++)
-                TickerMode(enabled: i == _index, child: _tabs[i]),
+                TickerMode(
+                  enabled: i == _index,
+                  // 「我的」页要留着让人点登录，其余两页未登录时只读
+                  child: i == 2
+                      ? _tabs[i]
+                      : PreviewShield(
+                          onBlocked: () =>
+                              showBlurDialog(context, const LoginForm()),
+                          child: _tabs[i],
+                        ),
+                ),
             ],
           ),
           if (!_warmedUp && _index != 1)

@@ -125,8 +125,7 @@ Future<String?> pickAndUploadPhoto(
   try {
     final ticket = await UploadApi.ticket(mime: _mimeOf(file.name));
     if (ticket.url.isEmpty) {
-      // 本地 mock 模式没有真实云存储，跳过直传，方便本地联调界面
-      if (context.mounted) snack(context, '本地调试模式暂不支持真实上传');
+      if (context.mounted) snack(context, '拿不到上传凭证，请稍后重试');
       return null;
     }
     final res = await http

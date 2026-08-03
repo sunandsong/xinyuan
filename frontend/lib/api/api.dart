@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-/// 后端配置。cloud = 真连 CloudBase；mock = 指向本地服务器（npm run dev）。
+/// 后端配置：只连 CloudBase，数据全部上云。
 class ApiConfig {
   static const String cloudBase =
       'https://renshengqingdan-d8feva5q55d12bab-1258070735.ap-shanghai.app.tcloudbase.com/api';
-  static const String localBase = 'http://127.0.0.1:8799/api';
-
-  // 切到 localBase 即用本地 mock 后端联调（不耗云额度）
-  static const String base = cloudBase;
+  // 默认打线上；本地起 backend 的 npm run dev 时（它也是读写同一个云环境）：
+  //   flutter run --dart-define=API_BASE=http://127.0.0.1:8787/api
+  static const String base =
+      String.fromEnvironment('API_BASE', defaultValue: cloudBase);
 }
 
 class ApiException implements Exception {
@@ -25,6 +25,9 @@ class ApiClient {
   static final ApiClient I = ApiClient._();
 
   String? token;
+
+  /// 底层 http 客户端；测试里换成 MockClient 就能在不联网的情况下跑同步逻辑
+  static http.Client http_ = http.Client();
 
   Map<String, String> _headers() => {
     'content-type': 'application/json',
@@ -64,26 +67,16 @@ class ApiClient {
 
   String _friendly(String code) {
     switch (code) {
-      case 'invalid_email':
-        return '邮箱格式不正确';
+      case 'invalid_account':
+        return '账号需 3-20 位字母、数字或下划线';
       case 'weak_password':
         return '密码至少 6 位';
-      case 'email_exists':
-        return '该邮箱已注册';
+      case 'account_exists':
+        return '该账号已注册';
       case 'invalid_credentials':
-        return '邮箱或密码错误';
+        return '账号或密码错误';
       case 'unauthorized':
         return '登录已过期，请重新登录';
-      case 'code_required':
-        return '请输入验证码';
-      case 'code_expired':
-        return '验证码已过期，请重新获取';
-      case 'invalid_code':
-        return '验证码不正确';
-      case 'code_too_many_attempts':
-        return '验证码错误次数过多，请重新获取';
-      case 'code_rate_limited':
-        return '发送太频繁，请稍后再试';
       case 'nothing_to_update':
         return '没有可更新的内容';
       case 'too_many_items':
@@ -100,11 +93,11 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> get(String path) => _do(
-    () => http.get(Uri.parse('${ApiConfig.base}$path'), headers: _headers()),
+    () => http_.get(Uri.parse('${ApiConfig.base}$path'), headers: _headers()),
   );
 
   Future<Map<String, dynamic>> post(String path, Object? body) => _do(
-    () => http.post(
+    () => http_.post(
       Uri.parse('${ApiConfig.base}$path'),
       headers: _headers(),
       body: jsonEncode(body ?? {}),
@@ -112,7 +105,7 @@ class ApiClient {
   );
 
   Future<Map<String, dynamic>> patch(String path, Object? body) => _do(
-    () => http.patch(
+    () => http_.patch(
       Uri.parse('${ApiConfig.base}$path'),
       headers: _headers(),
       body: jsonEncode(body ?? {}),
@@ -120,39 +113,27 @@ class ApiClient {
   );
 
   Future<Map<String, dynamic>> delete(String path) => _do(
-    () => http.delete(Uri.parse('${ApiConfig.base}$path'), headers: _headers()),
+    () => http_.delete(Uri.parse('${ApiConfig.base}$path'), headers: _headers()),
   );
 }
 
 /// 账号相关接口
 class AuthApi {
-  static Future<Map<String, dynamic>> sendCode(
-    String email, {
-    String purpose = 'register',
-  }) {
-    return ApiClient.I.post('/auth/send-code', {
-      'email': email,
-      'purpose': purpose,
-    });
-  }
-
   static Future<Map<String, dynamic>> register(
-    String email,
-    String password,
-    String code, {
+    String account,
+    String password, {
     String? nickname,
   }) {
     return ApiClient.I.post('/auth/register', {
-      'email': email,
+      'account': account,
       'password': password,
-      'code': code,
       if (nickname != null) 'nickname': nickname,
     });
   }
 
-  static Future<Map<String, dynamic>> login(String email, String password) {
+  static Future<Map<String, dynamic>> login(String account, String password) {
     return ApiClient.I.post('/auth/login', {
-      'email': email,
+      'account': account,
       'password': password,
     });
   }

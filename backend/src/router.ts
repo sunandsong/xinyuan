@@ -10,7 +10,6 @@ import { dispatch, notFound, ok, Req, Res, route, unauthorized } from './http';
 // 路由不带 /api 前缀：CloudBase HTTP 服务会剥掉 /api；本地请求也统一剥掉后匹配。
 const publicRoutes = [
   route('GET', '/health', async () => ok({ ok: true })),
-  route('POST', '/auth/send-code', (r) => auth.sendCode(r)),
   route('POST', '/auth/register', (r) => auth.register(r)),
   route('POST', '/auth/login', (r) => auth.login(r)),
   route('GET', '/share/:code', (req, p) => share.getShare(req, p.code)),
