@@ -882,3 +882,19 @@ class PreviewShield extends StatelessWidget {
     );
   }
 }
+
+/// 平板整体放大字号。
+/// iPad 上跑的是同一套手机布局，逻辑像素多了一大截，但字号还是手机的 pt 值，
+/// 结果就是「什么都对，就是看着小」。这里按最短边判断设备类型统一放大，
+/// 比逐个页面调字号靠谱得多，也不会漏。
+/// 用户在系统里调过的字号照样乘上去，不覆盖无障碍设置。
+Widget tabletTextScale(BuildContext context, Widget? child) {
+  final mq = MediaQuery.of(context);
+  if (child == null || mq.size.shortestSide < 600) return child ?? const SizedBox();
+  return MediaQuery(
+    data: mq.copyWith(
+      textScaler: TextScaler.linear(mq.textScaler.scale(1) * 1.22),
+    ),
+    child: child,
+  );
+}

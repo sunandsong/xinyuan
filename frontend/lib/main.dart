@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'data.dart';
 import 'pages/splash_page.dart';
 import 'theme.dart';
+import 'ui.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,6 +66,7 @@ class XinyuanApp extends StatelessWidget {
           cancelButtonStyle: TextButton.styleFrom(foregroundColor: T.muted),
         ),
       ),
+      builder: (context, child) => tabletTextScale(context, child),
       home: const SplashPage(),
     );
   }

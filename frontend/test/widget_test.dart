@@ -214,4 +214,37 @@ void main() {
       expect(find.text('荣誉陈列馆'), findsOneWidget, reason: '不该离开「我的」页');
     }
   });
+
+  testWidgets('平板放大字号，手机不动，且不覆盖系统无障碍设置', (tester) async {
+    Future<double> scaleAt(Size size, {double userScale = 1.0}) async {
+      late double got;
+      await tester.pumpWidget(MediaQuery(
+        data: MediaQueryData(
+          size: size,
+          textScaler: TextScaler.linear(userScale),
+        ),
+        child: Builder(
+          builder: (outer) => tabletTextScale(
+            outer,
+            Builder(builder: (inner) {
+              got = MediaQuery.textScalerOf(inner).scale(10) / 10;
+              return const SizedBox();
+            }),
+          ),
+        ),
+      ));
+      return got;
+    }
+
+    // iPhone 16 Pro 逻辑尺寸：最短边 393
+    expect(await scaleAt(const Size(393, 852)), closeTo(1.0, 1e-6),
+        reason: '手机上不该被放大');
+    // iPad Pro 11 逻辑尺寸：最短边 834
+    expect(await scaleAt(const Size(834, 1210)), closeTo(1.22, 1e-6),
+        reason: '平板上统一放大');
+    // 用户自己在系统里调大过字号：要叠加，不能被覆盖掉
+    expect(await scaleAt(const Size(834, 1210), userScale: 1.3),
+        closeTo(1.3 * 1.22, 1e-6),
+        reason: '无障碍设置必须保留');
+  });
 }
