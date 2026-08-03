@@ -87,38 +87,44 @@ class CloudDb implements Db {
     ]);
     return { now: Date.now(), wishes: w.data ?? [], tasks: t.data ?? [], letters: l.data ?? [], profile: p };
   }
+  /// 批量 upsert：先一次查出这批 id 里已存在的，再并发写。
+  /// 原来是逐条 get 再 set，推 50 条要 100 次串行往返，云函数执行时间（按 GBs 计费）
+  /// 和延迟都被这个循环吃掉了。现在是 1 次查 + N 次并发写。
+  private async upsertAll(
+    col: string,
+    uid: string,
+    items: Array<{ _id: string; updatedAt: number } & Record<string, any>>,
+  ) {
+    if (items.length === 0) return;
+    const r = await this.db
+      .collection(col)
+      .where({ _id: this.cmd.in(items.map((i) => i._id)) })
+      .limit(1000)
+      .get();
+    const exist = new Map<string, any>((r.data ?? []).map((d: any) => [d._id, d]));
+    await Promise.all(
+      items.map((it) => {
+        const cur = exist.get(it._id);
+        if (!cur) {
+          return this.db.collection(col).doc(it._id).set(noId({ ...it, uid }));
+        }
+        // 别人的数据不许改；本地版本更旧就丢弃（LWW）
+        if (cur.uid === uid && it.updatedAt >= cur.updatedAt) {
+          return this.db.collection(col).doc(it._id).update(noId({ ...it, uid }));
+        }
+        return Promise.resolve();
+      }),
+    );
+  }
+
   async upsertWishes(uid: string, items: Array<Partial<Wish> & { _id: string; updatedAt: number }>) {
-    for (const it of items) {
-      const cur = await this.db.collection(COL.wishes).doc(it._id).get();
-      const exist: Wish | undefined = cur.data?.[0];
-      if (!exist) {
-        await this.db.collection(COL.wishes).doc(it._id).set(noId({ ...it, uid }));
-      } else if (exist.uid === uid && it.updatedAt >= exist.updatedAt) {
-        await this.db.collection(COL.wishes).doc(it._id).update(noId({ ...it, uid }));
-      }
-    }
+    await this.upsertAll(COL.wishes, uid, items);
   }
   async upsertTasks(uid: string, items: Array<Partial<Task> & { _id: string; updatedAt: number }>) {
-    for (const it of items) {
-      const cur = await this.db.collection(COL.tasks).doc(it._id).get();
-      const exist: Task | undefined = cur.data?.[0];
-      if (!exist) {
-        await this.db.collection(COL.tasks).doc(it._id).set(noId({ ...it, uid }));
-      } else if (exist.uid === uid && it.updatedAt >= exist.updatedAt) {
-        await this.db.collection(COL.tasks).doc(it._id).update(noId({ ...it, uid }));
-      }
-    }
+    await this.upsertAll(COL.tasks, uid, items);
   }
   async upsertLetters(uid: string, items: Array<Partial<Letter> & { _id: string; updatedAt: number }>) {
-    for (const it of items) {
-      const cur = await this.db.collection(COL.letters).doc(it._id).get();
-      const exist: Letter | undefined = cur.data?.[0];
-      if (!exist) {
-        await this.db.collection(COL.letters).doc(it._id).set(noId({ ...it, uid }));
-      } else if (exist.uid === uid && it.updatedAt >= exist.updatedAt) {
-        await this.db.collection(COL.letters).doc(it._id).update(noId({ ...it, uid }));
-      }
-    }
+    await this.upsertAll(COL.letters, uid, items);
   }
   async createShare(share: Share) {
     await this.db.collection(COL.shares).doc(share._id).set(noId(share));

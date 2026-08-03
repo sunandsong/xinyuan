@@ -19,8 +19,16 @@ http.Response _json(Map<String, dynamic> body, [int code = 200]) =>
 class _Recorder {
   final requests = <http.Request>[];
 
-  /// [pull] 是 /sync/pull 要返回的内容；[failPush] 为真时所有推送都 500
-  MockClient client({Map<String, dynamic>? pull, bool failPush = false}) {
+  /// 每次 /sync/pull 请求带的 since，用来验证增量拉取真的生效
+  final pulledSince = <int>[];
+
+  /// [pull] 是首次 /sync/pull 的返回；[nextPull] 是第二次起的返回（测增量用）；
+  /// [failPush] 为真时所有推送都 500
+  MockClient client({
+    Map<String, dynamic>? pull,
+    Map<String, dynamic>? nextPull,
+    bool failPush = false,
+  }) {
     return MockClient((req) async {
       requests.add(req);
       final path = req.url.path;
@@ -29,7 +37,11 @@ class _Recorder {
             ? _json({'error': 'boom'}, 500)
             : _json({'accepted': true});
       }
-      if (path.endsWith('/sync/pull')) return _json(pull ?? {'now': 0});
+      if (path.endsWith('/sync/pull')) {
+        pulledSince.add(int.parse(req.url.queryParameters['since'] ?? '-1'));
+        final n = pulledSince.length;
+        return _json((n > 1 ? nextPull : null) ?? pull ?? {'now': 0});
+      }
       if (path.endsWith('/auth/login') || path.endsWith('/auth/register')) {
         return _json({
           'token': 'test-token',
@@ -43,6 +55,17 @@ class _Recorder {
   List<http.Request> get pushes =>
       requests.where((r) => r.url.path.endsWith('/sync/push')).toList();
 }
+
+Map<String, dynamic> _wish(String id, String title,
+        {int updatedAt = 1000, bool deleted = false}) =>
+    {
+      '_id': id,
+      'title': title,
+      'color': 'E05A5A',
+      'createdAt': 1000,
+      'updatedAt': updatedAt,
+      'deleted': deleted,
+    };
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -235,6 +258,47 @@ void main() {
       expect(d.wishes.map((w) => w.title), isNot(contains('云端来的')),
           reason: '老账号的云端数据必须清干净');
       expect(d.wishes.length, 50, reason: '回到未登录预览态');
+    });
+
+    test('增量拉取：第二次只从上次的时间戳往后拉，本地已有的不动', () async {
+      SharedPreferences.setMockInitialValues({});
+      ApiClient.http_ = rec.client(
+        pull: {
+          'now': 1000,
+          'wishes': [
+            _wish('w1', '留着的'),
+            _wish('w2', '会被改的'),
+            _wish('w3', '会被删的'),
+          ],
+        },
+        nextPull: {
+          'now': 2000,
+          'wishes': [
+            _wish('w2', '改过的标题', updatedAt: 1500),
+            _wish('w3', '会被删的', deleted: true),
+            _wish('w4', '新来的', updatedAt: 1500),
+          ],
+        },
+      );
+
+      // 首次登录：全量
+      await d.loginOrRegister('songzhang', 'pw123456');
+      expect(rec.pulledSince, [0]);
+      expect(d.wishes.length, 3);
+
+      // 再次启动：增量
+      await d.initSession();
+      expect(rec.pulledSince, [0, 1000], reason: '第二次必须带上次的时间戳，不能再从 0 全量拉');
+
+      final titles = d.wishes.map((w) => w.title).toList();
+      expect(titles, contains('留着的'), reason: '没变的记录本地留着，不重复拉');
+      expect(titles, contains('改过的标题'), reason: '变了的就地替换');
+      expect(titles, contains('新来的'));
+      expect(titles, isNot(contains('会被删的')), reason: 'deleted 标记要真的删掉');
+      expect(d.wishes.length, 3);
+
+      // 顺序没被打乱：改过的还在原位
+      expect(d.wishes[1].title, '改过的标题', reason: '就地替换，不能让改过的跳到末尾');
     });
 
     test('拉取失败不清空本地数据，也不阻断登录', () async {

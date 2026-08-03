@@ -433,10 +433,36 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// 用云端数据整体替换本地（登录成功 / 已登录状态下启动时调用）
-  Future<void> _pullFromCloud() async {
+  /// 把一批云端记录合进本地：同 id 就地替换，带 deleted 标记的删掉，新的追加。
+  /// 就地替换是为了不打乱列表顺序（先删后加会让改过的心愿跳到末尾）。
+  static void _mergeList<E>(
+    List<E> local,
+    List? raw,
+    E Function(Map<String, dynamic>) parse,
+    String Function(E) idOf,
+    bool Function(E) isDeleted,
+  ) {
+    for (final j in raw ?? const []) {
+      final item = parse(j as Map<String, dynamic>);
+      final i = local.indexWhere((x) => idOf(x) == idOf(item));
+      if (isDeleted(item)) {
+        if (i >= 0) local.removeAt(i);
+      } else if (i >= 0) {
+        local[i] = item;
+      } else {
+        local.add(item);
+      }
+    }
+  }
+
+  /// 拉取云端数据。
+  /// [full] = true 时全量拉并整体替换本地（登录/切账号时用）；
+  /// 否则只拉上次拉取之后变过的记录，合并进本地——启动一次的数据库读取量
+  /// 从「这个账号的全部记录」降到「上次之后改过的几条」，额度差一个数量级。
+  Future<void> _pullFromCloud({bool full = false}) async {
     try {
-      final res = await SyncApi.pull(0);
+      final since = full ? 0 : await Session.lastPull(account);
+      final res = await SyncApi.pull(since);
       final ws = (res['wishes'] as List?) ?? [];
       final ts = (res['tasks'] as List?) ?? [];
       final ls = (res['letters'] as List?) ?? [];
@@ -444,27 +470,17 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       _dirtyWishes.clear();
       _dirtyTasks.clear();
       _dirtyLetters.clear();
-      wishes
-        ..clear()
-        ..addAll(
-          ws
-              .map((j) => Wish.fromJson(j as Map<String, dynamic>))
-              .where((w) => !w.deleted),
-        );
-      tasks
-        ..clear()
-        ..addAll(
-          ts
-              .map((j) => Task.fromJson(j as Map<String, dynamic>))
-              .where((t) => !t.deleted),
-        );
-      letters
-        ..clear()
-        ..addAll(
-          ls
-              .map((j) => Letter.fromJson(j as Map<String, dynamic>))
-              .where((l) => !l.deleted),
-        );
+      if (since == 0) {
+        wishes.clear();
+        tasks.clear();
+        letters.clear();
+      }
+      _mergeList(wishes, ws, Wish.fromJson, (w) => w.id, (w) => w.deleted);
+      _mergeList(tasks, ts, Task.fromJson, (t) => t.id, (t) => t.deleted);
+      _mergeList(letters, ls, Letter.fromJson, (l) => l.id, (l) => l.deleted);
+      // 服务端给的时间戳，下次从这里往后拉；拉失败就不推进，宁可重拉一次也别漏
+      final now = (res['now'] as num?)?.toInt();
+      if (now != null) await Session.saveLastPull(account, now);
       final profile = res['profile'] as Map<String, dynamic>?;
       if (profile != null) {
         final nick = profile['nickname'] as String?;
@@ -882,13 +898,14 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     this.account = account;
     if (nick != null && nick.isNotEmpty) nickname = nick;
     signedIn = true;
-    await _pullFromCloud();
+    await _pullFromCloud(full: true); // 可能是换账号，必须整体替换
     if (register && wishes.isEmpty) _seedLifeGoals(); // 会随防抖推送上云
     notifyListeners();
   }
 
   /// 退出登录：清会话、清云端数据，回到本地预览
   Future<void> logout() async {
+    await Session.saveLastPull(account, 0); // 本地数据要清空，下次必须全量重拉
     await Session.clear();
     signedIn = false;
     account = null;

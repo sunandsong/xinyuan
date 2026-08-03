@@ -4,6 +4,8 @@ set -u
 B=${API_BASE:-https://renshengqingdan-d8feva5q55d12bab-1258070735.ap-shanghai.app.tcloudbase.com/api}
 # 账号名带时间戳，免得重复跑撞上「已注册」
 U=t$(date +%s)
+# 记录 id 也要带时间戳：id 撞上别的用户时，服务端会按归属拒改（这是对的），
+# 写死 w1/t1/l1 的话第二次跑就会静默失败
 pass=0; fail=0
 t() { # t 名称 期望片段 实际
   if echo "$3" | grep -q "$2"; then echo "  ✅ $1"; pass=$((pass+1));
@@ -28,14 +30,17 @@ t "存头像 avatarUrl" 'avatar.png' "$(curl -s -XPATCH $B/me -H "$H_AUTH" -H 'c
 t "存成就 achievements" '初试身手' "$(curl -s -XPATCH $B/me -H "$H_AUTH" -H 'content-type: application/json' -d '{"achievements":{"初试身手":1730000000000}}')"
 t "成就能读回" '初试身手' "$(curl -s $B/me -H "$H_AUTH")"
 echo "【同步】"
-t "推送心愿/任务/信" 'accepted' "$(curl -s -XPOST $B/sync/push -H "$H_AUTH" -H 'content-type: application/json' -d '{"wishes":[{"_id":"w1","title":"跑五公里","color":"A8B8F8","done":true,"doneAt":1730000000000,"location":"杭州","createdAt":1720000000000,"updatedAt":1730000000000}],"tasks":[{"_id":"t1","title":"晨跑","day":"2026-08-02","done":true,"createdAt":1,"updatedAt":2}],"letters":[{"_id":"l1","title":"给十年后","content":"hi","openAt":1900000000000,"createdAt":1,"updatedAt":2}]}')"
+PUSH1='{"wishes":[{"_id":"w-'"$U"'","title":"跑五公里","color":"A8B8F8","done":true,"doneAt":1730000000000,"location":"杭州","createdAt":1720000000000,"updatedAt":1730000000000}],"tasks":[{"_id":"t-'"$U"'","title":"晨跑","day":"2026-08-02","done":true,"createdAt":1,"updatedAt":2}],"letters":[{"_id":"l-'"$U"'","title":"给十年后","content":"hi","openAt":1900000000000,"createdAt":1,"updatedAt":2}]}'
+t "推送心愿/任务/信" 'accepted' "$(curl -s -XPOST $B/sync/push -H "$H_AUTH" -H 'content-type: application/json' -d "$PUSH1")"
 PULL=$(curl -s "$B/sync/pull?since=0" -H "$H_AUTH")
 t "拉回心愿" '跑五公里' "$PULL"
 t "拉回任务" '晨跑' "$PULL"
 t "拉回信" '给十年后' "$PULL"
-t "软删除生效" 'deleted' "$(curl -s -XPOST $B/sync/push -H "$H_AUTH" -H 'content-type: application/json' -d '{"tasks":[{"_id":"t1","title":"晨跑","day":"2026-08-02","done":true,"deleted":true,"createdAt":1,"updatedAt":9}]}'; curl -s "$B/sync/pull?since=0" -H "$H_AUTH")"
+DEL1='{"tasks":[{"_id":"t-'"$U"'","title":"晨跑","day":"2026-08-02","done":true,"deleted":true,"createdAt":1,"updatedAt":9}]}'
+t "软删除生效" 'deleted' "$(curl -s -XPOST $B/sync/push -H "$H_AUTH" -H 'content-type: application/json' -d "$DEL1"; curl -s "$B/sync/pull?since=0" -H "$H_AUTH")"
 echo "【分享 / 上传】"
-SH=$(curl -s -XPOST $B/share -H "$H_AUTH" -H 'content-type: application/json' -d '{"wishId":"w1","title":"跑五公里","quote":"做到了","color":"A8B8F8"}')
+SHB='{"wishId":"w-'"$U"'","title":"跑五公里","quote":"做到了","color":"A8B8F8"}'
+SH=$(curl -s -XPOST $B/share -H "$H_AUTH" -H 'content-type: application/json' -d "$SHB")
 t "生成分享短码" '"path"\|"code"' "$SH"
 SC=$(echo "$SH" | grep -o '"code":"[^"]*"' | cut -d'"' -f4)
 t "短码可读取" '跑五公里' "$(curl -s $B/share/${SC:-x})"
