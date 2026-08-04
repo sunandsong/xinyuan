@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api/api.dart';
 import 'pages/tree_page.dart' show achvSlugByName;
+import 'pages/world_page.dart' show litPlaceCount;
 import 'presets.dart';
 import 'session.dart';
 import 'theme.dart';
@@ -427,6 +428,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           letters: c.letters.isEmpty
               ? null
               : c.letters.map((l) => l.toJson()).toList(),
+          // 计数搭第一批的顺风车上去，排行榜就不用另发请求了
+          profile: i == 0 ? rankCounters() : null,
         );
       } catch (_) {
         // 静默失败：把这批和还没发的都放回去，下次该条目再变更（或下次启动）时重推
@@ -439,6 +442,14 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
   }
+
+  /// 排行榜用的 4 个计数。跟着同步推送一起上传，不额外发请求。
+  Map<String, dynamic> rankCounters() => {
+        'doneCount': wishes.where((w) => w.done).length,
+        'taskCount': tasks.where((t) => t.done).length,
+        'achvCount': achvUnlocked.length,
+        'placeCount': litPlaceCount(),
+      };
 
   /// 把一批云端记录合进本地：同 id 就地替换，带 deleted 标记的删掉，新的追加。
   /// 就地替换是为了不打乱列表顺序（先删后加会让改过的心愿跳到末尾）。

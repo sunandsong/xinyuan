@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import '../data.dart';
+import '../pages/rank_page.dart';
 import 'hero_variants.dart';
 import '../pages/wish_pages.dart';
 import '../share_poster.dart';
@@ -80,6 +81,24 @@ class WishesTab extends StatelessWidget {
                 // 底部留白：略大于折叠幅度，保证能滚动到头部收成摘要条
                 SliverToBoxAdapter(child: SizedBox(height: treeH - barH + 40)),
               ],
+                ),
+                // 右上角第二个：排行榜
+                Positioned(
+                  top: topInset + 8,
+                  right: 60,
+                  child: GestureDetector(
+                    onTap: () => showRankSheet(context),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: .2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.leaderboard_rounded,
+                          size: 18, color: Colors.white),
+                    ),
+                  ),
                 ),
                 // 右上角：分享成绩单海报（和任务页同一套）
                 Positioned(

@@ -46,6 +46,17 @@ SC=$(echo "$SH" | grep -o '"code":"[^"]*"' | cut -d'"' -f4)
 t "短码可读取" '跑五公里' "$(curl -s $B/share/${SC:-x})"
 t "换直传凭证" 'url\|downloadUrl' "$(curl -s -XPOST $B/upload -H "$H_AUTH" -H 'content-type: application/json' -d '{"mime":"image/jpeg"}')"
 t "换新鲜图片链接" 'urls' "$(curl -s -XPOST $B/photo-urls -H "$H_AUTH" -H 'content-type: application/json' -d '{"urls":["https://x/a.jpg"]}')"
+echo "【排行榜】"
+RANKB='{"doneCount":7,"taskCount":3,"achvCount":2,"placeCount":1}'
+t "计数随同步上传" 'accepted' "$(curl -s -XPOST $B/sync/push -H "$H_AUTH" -H 'content-type: application/json' -d "{\"profile\":$RANKB}")"
+t "心愿榜有我且计数正确" '"count":7' "$(curl -s "$B/leaderboard?by=wish" -H "$H_AUTH")"
+t "奖杯榜按 achvCount 排" '"count":2' "$(curl -s "$B/leaderboard?by=achv" -H "$H_AUTH")"
+t "足迹榜按 placeCount 排" '"count":1' "$(curl -s "$B/leaderboard?by=place" -H "$H_AUTH")"
+t "榜单返回我的名次" '"me"' "$(curl -s "$B/leaderboard?by=task" -H "$H_AUTH")"
+t "非法榜单类型被拒" 'invalid_board' "$(curl -s "$B/leaderboard?by=hack" -H "$H_AUTH")"
+t "榜单不泄露账号名" 'none' "$(curl -s "$B/leaderboard?by=wish" -H "$H_AUTH" | grep -c account | sed 's/^0$/none/')"
+# 客户端不许通过 push 改 account —— 以前 body.profile 是整个透传的
+t "push 改不了账号名" '"account":"'"$U"'"' "$(curl -s -XPOST $B/sync/push -H "$H_AUTH" -H 'content-type: application/json' -d '{"profile":{"account":"hijacked"}}' >/dev/null; curl -s $B/me -H "$H_AUTH")"
 echo "【注销】"
 t "注销账号" 'deleted\|true' "$(curl -s -XDELETE $B/auth/account -H "$H_AUTH")"
 t "注销后老密码登不进去" 'invalid_credentials' "$(curl -s -XPOST $B/auth/login -H 'content-type: application/json' -d '{"account":"'"$U"'","password":"pw123456"}')"

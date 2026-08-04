@@ -166,13 +166,22 @@ class SyncApi {
     List<Map<String, dynamic>>? wishes,
     List<Map<String, dynamic>>? tasks,
     List<Map<String, dynamic>>? letters,
+    Map<String, dynamic>? profile,
   }) {
     return ApiClient.I.post('/sync/push', {
       if (wishes != null) 'wishes': wishes,
       if (tasks != null) 'tasks': tasks,
       if (letters != null) 'letters': letters,
+      if (profile != null) 'profile': profile,
     });
   }
+}
+
+/// 排行榜接口
+class RankApi {
+  /// [by] = wish（心愿实现数）| task（任务完成数）| achv（奖杯数）| place（地图点亮数）
+  static Future<Map<String, dynamic>> top(String by) =>
+      ApiClient.I.get('/leaderboard?by=$by');
 }
 
 /// 心愿分享短码接口

@@ -7,7 +7,12 @@ export interface UserProfile {
   nickname: string;
   avatarEmoji: string | null;
   avatarUrl?: string | null; // 头像照片（云存储稳定链接），优先于 emoji
-  achievements?: Record<string, number>; // 成就名 → 点亮时间(ms)，拿到即永久
+  achievements?: Record<string, number>; // 成就 slug → 点亮时间(ms)，拿到即永久
+  // 排行榜用的 4 个计数：客户端随同步一起推上来，服务端不重算（重算要扫全表，太贵）
+  doneCount?: number;  // 已实现心愿数
+  taskCount?: number;  // 完成任务数
+  achvCount?: number;  // 点亮奖杯数
+  placeCount?: number; // 地图点亮地点数
   createdAt: number;
   updatedAt: number;
   deleted?: boolean;

@@ -1,6 +1,11 @@
 // 纯逻辑单测（不需要模拟器）：数据序列化 + 成就计算。
 // 界面流程由 integration_test/app_test.dart 在真机上覆盖。
 import 'package:flutter/material.dart';
+import 'package:xinyuan/pages/rank_page.dart';
+import 'package:xinyuan/api/api.dart';
+import 'package:http/testing.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xinyuan/data.dart';
 import 'package:xinyuan/pages/login_page.dart';
@@ -251,5 +256,62 @@ void main() {
     final box = tester.renderObject<RenderBox>(find.byType(SizedBox).last);
     expect(box.size.width, closeTo(834 / 1.4, .01),
         reason: '孩子必须真的按等效窄屏排版，否则会被放大到屏幕外');
+  });
+
+  testWidgets('排行榜：四个榜可切换，我那行高亮，没上榜也显示自己的数字', (tester) async {
+    final d = AppData.I;
+    d.signedIn = true;
+    final asked = <String>[];
+    ApiClient.http_ = MockClient((req) async {
+      final by = req.url.queryParameters['by'] ?? '';
+      asked.add(by);
+      return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'by': by,
+            'top': by == 'place'
+                ? []
+                : [
+                    {'rank': 1, 'nickname': '别人', 'count': 9, 'isMe': false},
+                    {'rank': 2, 'nickname': '松之', 'count': 5, 'isMe': true},
+                  ],
+            'me': {'rank': by == 'place' ? null : 2, 'count': by == 'place' ? 0 : 5},
+          })),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+
+    late BuildContext ctx;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: Builder(builder: (c) {
+        ctx = c;
+        return const SizedBox();
+      })),
+    ));
+    showRankSheet(ctx); // 不能在 build 里调，会 setState during build
+    await tester.pumpAndSettle();
+
+    expect(asked, ['wish'], reason: '打开时只请求当前榜');
+    expect(find.text('别人'), findsOneWidget);
+    expect(find.text('松之（我）'), findsOneWidget, reason: '我那行要标出来');
+    expect(find.text('第 2 名 · 5'), findsOneWidget);
+
+    // 切到「奖杯」榜：换一次请求
+    await tester.tap(find.text('奖杯'));
+    await tester.pumpAndSettle();
+    expect(asked, ['wish', 'achv']);
+
+    // 切回「心愿」：已经拿过就不再请求
+    await tester.tap(find.text('心愿'));
+    await tester.pumpAndSettle();
+    expect(asked, ['wish', 'achv'], reason: '看过的榜要走缓存，别白烧额度');
+
+    // 空榜：给引导语，并且我的名次显示「还没上榜」
+    await tester.tap(find.text('足迹'));
+    await tester.pumpAndSettle();
+    expect(find.text('还没有人上榜，你可以是第一个'), findsOneWidget);
+    expect(find.text('还没上榜'), findsOneWidget);
+
+    d.signedIn = false;
+    ApiClient.http_ = http.Client();
   });
 }

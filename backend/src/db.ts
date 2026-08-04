@@ -20,6 +20,11 @@ export interface Db {
   bumpShareViews(code: string): Promise<void>;
 
   softDeleteUser(uid: string): Promise<void>;
+
+  /** 排行榜：按 [field] 取前 [limit] 名 */
+  topUsers(field: string, limit: number): Promise<UserProfile[]>;
+  /** 该字段上比我多的有几个人（用来算名次，不用把全表拉下来） */
+  countAbove(field: string, value: number): Promise<number>;
 }
 
 // CloudBase 文档库不允许 payload 含 _id（它是文档主键）
@@ -170,6 +175,24 @@ class CloudDb implements Db {
   async upsertLetters(uid: string, items: Array<Partial<Letter> & { _id: string; updatedAt: number }>) {
     await this.upsertAll(COL.letters, uid, items);
   }
+  async topUsers(field: string, limit: number): Promise<UserProfile[]> {
+    const r = await this.db
+      .collection(COL.users)
+      .where({ deleted: this.cmd.neq(true), [field]: this.cmd.gt(0) })
+      .orderBy(field, 'desc')
+      .limit(limit)
+      .get();
+    return r.data ?? [];
+  }
+
+  async countAbove(field: string, value: number): Promise<number> {
+    const r = await this.db
+      .collection(COL.users)
+      .where({ deleted: this.cmd.neq(true), [field]: this.cmd.gt(value) })
+      .count();
+    return r.total ?? 0;
+  }
+
   async createShare(share: Share) {
     await this.db.collection(COL.shares).doc(share._id).set(noId(share));
   }

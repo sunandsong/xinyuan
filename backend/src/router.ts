@@ -1,6 +1,7 @@
 // 汇总路由 + 鉴权：public 先匹配，其余需登录。
 import { getUid } from './auth';
 import * as auth from './handlers/auth';
+import { leaderboard } from './handlers/leaderboard';
 import * as me from './handlers/me';
 import * as share from './handlers/share';
 import * as sync from './handlers/sync';
@@ -18,6 +19,7 @@ const publicRoutes = [
 function protectedRoutes(uid: string) {
   return [
     route('GET', '/me', (r) => me.getMe(r, uid)),
+    route('GET', '/leaderboard', (r) => leaderboard(r, uid)),
     route('PATCH', '/me', (r) => me.patchMe(r, uid)),
     route('DELETE', '/auth/account', (r) => me.deleteAccount(r, uid)),
     route('GET', '/sync/pull', (r) => sync.pull(r, uid)),

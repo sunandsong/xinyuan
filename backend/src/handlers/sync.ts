@@ -1,6 +1,7 @@
 import { getDb } from '../db';
 import { bad, ok, Req } from '../http';
 import { PushBody } from '../types';
+import { pickProfilePatch } from './me';
 
 /** GET /api/sync/pull?since=<ts> —— 拉取增量（含软删除，供本地传播删除） */
 export async function pull(req: Req, uid: string) {
@@ -28,7 +29,10 @@ export async function push(req: Req, uid: string) {
   await db.upsertWishes(uid, wishes);
   await db.upsertTasks(uid, tasks);
   await db.upsertLetters(uid, letters);
-  if (body.profile) await db.upsertProfile(uid, body.profile);
+  if (body.profile) {
+    const patch = pickProfilePatch(body.profile);
+    if (Object.keys(patch).length > 0) await db.upsertProfile(uid, patch);
+  }
 
   // 返回服务端最新时间，客户端存为下次 pull 的 since
   return ok({ now: Date.now(), accepted: { wishes: wishes.length, tasks: tasks.length, letters: letters.length } });
