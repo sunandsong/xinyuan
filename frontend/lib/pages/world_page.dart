@@ -659,7 +659,7 @@ class WorldPage extends StatelessWidget {
     );
   }
 
-  /// 定位打卡：取一次当前位置 → 列出 50km 内的 5A 景区 → 点选点亮
+  /// 定位打卡：取一次当前位置 → 只有离得最近且 10km 内的那个景区能点亮
   Future<void> _checkIn(BuildContext context) async {
     if (!AppData.I.signedIn) {
       _toast(context, '登录后才能定位打卡');
@@ -687,54 +687,56 @@ class WorldPage extends StatelessWidget {
       return;
     }
     if (!context.mounted) return;
-    final near = nearbySpots(pos.latitude, pos.longitude);
+    // 只认离得最近的那一个景区，而且必须在 10 公里内：
+    // 站在故宫不能顺手把颐和园、十三陵也点了
+    final near = nearbySpots(pos.latitude, pos.longitude, maxKm: 10, limit: 1);
     if (near.isEmpty) {
-      _toast(context, '附近 50 公里内没有 5A 景区');
+      _toast(context, '附近没有 5A 景区，走进景区（10 公里内）再打卡');
+      return;
+    }
+    final (name, km) = near.first;
+    if (AppData.I.checkins.containsKey(name)) {
+      _toast(context, '「$name」已经点亮过了');
       return;
     }
     await showAppSheet(
       context,
-      Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text('你在这些景区附近',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          const Text('轻点一个，把它点亮',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: T.muted)),
-          const SizedBox(height: 12),
-          for (final (name, km) in near)
-            Builder(builder: (sheetCtx) {
-              final lit = AppData.I.checkins.containsKey(name);
-              return ListTile(
-                dense: true,
+      Builder(builder: (sheetCtx) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('你在「$name」附近',
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(km < 1 ? '就在这儿' : '距离约 ${km.toStringAsFixed(1)} 公里',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12.5, color: T.muted)),
+            const SizedBox(height: 16),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: T.accent,
+                padding: const EdgeInsets.symmetric(vertical: 13),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                title: Text(name,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
-                subtitle: Text(
-                    km < 1 ? '就在这儿' : '约 ${km.toStringAsFixed(km < 10 ? 1 : 0)} 公里',
-                    style: const TextStyle(fontSize: 12)),
-                trailing: lit
-                    ? const Icon(Icons.check_circle_rounded,
-                        color: T.accent, size: 20)
-                    : const Icon(Icons.radio_button_unchecked,
-                        color: T.muted, size: 20),
-                onTap: lit
-                    ? null
-                    : () {
-                        AppData.I.checkIn(name);
-                        Navigator.pop(sheetCtx);
-                        _toast(context, '已点亮 $name ✨');
-                      },
-              );
-            }),
-        ],
-      ),
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              onPressed: () {
+                AppData.I.checkIn(name);
+                Navigator.pop(sheetCtx);
+                _toast(context, '已点亮 $name ✨');
+              },
+              child: const Text('点亮它',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 8),
+            const Text('不是这儿？走近你想打卡的景区再试',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11.5, color: T.muted)),
+          ],
+        );
+      }),
     );
   }
 
