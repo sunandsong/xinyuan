@@ -228,6 +228,32 @@ void main() {
       expect(d.accountCreatedAt, isNotNull);
     });
 
+    test('景区打卡：本地和云端取并集，checkIn 会推给云端', () async {
+      d.checkins['西湖'] = 1730000000000;
+      await login(pull: {
+        'now': 1,
+        'wishes': [],
+        'profile': {
+          'nickname': '松之',
+          'createdAt': 1730000000000,
+          'checkins': {'故宫': 1740000000000},
+        },
+      });
+
+      expect(d.checkins.keys, containsAll(['西湖', '故宫']),
+          reason: '两边打过卡的都要留着');
+
+      d.checkIn('泰山');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final pushed = rec.requests.where(
+        (r) => r.url.path.endsWith('/sync/push') && r.body.contains('泰山'),
+      );
+      expect(pushed, isNotEmpty, reason: '新打卡要连足迹计数一起推给云端');
+      expect(pushed.first.body, contains('placeCount'),
+          reason: '排行榜计数要跟着打卡立刻更新');
+      d.checkins.clear();
+    });
+
     test('注销账号后回到未登录预览态：清会话、清成就、清云端数据', () async {
       await login(pull: {
         'now': 1,

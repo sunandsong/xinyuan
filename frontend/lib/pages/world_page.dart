@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../data.dart';
+import '../spot_geo.dart';
+import '../theme.dart';
 import '../ui.dart';
 
 /// 一处地点：中文名用来和心愿里填的「在哪儿完成的」做匹配，英文名印在瓦片上
@@ -521,6 +524,10 @@ Map<String, DateTime> _litMap() {
       mark(n, at);
     }
   }
+  // 定位打卡点亮的景区（和心愿地点点亮的合并，取更早的时间）
+  AppData.I.checkins.forEach(
+    (name, ms) => mark(name, DateTime.fromMillisecondsSinceEpoch(ms)),
+  );
   // 子区点亮 → 上级点亮；倒序遍历让 景区 → 省 → 亚洲 这条链能一路传上去
   // （景区分区排在最后，先算它们才能把省份亮起来，再轮到中国区把亚洲亮起来）
   for (final s in _sections.reversed) {
@@ -598,7 +605,11 @@ class WorldPage extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 38),
+                      // 定位打卡：在景区附近就能直接点亮它
+                      DarkPill(
+                        icon: Icons.my_location_rounded,
+                        onTap: () => _checkIn(context),
+                      ),
                     ],
                   ),
                 ),
@@ -639,6 +650,91 @@ class WorldPage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _toast(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  /// 定位打卡：取一次当前位置 → 列出 50km 内的 5A 景区 → 点选点亮
+  Future<void> _checkIn(BuildContext context) async {
+    if (!AppData.I.signedIn) {
+      _toast(context, '登录后才能定位打卡');
+      return;
+    }
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.deniedForever) {
+      if (context.mounted) _toast(context, '需要定位权限才能打卡，请在系统设置里允许');
+      return;
+    }
+    late final Position pos;
+    try {
+      pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+      if (context.mounted) _toast(context, '定位失败，稍后再试');
+      return;
+    }
+    if (!context.mounted) return;
+    final near = nearbySpots(pos.latitude, pos.longitude);
+    if (near.isEmpty) {
+      _toast(context, '附近 50 公里内没有 5A 景区');
+      return;
+    }
+    await showAppSheet(
+      context,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('你在这些景区附近',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          const Text('轻点一个，把它点亮',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: T.muted)),
+          const SizedBox(height: 12),
+          for (final (name, km) in near)
+            Builder(builder: (sheetCtx) {
+              final lit = AppData.I.checkins.containsKey(name);
+              return ListTile(
+                dense: true,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                title: Text(name,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                    km < 1 ? '就在这儿' : '约 ${km.toStringAsFixed(km < 10 ? 1 : 0)} 公里',
+                    style: const TextStyle(fontSize: 12)),
+                trailing: lit
+                    ? const Icon(Icons.check_circle_rounded,
+                        color: T.accent, size: 20)
+                    : const Icon(Icons.radio_button_unchecked,
+                        color: T.muted, size: 20),
+                onTap: lit
+                    ? null
+                    : () {
+                        AppData.I.checkIn(name);
+                        Navigator.pop(sheetCtx);
+                        _toast(context, '已点亮 $name ✨');
+                      },
+              );
+            }),
+        ],
+      ),
     );
   }
 

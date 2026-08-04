@@ -22,6 +22,7 @@ export function pickProfilePatch(b: any): Record<string, unknown> {
   if (b?.avatarEmoji === null || typeof b?.avatarEmoji === 'string') patch.avatarEmoji = b.avatarEmoji;
   if (b?.avatarUrl === null || typeof b?.avatarUrl === 'string') patch.avatarUrl = b.avatarUrl;
   if (b?.achievements && typeof b.achievements === 'object') patch.achievements = b.achievements;
+  if (b?.checkins && typeof b.checkins === 'object') patch.checkins = b.checkins;
   for (const k of ['doneCount', 'taskCount', 'achvCount', 'placeCount'] as const) {
     if (typeof b?.[k] === 'number' && b[k] >= 0) {
       patch[k] = Math.min(Math.floor(b[k]), 100000);

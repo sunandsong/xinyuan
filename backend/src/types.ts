@@ -8,6 +8,7 @@ export interface UserProfile {
   avatarEmoji: string | null;
   avatarUrl?: string | null; // 头像照片（云存储稳定链接），优先于 emoji
   achievements?: Record<string, number>; // 成就 slug → 点亮时间(ms)，拿到即永久
+  checkins?: Record<string, number>; // 景区打卡：地点名 → 首次打卡时间(ms)
   // 排行榜用的 4 个计数：客户端随同步一起推上来，服务端不重算（重算要扫全表，太贵）
   doneCount?: number;  // 已实现心愿数
   taskCount?: number;  // 完成任务数

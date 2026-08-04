@@ -517,6 +517,20 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         if (localOnly) {
           unawaited(_pushProfile(achievements: achvUnlocked));
         }
+        // 景区打卡同成就：本地和云端取并集，同一处保留更早的首次时间
+        final cloudCk = ((profile['checkins'] as Map?) ?? const {})
+            .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+        final ckLocalOnly = checkins.entries.any(
+          (e) => (cloudCk[e.key] ?? (e.value + 1)) > e.value,
+        );
+        cloudCk.forEach((k, v) {
+          final cur = checkins[k];
+          checkins[k] = cur == null || v < cur ? v : cur;
+        });
+        _saveCheckinsLocal();
+        if (ckLocalOnly) {
+          unawaited(_pushProfile(checkins: checkins));
+        }
         // 排行榜计数平时只搭改动推送的顺风车；老账号没有新改动就永远上不了榜。
         // 所以拉取后对一次账：云端计数和本地算的不一致，就单独补推一次。
         final counters = rankCounters();
@@ -909,12 +923,41 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
             .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
         _migrateAchvKeys();
       }
+      final rawCk = p.getString(_checkinKey);
+      if (rawCk != null) {
+        checkins = (jsonDecode(rawCk) as Map)
+            .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+      }
     } catch (_) {}
   }
 
   void _saveAchvLocal() {
     unawaited(SharedPreferences.getInstance()
         .then((p) => p.setString(_achvKey, jsonEncode(achvUnlocked))));
+  }
+
+  // ---------- 景区打卡 ----------
+  /// 景区名 → 首次打卡时间(ms)。和成就同一套玩法：本机存一份，登录后与云端并集同步
+  Map<String, int> checkins = {};
+  static const _checkinKey = 'spot_checkins';
+
+  void _saveCheckinsLocal() {
+    unawaited(SharedPreferences.getInstance()
+        .then((p) => p.setString(_checkinKey, jsonEncode(checkins))));
+  }
+
+  /// 定位打卡点亮一个景区（幂等，保留首次时间）
+  void checkIn(String name) {
+    if (checkins.containsKey(name)) return;
+    checkins[name] = DateTime.now().millisecondsSinceEpoch;
+    _saveCheckinsLocal();
+    notifyListeners();
+    if (signedIn) {
+      // 打卡和足迹计数一起推，排行榜立刻是新的，不用等下次同步
+      unawaited(SyncApi.push(
+        profile: {...rankCounters(), 'checkins': checkins},
+      ));
+    }
   }
 
   /// 点亮一批成就（幂等）：记本机 + 推云端。传的是 slug，不是显示名。
@@ -948,12 +991,14 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     String? nickname,
     String? avatarUrl,
     Map<String, int>? achievements,
+    Map<String, int>? checkins,
   }) async {
     try {
       await AuthApi.updateProfile(
         nickname: nickname,
         avatarUrl: avatarUrl,
         achievements: achievements,
+        checkins: checkins,
       );
     } catch (_) {
       // 静默失败：资料改动仍留在本地，下次改资料时会一并再推
@@ -1020,6 +1065,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     avatarUrl = null;
     achvUnlocked = {};
     _saveAchvLocal();
+    checkins = {};
+    _saveCheckinsLocal();
     _pushTimer?.cancel();
     _dirtyWishes.clear();
     _dirtyTasks.clear();

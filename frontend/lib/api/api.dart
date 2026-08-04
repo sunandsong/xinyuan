@@ -144,11 +144,13 @@ class AuthApi {
     String? nickname,
     String? avatarUrl,
     Map<String, int>? achievements,
+    Map<String, int>? checkins,
   }) {
     final body = <String, dynamic>{};
     if (nickname != null) body['nickname'] = nickname;
     if (avatarUrl != null) body['avatarUrl'] = avatarUrl;
     if (achievements != null) body['achievements'] = achievements;
+    if (checkins != null) body['checkins'] = checkins;
     return ApiClient.I.patch('/me', body);
   }
 
