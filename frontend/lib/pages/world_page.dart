@@ -24,22 +24,9 @@ class _Section {
   final List<_Place> places;
 }
 
-/// 地点清单：全球（大洲/大洋）→ 中国（省份）→ 各省 5A 景区。
-/// 上级传导按分区倒序算：景区亮省、省亮亚洲，所以景区分区放在最后
+/// 地点清单：中国（省份）→ 各省 5A 景区 → 全球（大洲/大洋）压轴。
+/// 上级传导按分区倒序算：景区分区排在中国区之后，倒序先算景区亮省、再算省亮亚洲
 const _sections = <_Section>[
-  _Section('全球', null, [
-    _Place('亚洲', 'ASIA', '🌏'),
-    _Place('欧洲', 'EUROPE', '🏰'),
-    _Place('非洲', 'AFRICA', '🦁'),
-    _Place('北美洲', 'N. AMERICA', '🗽'),
-    _Place('南美洲', 'S. AMERICA', '🦜'),
-    _Place('大洋洲', 'OCEANIA', '🦘'),
-    _Place('南极洲', 'ANTARCTICA', '🐧'),
-    _Place('太平洋', 'PACIFIC', '🐋'),
-    _Place('大西洋', 'ATLANTIC', '🌊'),
-    _Place('印度洋', 'INDIAN', '⛵'),
-    _Place('北冰洋', 'ARCTIC', '🐻‍❄️'),
-  ]),
   _Section('中国', '亚洲', [
     _Place('北京', 'BEIJING', '🏯'),
     _Place('上海', 'SHANGHAI', '🌆'),
@@ -493,6 +480,19 @@ const _sections = <_Section>[
     _Place('塔克拉玛干', '', '', ['三五九旅']),
     _Place('托木尔大峡谷', '', '', ['托木尔']),
     _Place('江布拉克', ''),
+  ]),
+  _Section('全球', null, [
+    _Place('亚洲', 'ASIA', '🌏'),
+    _Place('欧洲', 'EUROPE', '🏰'),
+    _Place('非洲', 'AFRICA', '🦁'),
+    _Place('北美洲', 'N. AMERICA', '🗽'),
+    _Place('南美洲', 'S. AMERICA', '🦜'),
+    _Place('大洋洲', 'OCEANIA', '🦘'),
+    _Place('南极洲', 'ANTARCTICA', '🐧'),
+    _Place('太平洋', 'PACIFIC', '🐋'),
+    _Place('大西洋', 'ATLANTIC', '🌊'),
+    _Place('印度洋', 'INDIAN', '⛵'),
+    _Place('北冰洋', 'ARCTIC', '🐻‍❄️'),
   ]),
 ];
 
