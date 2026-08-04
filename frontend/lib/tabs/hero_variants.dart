@@ -82,11 +82,11 @@ class HeroWrapped extends StatelessWidget {
               ),
             ),
           ),
-          // 顶部摘要条（收起态）——随收起淡入，常驻不消失（右侧让出 + 按钮）
+          // 顶部摘要条（收起态）——随收起淡入，常驻不消失（右侧让出排行榜+分享两个按钮）
           Positioned(
             top: topInset,
             left: 22,
-            right: 74,
+            right: 104,
             height: barH,
             child: IgnorePointer(
               child: Opacity(

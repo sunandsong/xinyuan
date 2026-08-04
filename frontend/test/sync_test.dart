@@ -301,6 +301,42 @@ void main() {
       expect(d.wishes[1].title, '改过的标题', reason: '就地替换，不能让改过的跳到末尾');
     });
 
+    test('重启兜底：云端没新改动时，本地缓存把数据装回来', () async {
+      // 心愿只存内存，重启后内存是空的；增量拉取又只拉水位之后的改动，
+      // 云端没新东西就一条都拉不回来——必须靠本地缓存兜底，不然等于数据丢了
+      SharedPreferences.setMockInitialValues({
+        'auth_token': 't',
+        'auth_account': 'songzhang',
+        'sync_last_pull_songzhang': 5000,
+        'sync_cache_songzhang': jsonEncode({
+          'wishes': [_wish('w1', '缓存里的心愿')],
+          'tasks': <Object>[],
+          'letters': <Object>[],
+        }),
+      });
+      ApiClient.http_ = rec.client(pull: {'now': 6000}); // 增量：啥新东西都没有
+
+      await d.initSession();
+      expect(rec.pulledSince, [5000], reason: '有缓存才允许增量拉');
+      expect(d.wishes.map((w) => w.title), contains('缓存里的心愿'));
+    });
+
+    test('重启没缓存（比如新换的手机）：必须全量拉，不能拿水位去增量', () async {
+      SharedPreferences.setMockInitialValues({
+        'auth_token': 't',
+        'auth_account': 'songzhang',
+        'sync_last_pull_songzhang': 5000,
+      });
+      ApiClient.http_ = rec.client(pull: {
+        'now': 6000,
+        'wishes': [_wish('w1', '云端的心愿')],
+      });
+
+      await d.initSession();
+      expect(rec.pulledSince, [0], reason: '没缓存还增量拉的话，水位之前的数据全漏');
+      expect(d.wishes.map((w) => w.title), contains('云端的心愿'));
+    });
+
     test('拉取失败不清空本地数据，也不阻断登录', () async {
       d.addWish('本地的心愿', red);
       ApiClient.http_ = MockClient((req) async =>

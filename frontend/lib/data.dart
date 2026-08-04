@@ -314,6 +314,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       _pushTimer?.cancel();
+      _saveCache();
       unawaited(_flushPush());
     }
   }
@@ -364,6 +365,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     _pushTimer?.cancel();
     // 300ms 够合并批量导入这类连续调用了，同时把"改完立刻被杀掉"的风险窗口缩到最小
     _pushTimer = Timer(const Duration(milliseconds: 300), () {
+      _saveCache();
       unawaited(_flushPush());
     });
   }
@@ -515,9 +517,56 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         if (localOnly) {
           unawaited(_pushProfile(achievements: achvUnlocked));
         }
+        // 排行榜计数平时只搭改动推送的顺风车；老账号没有新改动就永远上不了榜。
+        // 所以拉取后对一次账：云端计数和本地算的不一致，就单独补推一次。
+        final counters = rankCounters();
+        final stale = counters.entries.any(
+          (e) => ((profile[e.key] as num?)?.toInt() ?? 0) != e.value,
+        );
+        if (stale) {
+          unawaited(SyncApi.push(profile: counters));
+        }
       }
+      _saveCache();
     } catch (_) {
-      // 拉取失败：保留当前本地数据，不阻断登录/启动流程
+      // 拉取失败：保留当前本地数据（可能来自本地缓存），不阻断登录/启动流程
+    }
+  }
+
+  /// 心愿/任务/信件只存内存，重启后全靠这份本地缓存兜底：
+  /// 没有它的话，启动时的增量拉取只拉「上次水位之后」的改动，
+  /// 云端没新东西就一条都拉不回来，界面只剩默认清单（等于数据丢了）。
+  void _saveCache() {
+    final acc = account;
+    if (!signedIn || acc == null) return;
+    final body = jsonEncode({
+      'wishes': wishes.map((w) => w.toJson()).toList(),
+      'tasks': tasks.map((t) => t.toJson()).toList(),
+      'letters': letters.map((l) => l.toJson()).toList(),
+    });
+    unawaited(SharedPreferences.getInstance()
+        .then((p) => p.setString('sync_cache_$acc', body)));
+  }
+
+  /// 启动时装回缓存；装到了返回 true（之后增量拉即可），没装到就得全量拉
+  Future<bool> _loadCache() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString('sync_cache_$account');
+      if (raw == null) return false;
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      wishes
+        ..clear()
+        ..addAll((m['wishes'] as List).map((e) => Wish.fromJson(e)));
+      tasks
+        ..clear()
+        ..addAll((m['tasks'] as List).map((e) => Task.fromJson(e)));
+      letters
+        ..clear()
+        ..addAll((m['letters'] as List).map((e) => Letter.fromJson(e)));
+      return true;
+    } catch (_) {
+      return false; // 缓存坏了就当没有，走全量拉
     }
   }
 
@@ -923,7 +972,12 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     account = await Session.account();
     final nick = await Session.nick();
     if (nick != null && nick.isNotEmpty) nickname = nick;
-    if (signedIn) await _pullFromCloud();
+    if (signedIn) {
+      // 先装本地缓存再增量拉；没缓存（新装/缓存坏了）就必须全量拉，
+      // 不然增量什么都拉不到，界面只剩默认清单
+      final cached = await _loadCache();
+      await _pullFromCloud(full: !cached);
+    }
     notifyListeners();
   }
 
@@ -954,6 +1008,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   /// 退出登录：清会话、清云端数据，回到本地预览
   Future<void> logout() async {
     await Session.saveLastPull(account, 0); // 本地数据要清空，下次必须全量重拉
+    final acc = account;
+    if (acc != null) {
+      unawaited(SharedPreferences.getInstance()
+          .then((p) => p.remove('sync_cache_$acc')));
+    }
     await Session.clear();
     signedIn = false;
     account = null;
