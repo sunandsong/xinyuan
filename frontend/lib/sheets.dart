@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'data.dart';
+import 'notify.dart';
 import 'pages/import_page.dart';
 import 'theme.dart';
 import 'ui.dart';
@@ -133,6 +134,8 @@ class _TaskFormState extends State<_TaskForm> {
   late final _desc =
       TextEditingController(text: widget.editing?.desc ?? widget.initialDesc);
   late DateTime _day = widget.editing?.day ?? widget.day;
+  late bool _remind = widget.editing?.remind ?? false;
+  late String? _time = widget.editing?.time;
 
   @override
   void dispose() {
@@ -248,6 +251,8 @@ class _TaskFormState extends State<_TaskForm> {
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          _reminderChip(),
           if (widget.wish != null) ...[
             const SizedBox(width: 8),
             Flexible(child: _wishChip(widget.wish!)),
@@ -327,6 +332,67 @@ class _TaskFormState extends State<_TaskForm> {
     if (picked != null) setState(() => _day = dOnly(picked));
   }
 
+  /// 铃铛胶囊：没开提醒时点一下选时间顺便打开；已经开着再点就直接关掉
+  Widget _reminderChip() {
+    return GestureDetector(
+      onTap: _toggleRemind,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+          color: _remind ? T.accent.withValues(alpha: .14) : T.field,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _remind
+                  ? Icons.notifications_active_rounded
+                  : Icons.notifications_none_rounded,
+              size: 14,
+              color: _remind ? T.accent : T.muted,
+            ),
+            if (_remind) ...[
+              const SizedBox(width: 6),
+              Text(
+                _time ?? '9:00',
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: T.accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleRemind() async {
+    if (_remind) {
+      setState(() => _remind = false);
+      return;
+    }
+    final initial = _timeOfDayFrom(_time) ?? const TimeOfDay(hour: 9, minute: 0);
+    final picked = await showTimePicker(context: context, initialTime: initial);
+    if (picked == null) return;
+    setState(() {
+      _remind = true;
+      _time =
+          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    });
+  }
+
+  TimeOfDay? _timeOfDayFrom(String? s) {
+    final parts = s?.split(':');
+    if (parts == null || parts.length != 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+
   void submit() {
     final text = _title.text.trim();
     if (text.isEmpty) return;
@@ -336,16 +402,26 @@ class _TaskFormState extends State<_TaskForm> {
       editing.title = text;
       editing.day = _day;
       editing.desc = desc;
+      editing.remind = _remind;
+      editing.time = _remind ? _time : null;
       AppData.I.updateTask(editing);
+      if (_remind) {
+        scheduleTaskReminder(editing);
+      } else {
+        cancelTaskReminder(editing);
+      }
     } else {
       final wish = widget.wish;
-      AppData.I.addTask(
+      final t = AppData.I.addTask(
         text,
         _day,
         wishId: wish?.id,
         color: wish?.color ?? _randomWishColor(),
         desc: desc,
+        time: _remind ? _time : null,
+        remind: _remind,
       );
+      if (_remind) scheduleTaskReminder(t);
     }
     Navigator.pop(context);
   }

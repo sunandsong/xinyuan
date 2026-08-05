@@ -199,6 +199,7 @@ class Task {
     this.wishId,
     this.done = false,
     this.time,
+    this.remind = false,
     this.color,
     this.desc,
     DateTime? createdAt,
@@ -211,7 +212,8 @@ class Task {
   DateTime day;
   String? wishId; // null = 杂事
   bool done;
-  String? time;
+  String? time; // "HH:mm"，配合 remind 用；没设就提醒默认走 9:00
+  bool remind; // 当天要不要发本地提醒
   Color? color; // 任务自身颜色
   String? desc; // 描述
   DateTime createdAt;
@@ -223,6 +225,7 @@ class Task {
     'title': title,
     'day': _dayStr(day),
     'time': time,
+    'remind': remind,
     'done': done,
     'wishId': wishId,
     if (color != null) 'color': _hex(color!),
@@ -239,6 +242,7 @@ class Task {
     wishId: j['wishId'] as String?,
     done: j['done'] as bool? ?? false,
     time: j['time'] as String?,
+    remind: j['remind'] as bool? ?? false,
     color: (j['color'] is String && (j['color'] as String).isNotEmpty)
         ? _colorFromHex(j['color'] as String)
         : null,
@@ -664,6 +668,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     String? wishId,
     Color? color,
     String? desc,
+    String? time,
+    bool remind = false,
   }) {
     final t = Task(
       id: _newId('t'),
@@ -672,6 +678,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       wishId: wishId,
       color: color,
       desc: desc,
+      time: time,
+      remind: remind,
     );
     tasks.add(t);
     _touchTask(t);

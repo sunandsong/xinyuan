@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../data.dart';
+import '../notify.dart';
 import '../pages/login_page.dart';
 import '../share_poster.dart';
 import '../sheets.dart';
@@ -392,7 +393,13 @@ class _TasksTabState extends State<TasksTab> {
                 done: t.done,
                 greyWhenDone: t.wishId == null,
                 burstColor: color,
-                onTap: () => AppData.I.toggleTask(t),
+                onTap: () {
+                  AppData.I.toggleTask(t);
+                  // 勾完就不用再提醒了；取消勾选且还没到点的话再排回去
+                  if (t.remind) {
+                    t.done ? cancelTaskReminder(t) : scheduleTaskReminder(t);
+                  }
+                },
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -426,6 +433,7 @@ class _TasksTabState extends State<TasksTab> {
     if (picked == null) return;
     t.day = dOnly(picked);
     AppData.I.updateTask(t);
+    if (t.remind) scheduleTaskReminder(t); // 日期变了，提醒要跟着挪到新的一天
   }
 
   void _confirmDeleteTask(Task t) {
@@ -434,7 +442,10 @@ class _TasksTabState extends State<TasksTab> {
       emoji: '🗑️',
       title: '删除这个任务？',
       body: '「${t.title}」\n删除后无法恢复',
-      onConfirm: () => AppData.I.deleteTask(t),
+      onConfirm: () {
+        if (t.remind) cancelTaskReminder(t);
+        AppData.I.deleteTask(t);
+      },
     );
   }
 

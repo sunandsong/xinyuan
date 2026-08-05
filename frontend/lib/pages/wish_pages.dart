@@ -83,6 +83,8 @@ class WishDetailPage extends StatelessWidget {
                               padding: const EdgeInsets.fromLTRB(13, 11, 13, 0),
                               sliver: SliverList(
                                 delegate: SliverChildListDelegate([
+                                  _targetTag(context),
+                                  const SizedBox(height: 11),
                                   _steps(context),
                                   const SizedBox(height: 11),
                                   _tasksCard(context, tasks),
@@ -289,6 +291,92 @@ class WishDetailPage extends StatelessWidget {
   );
 
   Widget _statDivider() => Container(width: 1, height: 24, color: T.line);
+
+  /// 目标日期 + 到期提醒：没设时是个"+ 设个期限"的胶囊，设了之后显示倒计时，
+  /// 到期当天早上 9 点本地推一条提醒（见 notify.dart），点 x 清掉
+  Widget _targetTag(BuildContext context) {
+    final target = wish.targetAt;
+    if (target == null) {
+      return GestureDetector(
+        onTap: () => _pickTarget(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            color: T.field,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.notifications_none_rounded, size: 14, color: T.muted),
+              SizedBox(width: 6),
+              Text(
+                '+ 设个期限，到期提醒我',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: T.muted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final left = dOnly(target).difference(dOnly(DateTime.now())).inDays;
+    final label = left > 0
+        ? '还有 $left 天'
+        : left == 0
+        ? '就是今天'
+        : '已经过了 ${-left} 天';
+    return GestureDetector(
+      onTap: () => _pickTarget(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+          color: wish.color.withValues(alpha: .14),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.notifications_active_rounded, size: 14, color: wish.color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13.5,
+                color: wish.color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                AppData.I.setWishTarget(wish, null);
+                cancelWishReminder(wish);
+              },
+              child: Icon(Icons.close_rounded, size: 15, color: wish.color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickTarget(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: wish.targetAt ?? now.add(const Duration(days: 30)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 30),
+    );
+    if (picked == null) return;
+    AppData.I.setWishTarget(wish, picked);
+    await scheduleWishReminder(wish); // 到期当天早上九点提醒一次
+  }
 
   // ---------- 里程碑 ----------
   Widget _steps(BuildContext context) {

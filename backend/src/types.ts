@@ -58,6 +58,7 @@ export interface Task {
   title: string;
   day: string; // yyyy-MM-dd
   time: string | null;
+  remind: boolean;
   done: boolean;
   wishId: string | null;
   color: string;

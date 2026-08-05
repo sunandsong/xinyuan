@@ -23,6 +23,16 @@ class Notify {
     ),
   );
 
+  static const _taskDetails = NotificationDetails(
+    iOS: DarwinNotificationDetails(),
+    android: AndroidNotificationDetails(
+      'task_reminder',
+      '任务提醒',
+      channelDescription: '当天任务到点提醒',
+      importance: Importance.defaultImportance,
+    ),
+  );
+
   /// 首次用到时才初始化（顺带申请权限），避免一启动就弹系统弹窗
   static Future<bool> _ensure() async {
     if (_ready) return _allowed;
@@ -93,8 +103,56 @@ class Notify {
       debugPrint('notify cancel failed: $e');
     }
   }
+
+  /// 心愿和任务的 id 命名空间不一样（'w_...' / 't_...'），哈希天然不会撞
+  static int _taskIdOf(Task t) => t.id.hashCode & 0x7fffffff;
+
+  /// 任务当天提醒：勾了 remind 才发，没设时间就默认当天早上 9 点
+  static Future<void> scheduleTask(Task t) async {
+    await cancelTask(t);
+    if (!t.remind || t.done || t.deleted) return;
+    if (!await _ensure()) return;
+    final hm = _parseTime(t.time);
+    final at = DateTime(t.day.year, t.day.month, t.day.day, hm.$1, hm.$2);
+    if (!at.isAfter(DateTime.now())) return;
+    try {
+      await _plugin.zonedSchedule(
+        id: _taskIdOf(t),
+        title: t.title,
+        body: '今天要做的事，别忘了',
+        scheduledDate: tz.TZDateTime.from(at, tz.local),
+        notificationDetails: _taskDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    } catch (e) {
+      debugPrint('notify task schedule failed: $e');
+    }
+  }
+
+  static Future<void> cancelTask(Task t) async {
+    if (!_ready) return;
+    try {
+      await _plugin.cancel(id: _taskIdOf(t));
+    } catch (e) {
+      debugPrint('notify task cancel failed: $e');
+    }
+  }
+
+  /// "HH:mm" 解析失败或没填，一律退回 9:00
+  static (int, int) _parseTime(String? s) {
+    final parts = s?.split(':');
+    if (parts == null || parts.length != 2) return (9, 0);
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null || h < 0 || h > 23 || m < 0 || m > 59) {
+      return (9, 0);
+    }
+    return (h, m);
+  }
 }
 
-/// 页面里用的两个短名字
+/// 页面里用的短名字
 Future<void> scheduleWishReminder(Wish w) => Notify.scheduleTarget(w);
 Future<void> cancelWishReminder(Wish w) => Notify.cancel(w);
+Future<void> scheduleTaskReminder(Task t) => Notify.scheduleTask(t);
+Future<void> cancelTaskReminder(Task t) => Notify.cancelTask(t);
