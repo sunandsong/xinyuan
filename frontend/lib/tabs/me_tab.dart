@@ -177,14 +177,16 @@ class MeTab extends StatelessWidget {
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        signed ? '记录了 ${data.totalDays} 天' : '登录后云端同步你的心愿',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withValues(alpha: .85),
+                      if (signed) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '记录了 ${data.totalDays} 天',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: .85),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

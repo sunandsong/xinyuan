@@ -1,6 +1,7 @@
 // 汇总路由 + 鉴权：public 先匹配，其余需登录。
 import { getUid } from './auth';
 import * as auth from './handlers/auth';
+import * as geocode from './handlers/geocode';
 import { leaderboard } from './handlers/leaderboard';
 import * as me from './handlers/me';
 import * as share from './handlers/share';
@@ -27,6 +28,7 @@ function protectedRoutes(uid: string) {
     route('POST', '/share', (r) => share.createShare(r, uid)),
     route('POST', '/upload', (r) => upload(r, uid)),
     route('POST', '/photo-urls', (r) => photoUrls(r, uid)),
+    route('GET', '/geocode/reverse', (r) => geocode.reverseGeocode(r)),
   ];
 }
 

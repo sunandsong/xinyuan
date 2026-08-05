@@ -16,6 +16,11 @@ export const JWT_SECRET = (() => {
   return s;
 })();
 
+// 高德逆地理编码 key（可选）：完成心愿定位时，系统自带的反地理编码在没有
+// Google 服务的安卓机上用不了，用它兜底查地名。没配就直接跳过这条兜底，
+// 不影响其它功能。
+export const AMAP_KEY = process.env.AMAP_KEY || '';
+
 // 集合名
 export const COL = {
   users: 'users',

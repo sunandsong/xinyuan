@@ -115,22 +115,29 @@ class _HomeShellState extends State<HomeShell>
           const Positioned.fill(child: AuroraBg()),
           // 切换无动画（瞬间切，保留各页状态）；
           // TickerMode 让没在看的 tab 里的循环动画停表，别白烧帧
-          IndexedStack(
-            index: _index,
-            children: [
-              for (var i = 0; i < _tabs.length; i++)
-                TickerMode(
-                  enabled: i == _index,
-                  // 「我的」页要留着让人点登录，其余两页未登录时只读
-                  child: i == 2
-                      ? _tabs[i]
-                      : PreviewShield(
-                          onBlocked: () =>
-                              showBlurDialog(context, const LoginForm()),
-                          child: _tabs[i],
-                        ),
-                ),
-            ],
+          //
+          // 套一层 ListenableBuilder：PreviewShield 是不是要拦截点击，看的是
+          // 登录状态；不听 AppData 的话，登录成功后这层拦截罩不会跟着撤下去，
+          // 点心愿还是会再弹一次登录框
+          ListenableBuilder(
+            listenable: AppData.I,
+            builder: (context, _) => IndexedStack(
+              index: _index,
+              children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  TickerMode(
+                    enabled: i == _index,
+                    // 「我的」页要留着让人点登录，其余两页未登录时只读
+                    child: i == 2
+                        ? _tabs[i]
+                        : PreviewShield(
+                            onBlocked: () =>
+                                showBlurDialog(context, const LoginForm()),
+                            child: _tabs[i],
+                          ),
+                  ),
+              ],
+            ),
           ),
           if (!_warmedUp && _index != 1)
             Positioned.fill(
