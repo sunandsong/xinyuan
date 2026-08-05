@@ -43,6 +43,16 @@ class _HomeShellState extends State<HomeShell>
       });
     });
     _initAchvWatch();
+    AppData.I.addListener(_checkSessionExpired);
+  }
+
+  /// 后台同步撞见 401 时（见 AppData._handleUnauthorized）弹一次提示 + 登录框，
+  /// 复位标记别重复弹；本地数据没清，弹完重新登录就接着同步
+  void _checkSessionExpired() {
+    if (!mounted || !AppData.I.sessionExpired) return;
+    AppData.I.sessionExpired = false;
+    snack(context, '登录已过期，请重新登录');
+    showBlurDialog(context, const LoginForm());
   }
 
   Future<void> _initAchvWatch() async {
@@ -95,6 +105,7 @@ class _HomeShellState extends State<HomeShell>
   @override
   void dispose() {
     AppData.I.removeListener(_checkNewAchv);
+    AppData.I.removeListener(_checkSessionExpired);
     _fx.dispose();
     super.dispose();
   }

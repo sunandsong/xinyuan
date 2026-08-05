@@ -13,10 +13,12 @@ function b64urlDecode(s: string): string {
   return Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
 }
 
-export function signJwt(payload: Record<string, unknown>, secret: string, expiresInSec = 30 * 24 * 3600): string {
+// 不传 expiresInSec 就不带 exp 声明——登录长期有效，个人 App 没必要强制踢人重登
+export function signJwt(payload: Record<string, unknown>, secret: string, expiresInSec?: number): string {
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
-  const body = { ...payload, iat: now, exp: now + expiresInSec };
+  const body =
+    expiresInSec == null ? { ...payload, iat: now } : { ...payload, iat: now, exp: now + expiresInSec };
   const data = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(body))}`;
   const sig = b64url(createHmac('sha256', secret).update(data).digest());
   return `${data}.${sig}`;

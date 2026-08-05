@@ -1,7 +1,7 @@
 import { getDb } from '../db';
 import { bad, ok, Req } from '../http';
 
-const TOP_N = 50;
+const TOP_N = 10;
 
 /** 榜单类型 → 资料上对应的计数字段 */
 const BOARDS: Record<string, string> = {
@@ -11,7 +11,7 @@ const BOARDS: Record<string, string> = {
   place: 'placeCount', // 地图点亮数
 };
 
-/** GET /api/leaderboard?by=wish|task|achv|place —— 前 50 名 + 我的名次 */
+/** GET /api/leaderboard?by=wish|task|achv|place —— 前 10 名 + 我的名次 */
 export async function leaderboard(req: Req, uid: string) {
   const by = String(req.query.by ?? 'wish');
   const field = BOARDS[by];

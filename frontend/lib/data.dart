@@ -437,13 +437,15 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           // 计数搭第一批的顺风车上去，排行榜就不用另发请求了
           profile: i == 0 ? rankCounters() : null,
         );
-      } catch (_) {
+      } catch (e) {
         // 静默失败：把这批和还没发的都放回去，下次该条目再变更（或下次启动）时重推
         for (var j = i; j < chunks.length; j++) {
           _dirtyWishes.addAll(chunks[j].wishes);
           _dirtyTasks.addAll(chunks[j].tasks);
           _dirtyLetters.addAll(chunks[j].letters);
         }
+        // 401 单独处理：不是网络抖动，重试也没用，得提示重新登录
+        if (e is ApiException && e.code == 401) unawaited(_handleUnauthorized());
         return;
       }
     }
@@ -546,9 +548,22 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
       _saveCache();
-    } catch (_) {
+    } catch (e) {
       // 拉取失败：保留当前本地数据（可能来自本地缓存），不阻断登录/启动流程
+      if (e is ApiException && e.code == 401) unawaited(_handleUnauthorized());
     }
+  }
+
+  /// 后台同步撞见 401（token 失效/过期）时置一次位，UI 层弹一次重新登录就复位，
+  /// 不然本地数据还在、看着像正常登录，其实早就同步不动了，用户完全没感知
+  bool sessionExpired = false;
+
+  Future<void> _handleUnauthorized() async {
+    if (!signedIn) return; // 已经是未登录态，不重复处理
+    signedIn = false;
+    sessionExpired = true;
+    await Session.clear(); // 这个 token 确认废了，别再带着它发请求
+    notifyListeners();
   }
 
   /// 心愿/任务/信件只存内存，重启后全靠这份本地缓存兜底：
