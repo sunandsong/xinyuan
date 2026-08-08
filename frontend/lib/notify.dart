@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import 'data.dart';
@@ -48,14 +47,6 @@ class Notify {
     _ready = true;
     try {
       tzdata.initializeTimeZones();
-      // 必须把 tz.local 设成设备真实时区：默认是 UTC，排进去的挂钟时间会被
-      // iOS 按本地时区解释，提醒整整晚 8 小时——看起来就是"设了没反应"
-      try {
-        final name = await FlutterTimezone.getLocalTimezone();
-        tz.setLocalLocation(tz.getLocation(name.identifier));
-      } catch (e) {
-        debugPrint('notify tz failed: $e'); // 拿不到就退回 UTC，顶多时间偏差
-      }
       await _plugin.initialize(
         settings: const InitializationSettings(
           iOS: DarwinInitializationSettings(
@@ -87,6 +78,12 @@ class Notify {
     return _allowed;
   }
 
+  /// 把手机挂钟时间原样交给系统：iOS 按挂钟数字触发（实测验证过），
+  /// 不做任何时区换算。国内用的 App，单一时区没有夏令时，这就够了。
+  /// ponytail: 安卓端 zonedSchedule 按绝对时刻算，真要上安卓得回来补时区处理
+  static tz.TZDateTime _wallClock(DateTime at) =>
+      tz.TZDateTime.utc(at.year, at.month, at.day, at.hour, at.minute);
+
   /// 同一条心愿用同一个通知 id，重设日期会覆盖旧的
   static int _idOf(Wish w) => w.id.hashCode & 0x7fffffff;
 
@@ -103,7 +100,7 @@ class Notify {
         id: _idOf(w),
         title: '今天是你给「${w.title}」定的日子',
         body: '还想做的话，今天就是好时候',
-        scheduledDate: tz.TZDateTime.from(at, tz.local),
+        scheduledDate: _wallClock(at),
         notificationDetails: _details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
@@ -137,7 +134,7 @@ class Notify {
         id: _taskIdOf(t),
         title: t.title,
         body: '今天要做的事，别忘了',
-        scheduledDate: tz.TZDateTime.from(at, tz.local),
+        scheduledDate: _wallClock(at),
         notificationDetails: _taskDetails,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
