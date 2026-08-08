@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import '../data.dart';
-import '../notify.dart';
 import '../photos.dart';
 import '../presets.dart';
 import '../sheets.dart';
@@ -292,8 +291,7 @@ class WishDetailPage extends StatelessWidget {
 
   Widget _statDivider() => Container(width: 1, height: 24, color: T.line);
 
-  /// 目标日期 + 到期提醒：没设时是个"+ 设个期限"的胶囊，设了之后显示倒计时，
-  /// 到期当天早上 9 点本地推一条提醒（见 notify.dart），点 x 清掉
+  /// 目标日期：没设时是个"+ 设个期限"的胶囊，设了之后显示倒计时，点 x 清掉
   Widget _targetTag(BuildContext context) {
     final target = wish.targetAt;
     if (target == null) {
@@ -353,10 +351,7 @@ class WishDetailPage extends StatelessWidget {
             const SizedBox(width: 4),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () {
-                AppData.I.setWishTarget(wish, null);
-                cancelWishReminder(wish);
-              },
+              onTap: () => AppData.I.setWishTarget(wish, null),
               child: Icon(Icons.close_rounded, size: 15, color: wish.color),
             ),
           ],
@@ -375,7 +370,6 @@ class WishDetailPage extends StatelessWidget {
     );
     if (picked == null) return;
     AppData.I.setWishTarget(wish, picked);
-    await scheduleWishReminder(wish); // 到期当天早上九点提醒一次
   }
 
   // ---------- 里程碑 ----------
@@ -1525,8 +1519,6 @@ class _CompleteWishPageState extends State<CompleteWishPage> {
       location: _loc.text.trim(),
       heroIndex: _hero,
     );
-    // 已经完成了就别再到期提醒
-    cancelWishReminder(widget.wish);
     // 把完成页和已经过时的"进行中详情页"一起关掉再弹点亮卡，
     // 关掉卡片直接回列表——不然退回旧详情页还挂着"完成这个心愿"，像没完成一样
     Navigator.of(context)
