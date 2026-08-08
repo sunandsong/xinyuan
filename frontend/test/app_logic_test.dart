@@ -219,9 +219,19 @@ void main() {
       return t;
     }
 
-    test('今天没完成任务就是 0，哪怕昨天做了', () {
+    test('今天还没动不清零：从昨天起算', () {
       doneOn(1);
-      expect(d.streakDays, 0);
+      expect(d.streakDays, 1, reason: '今天还没打卡，昨天攒的连续不该直接归零');
+    });
+
+    test('不只任务：实现心愿、景区打卡也算一天记录', () {
+      final w = d.addWish('去看海', const Color(0xFFE05A5A));
+      w.doneAt = DateTime.now().subtract(const Duration(days: 1));
+      w.done = true;
+      d.checkIn('故宫'); // 今天
+      expect(d.streakDays, greaterThanOrEqualTo(2),
+          reason: '昨天实现心愿 + 今天打卡 = 至少连续 2 天');
+      d.checkins.clear();
     });
 
     test('从今天往前连着数', () {

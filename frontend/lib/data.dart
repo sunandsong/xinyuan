@@ -1139,15 +1139,25 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       ? 0
       : dOnly(DateTime.now()).difference(dOnly(accountCreatedAt!)).inDays + 1;
 
-  /// 连续打卡天数：从今天往前数，每天至少完成一个任务，中断即止
+  /// 连续天数：从今天往前数，每天至少有一次「记录」，中断即止。
+  /// 记录不只完成任务——实现心愿、记笔记、写信、景区打卡都算；
+  /// 今天还没动只从昨天起算，别把攒到昨天的连续直接清零。
   int get streakDays {
-    final doneDays = tasks
-        .where((t) => t.done)
-        .map((t) => dOnly(t.day))
-        .toSet();
+    final days = <DateTime>{
+      for (final t in tasks.where((t) => t.done)) dOnly(t.day),
+      for (final w in wishes) ...[
+        dOnly(w.createdAt),
+        if (w.doneAt != null) dOnly(w.doneAt!),
+        for (final n in w.notes) dOnly(n.at),
+      ],
+      for (final l in letters) dOnly(l.createdAt),
+      for (final ms in checkins.values)
+        dOnly(DateTime.fromMillisecondsSinceEpoch(ms)),
+    };
     var streak = 0;
     var day = dOnly(DateTime.now());
-    while (doneDays.contains(day)) {
+    if (!days.contains(day)) day = day.subtract(const Duration(days: 1));
+    while (days.contains(day)) {
       streak++;
       day = day.subtract(const Duration(days: 1));
     }
