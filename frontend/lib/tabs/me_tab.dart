@@ -346,6 +346,8 @@ class MeTab extends StatelessWidget {
   void _editProfile(BuildContext context) {
     final data = AppData.I;
     final ctrl = TextEditingController(text: data.nickname);
+    final ageCtrl = TextEditingController(text: data.age?.toString() ?? '');
+    String? gender = data.gender;
 
     showAppSheet(
       context,
@@ -436,11 +438,76 @@ class MeTab extends StatelessWidget {
                 ),
                 style: const TextStyle(fontSize: 17),
               ),
+              const SizedBox(height: 12),
+              // 性别 + 年龄：都是选填，性别再点一下可取消
+              Row(
+                children: [
+                  for (final g in ['男', '女']) ...[
+                    GestureDetector(
+                      onTap: () =>
+                          setSheet(() => gender = gender == g ? null : g),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 11,
+                        ),
+                        decoration: BoxDecoration(
+                          color: gender == g
+                              ? T.accent.withValues(alpha: .14)
+                              : T.field,
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(
+                            color: gender == g ? T.accent : Colors.transparent,
+                          ),
+                        ),
+                        child: Text(
+                          g,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: gender == g
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: gender == g ? T.accent : T.muted,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: TextField(
+                      controller: ageCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 3,
+                      decoration: InputDecoration(
+                        hintText: '年龄',
+                        counterText: '',
+                        filled: true,
+                        fillColor: T.field,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 11,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(11),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      style: const TextStyle(fontSize: 15),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 18),
               BigBtn(
                 '保存',
                 onTap: () {
-                  data.updateProfile(nickname: ctrl.text.trim());
+                  final age = int.tryParse(ageCtrl.text.trim());
+                  data.updateProfile(
+                    nickname: ctrl.text.trim(),
+                    gender: gender,
+                    age: (age != null && age > 0 && age <= 120) ? age : null,
+                  );
                   Navigator.pop(context);
                 },
               ),

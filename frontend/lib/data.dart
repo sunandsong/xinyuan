@@ -520,6 +520,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           unawaited(_pushProfile(avatarUrl: avatarUrl));
         }
         _saveAvatarLocal();
+        gender = profile['gender'] as String? ?? gender;
+        age = (profile['age'] as num?)?.toInt() ?? age;
         accountCreatedAt = _fromMs(profile['createdAt'] as num?);
         final cloudAchv = ((profile['achievements'] as Map?) ?? const {})
             .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
@@ -903,12 +905,16 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   // 个人资料
   String nickname = '松之';
   String? avatarUrl; // 头像照片（云存储稳定链接）；null = 默认头像
+  String? gender; // '男' / '女'；null = 没填
+  int? age; // null = 没填
   DateTime? accountCreatedAt; // 账号创建时间（后端 profile.createdAt），未登录时为 null
-  void updateProfile({String? nickname}) {
+  void updateProfile({String? nickname, String? gender, int? age}) {
     if (nickname != null && nickname.isNotEmpty) this.nickname = nickname;
+    if (gender != null) this.gender = gender;
+    if (age != null) this.age = age;
     notifyListeners();
     if (signedIn) {
-      unawaited(_pushProfile(nickname: nickname));
+      unawaited(_pushProfile(nickname: nickname, gender: gender, age: age));
     }
   }
 
@@ -1035,6 +1041,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     String? avatarUrl,
     Map<String, int>? achievements,
     Map<String, int>? checkins,
+    String? gender,
+    int? age,
   }) async {
     try {
       await AuthApi.updateProfile(
@@ -1042,6 +1050,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         avatarUrl: avatarUrl,
         achievements: achievements,
         checkins: checkins,
+        gender: gender,
+        age: age,
       );
     } catch (_) {
       // 静默失败：资料改动仍留在本地，下次改资料时会一并再推
@@ -1111,6 +1121,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     accountCreatedAt = null;
     avatarUrl = null;
     _saveAvatarLocal(); // 清掉本地存的头像
+    gender = null;
+    age = null;
     achvUnlocked = {};
     _saveAchvLocal();
     checkins = {};
