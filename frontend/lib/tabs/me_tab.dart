@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoDatePicker, CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
 import '../data.dart';
 import '../pages/login_page.dart';
@@ -342,6 +343,66 @@ class MeTab extends StatelessWidget {
     );
   }
 
+  /// 底部弹出的滚轮式年月日选择（系统 Cupertino 转轮，不用引三方）
+  static Future<DateTime?> _pickBirthday(
+    BuildContext context,
+    DateTime initial,
+  ) {
+    var picked = initial;
+    return showModalBottomSheet<DateTime>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 300,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+                child: Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(sheetCtx),
+                      child: const Text('取消',
+                          style: TextStyle(color: T.muted, fontSize: 15)),
+                    ),
+                    const Expanded(
+                      child: Text('选择生日',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700)),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(sheetCtx, picked),
+                      child: const Text('确定',
+                          style: TextStyle(
+                              color: T.accent,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.date,
+                  initialDateTime: initial,
+                  minimumDate: DateTime(1920),
+                  maximumDate: DateTime.now(),
+                  onDateTimeChanged: (d) => picked = d,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// 按生日算周岁（弹层里选完还没保存时就要显示，所以不用 AppData.age）
   static int _ageOf(DateTime b) {
     final now = DateTime.now();
@@ -486,12 +547,9 @@ class MeTab extends StatelessWidget {
                   Expanded(
                     child: GestureDetector(
                       onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate:
-                              birthday ?? DateTime(2000, 1, 1),
-                          firstDate: DateTime(1920),
-                          lastDate: DateTime.now(),
+                        final picked = await _pickBirthday(
+                          context,
+                          birthday ?? DateTime(2000, 1, 1),
                         );
                         if (picked != null) {
                           setSheet(() => birthday = dOnly(picked));
