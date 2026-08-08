@@ -4,6 +4,7 @@ import * as auth from './handlers/auth';
 import * as geocode from './handlers/geocode';
 import { leaderboard } from './handlers/leaderboard';
 import * as me from './handlers/me';
+import { releasesPage } from './handlers/releases';
 import * as share from './handlers/share';
 import * as sync from './handlers/sync';
 import { photoUrls, upload } from './handlers/upload';
@@ -15,6 +16,7 @@ const publicRoutes = [
   route('POST', '/auth/register', (r) => auth.register(r)),
   route('POST', '/auth/login', (r) => auth.login(r)),
   route('GET', '/share/:code', (req, p) => share.getShare(req, p.code)),
+  route('GET', '/releases', () => releasesPage()),
 ];
 
 function protectedRoutes(uid: string) {
