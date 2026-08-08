@@ -114,7 +114,7 @@ function render(list: any[], fast: Record<string, string>): string {
           </div>
           ${mainBtn}
         </div>
-        ${notes ? `<div class="notes">${esc(notes).slice(0, 600)}</div>` : ''}
+        ${notes ? `<div class="notes">${esc(notes).slice(0, 1500)}</div>` : ''}
         ${altLinks}
       </div>`;
     })

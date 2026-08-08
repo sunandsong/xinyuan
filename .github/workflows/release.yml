@@ -18,6 +18,8 @@ jobs:
       contents: write # 创建 release 需要
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 生成更新说明要看历史提交和上个 tag
 
       - uses: actions/setup-java@v4
         with:
@@ -53,10 +55,21 @@ jobs:
             releases/xinyuan-b${{ github.run_number }}.apk \
             -e renshengqingdan-d8feva5q55d12bab
 
+      - name: 生成更新说明（上一版以来的提交记录）
+        id: notes
+        run: |
+          PREV=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV" ]; then RANGE="$PREV..HEAD"; else RANGE="HEAD"; fi
+          {
+            echo 'NOTES<<NOTES_EOF'
+            git log $RANGE --pretty='· %s' --no-merges | head -50
+            echo 'NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: 人生清单 b${{ github.run_number }}
-          generate_release_notes: true
+          body: ${{ steps.notes.outputs.NOTES }}
           files: xinyuan-b${{ github.run_number }}.apk
