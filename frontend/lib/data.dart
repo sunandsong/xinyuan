@@ -521,7 +521,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         }
         _saveAvatarLocal();
         gender = profile['gender'] as String? ?? gender;
-        age = (profile['age'] as num?)?.toInt() ?? age;
+        final bd = profile['birthday'] as String?;
+        if (bd != null && bd.isNotEmpty) birthday = _dayParse(bd);
         accountCreatedAt = _fromMs(profile['createdAt'] as num?);
         final cloudAchv = ((profile['achievements'] as Map?) ?? const {})
             .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
@@ -906,15 +907,30 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   String nickname = '松之';
   String? avatarUrl; // 头像照片（云存储稳定链接）；null = 默认头像
   String? gender; // '男' / '女'；null = 没填
-  int? age; // null = 没填
+  DateTime? birthday; // 生日；年龄按它算，不用每年手动改
+
+  /// 按生日算的周岁；没填生日就是 null
+  int? get age {
+    final b = birthday;
+    if (b == null) return null;
+    final now = DateTime.now();
+    var a = now.year - b.year;
+    if (now.month < b.month || (now.month == b.month && now.day < b.day)) a--;
+    return a < 0 ? 0 : a;
+  }
+
   DateTime? accountCreatedAt; // 账号创建时间（后端 profile.createdAt），未登录时为 null
-  void updateProfile({String? nickname, String? gender, int? age}) {
+  void updateProfile({String? nickname, String? gender, DateTime? birthday}) {
     if (nickname != null && nickname.isNotEmpty) this.nickname = nickname;
     if (gender != null) this.gender = gender;
-    if (age != null) this.age = age;
+    if (birthday != null) this.birthday = birthday;
     notifyListeners();
     if (signedIn) {
-      unawaited(_pushProfile(nickname: nickname, gender: gender, age: age));
+      unawaited(_pushProfile(
+        nickname: nickname,
+        gender: gender,
+        birthday: birthday == null ? null : _dayStr(birthday),
+      ));
     }
   }
 
@@ -1042,7 +1058,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     Map<String, int>? achievements,
     Map<String, int>? checkins,
     String? gender,
-    int? age,
+    String? birthday,
   }) async {
     try {
       await AuthApi.updateProfile(
@@ -1051,7 +1067,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         achievements: achievements,
         checkins: checkins,
         gender: gender,
-        age: age,
+        birthday: birthday,
       );
     } catch (_) {
       // 静默失败：资料改动仍留在本地，下次改资料时会一并再推
@@ -1122,7 +1138,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     avatarUrl = null;
     _saveAvatarLocal(); // 清掉本地存的头像
     gender = null;
-    age = null;
+    birthday = null;
     achvUnlocked = {};
     _saveAchvLocal();
     checkins = {};

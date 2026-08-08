@@ -342,12 +342,20 @@ class MeTab extends StatelessWidget {
     );
   }
 
+  /// 按生日算周岁（弹层里选完还没保存时就要显示，所以不用 AppData.age）
+  static int _ageOf(DateTime b) {
+    final now = DateTime.now();
+    var a = now.year - b.year;
+    if (now.month < b.month || (now.month == b.month && now.day < b.day)) a--;
+    return a < 0 ? 0 : a;
+  }
+
   // ---------- 编辑资料 ----------
   void _editProfile(BuildContext context) {
     final data = AppData.I;
     final ctrl = TextEditingController(text: data.nickname);
-    final ageCtrl = TextEditingController(text: data.age?.toString() ?? '');
     String? gender = data.gender;
+    DateTime? birthday = data.birthday;
 
     showAppSheet(
       context,
@@ -474,26 +482,43 @@ class MeTab extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                   ],
+                  // 生日：选了自动算年龄显示出来
                   Expanded(
-                    child: TextField(
-                      controller: ageCtrl,
-                      keyboardType: TextInputType.number,
-                      maxLength: 3,
-                      decoration: InputDecoration(
-                        hintText: '年龄',
-                        counterText: '',
-                        filled: true,
-                        fillColor: T.field,
-                        contentPadding: const EdgeInsets.symmetric(
+                    child: GestureDetector(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate:
+                              birthday ?? DateTime(2000, 1, 1),
+                          firstDate: DateTime(1920),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setSheet(() => birthday = dOnly(picked));
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 11,
                         ),
-                        border: OutlineInputBorder(
+                        decoration: BoxDecoration(
+                          color: T.field,
                           borderRadius: BorderRadius.circular(11),
-                          borderSide: BorderSide.none,
+                        ),
+                        child: Text(
+                          birthday == null
+                              ? '生日'
+                              : '${ymdDots(birthday!)} · ${_ageOf(birthday!)}岁',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: birthday == null ? T.muted : T.ink,
+                            fontWeight: birthday == null
+                                ? FontWeight.w400
+                                : FontWeight.w600,
+                          ),
                         ),
                       ),
-                      style: const TextStyle(fontSize: 15),
                     ),
                   ),
                 ],
@@ -502,11 +527,10 @@ class MeTab extends StatelessWidget {
               BigBtn(
                 '保存',
                 onTap: () {
-                  final age = int.tryParse(ageCtrl.text.trim());
                   data.updateProfile(
                     nickname: ctrl.text.trim(),
                     gender: gender,
-                    age: (age != null && age > 0 && age <= 120) ? age : null,
+                    birthday: birthday,
                   );
                   Navigator.pop(context);
                 },

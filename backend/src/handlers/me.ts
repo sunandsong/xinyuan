@@ -26,8 +26,8 @@ export function pickProfilePatch(b: any): Record<string, unknown> {
   if (b?.gender === null || typeof b?.gender === 'string') {
     patch.gender = b.gender === null ? null : String(b.gender).slice(0, 8);
   }
-  if (b?.age === null || (typeof b?.age === 'number' && b.age >= 0 && b.age <= 150)) {
-    patch.age = b.age === null ? null : Math.floor(b.age);
+  if (b?.birthday === null || (typeof b?.birthday === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.birthday))) {
+    patch.birthday = b.birthday;
   }
   for (const k of ['doneCount', 'taskCount', 'achvCount', 'placeCount'] as const) {
     if (typeof b?.[k] === 'number' && b[k] >= 0) {
