@@ -29,14 +29,29 @@ jobs:
           channel: stable
           cache: true
 
-      - name: 打包 APK（release 构建，Flutter 默认用 debug 签名，可直接安装）
+      - name: 打包 APK（只打 arm64，包体从 ~74MB 瘦到 ~28MB；debug 签名可直接安装）
         working-directory: frontend
         run: |
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --target-platform android-arm64
 
       - name: 整理产物名
         run: cp frontend/build/app/outputs/flutter-apk/app-release.apk xinyuan-b${{ github.run_number }}.apk
+
+      - name: 上传到腾讯云存储（国内高速下载；仓库没配密钥就跳过）
+        env:
+          TCB_SECRET_ID: ${{ secrets.TCB_SECRET_ID }}
+          TCB_SECRET_KEY: ${{ secrets.TCB_SECRET_KEY }}
+        run: |
+          if [ -z "$TCB_SECRET_ID" ]; then
+            echo "未配置 TCB_SECRET_ID/TCB_SECRET_KEY，跳过国内镜像上传"
+            exit 0
+          fi
+          npm i -g @cloudbase/cli
+          tcb login --apiKeyId "$TCB_SECRET_ID" --apiKey "$TCB_SECRET_KEY"
+          tcb storage upload xinyuan-b${{ github.run_number }}.apk \
+            releases/xinyuan-b${{ github.run_number }}.apk \
+            -e renshengqingdan-d8feva5q55d12bab
 
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v2

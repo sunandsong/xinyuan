@@ -1,5 +1,7 @@
 // App 版本下载页：读 GitHub Releases（CI 每次 push 自动打包上传），
 // 渲染成手机友好的 HTML 给合伙人直接下载安装。公开路由，不用登录。
+// CI 若把 APK 同步传到了云存储（releases/ 目录），优先给国内高速链接。
+import { ENV_ID } from '../config';
 import { Res, serverError } from '../http';
 
 const REPO = 'sunandsong/xinyuan';
@@ -7,6 +9,43 @@ const REPO = 'sunandsong/xinyuan';
 const MIRROR = 'https://gh-proxy.com/';
 
 let cache: { at: number; html: string } | null = null;
+let bucket: string | null = null; // 云存储桶名，跑一次探测后缓存
+
+/** 云存储里 releases/ 下这些文件的临时下载链接（不存在的返回不了就没有）*/
+async function fastUrls(names: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  if (names.length === 0) return out;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const cloudbase = require('@cloudbase/node-sdk');
+    const app = cloudbase.init({ env: ENV_ID });
+    if (!bucket) {
+      // 桶名没法硬编码：借一次上传凭证的 download_url 把它探出来
+      const meta = await app.getUploadMetadata({ cloudPath: 'releases/.probe' });
+      bucket = new URL(meta.data.download_url).hostname.split('.')[0];
+    }
+    const res = await app.getTempFileURL({
+      fileList: names.map((n) => `cloud://${ENV_ID}.${bucket}/releases/${n}`),
+    });
+    const candidates: Array<[string, string]> = [];
+    (res.fileList ?? []).forEach((f: any, i: number) => {
+      const u = f.tempFileURL || f.download_url;
+      if (u) candidates.push([names[i], u]);
+    });
+    // 拿到链接不代表文件真的在（老版本可能没传过）：HEAD 验一下再上按钮
+    await Promise.all(
+      candidates.map(async ([n, u]) => {
+        try {
+          const h = await fetch(u, { method: 'HEAD' });
+          if (h.ok) out[n] = u;
+        } catch {}
+      }),
+    );
+  } catch (e) {
+    console.error('fast urls failed', e); // 云存储不可用就只给 GitHub 链接
+  }
+  return out;
+}
 
 export async function releasesPage(): Promise<Res> {
   try {
@@ -17,7 +56,14 @@ export async function releasesPage(): Promise<Res> {
         { headers: { 'user-agent': 'xinyuan-releases' } },
       );
       if (!r.ok) throw new Error(`github ${r.status}`);
-      cache = { at: Date.now(), html: render((await r.json()) as any[]) };
+      const list = (await r.json()) as any[];
+      const fast = await fastUrls(
+        list
+          .slice(0, 5) // 只查最近 5 个版本，老的没必要
+          .map((x) => x.assets?.find((a: any) => a.name.endsWith('.apk'))?.name)
+          .filter(Boolean),
+      );
+      cache = { at: Date.now(), html: render(list, fast) };
     }
     return {
       statusCode: 200,
@@ -46,12 +92,19 @@ function fmtSize(b: number): string {
   return b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${(b / 1024).toFixed(0)} KB`;
 }
 
-function render(list: any[]): string {
+function render(list: any[], fast: Record<string, string>): string {
   const items = list
     .filter((r) => (r.assets ?? []).length > 0)
     .map((r, i) => {
       const asset = r.assets.find((a: any) => a.name.endsWith('.apk')) ?? r.assets[0];
       const notes = String(r.body ?? '').trim();
+      const fastUrl = fast[asset.name];
+      const mainBtn = fastUrl
+        ? `<a class="btn" href="${fastUrl}">高速下载</a>`
+        : `<a class="btn" href="${MIRROR}${asset.browser_download_url}">下载安装</a>`;
+      const altLinks = fastUrl
+        ? `<a class="alt" href="${MIRROR}${asset.browser_download_url}">高速链接不行？走镜像</a>`
+        : `<a class="alt" href="${asset.browser_download_url}">镜像下载失败？试试直连</a>`;
       return `
       <div class="card">
         <div class="row">
@@ -59,10 +112,10 @@ function render(list: any[]): string {
             <div class="name">${esc(r.name || r.tag_name)}${i === 0 ? '<span class="latest">最新</span>' : ''}</div>
             <div class="meta">${fmtDate(r.published_at)} · ${fmtSize(asset.size)}</div>
           </div>
-          <a class="btn" href="${MIRROR}${asset.browser_download_url}">下载安装</a>
+          ${mainBtn}
         </div>
         ${notes ? `<div class="notes">${esc(notes).slice(0, 600)}</div>` : ''}
-        <a class="alt" href="${asset.browser_download_url}">镜像下载失败？试试直连</a>
+        ${altLinks}
       </div>`;
     })
     .join('\n');
