@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import 'data.dart';
@@ -13,8 +14,16 @@ class Notify {
   static bool _ready = false;
   static bool _allowed = false;
 
+  // iOS 的 present* 显式开着：App 正开着的时候也要弹横幅，
+  // 不然前台测试怎么设都"没反应"
+  static const _ios = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBanner: true,
+    presentSound: true,
+  );
+
   static const _details = NotificationDetails(
-    iOS: DarwinNotificationDetails(),
+    iOS: _ios,
     android: AndroidNotificationDetails(
       'wish_target',
       '心愿提醒',
@@ -24,7 +33,7 @@ class Notify {
   );
 
   static const _taskDetails = NotificationDetails(
-    iOS: DarwinNotificationDetails(),
+    iOS: _ios,
     android: AndroidNotificationDetails(
       'task_reminder',
       '任务提醒',
@@ -39,6 +48,14 @@ class Notify {
     _ready = true;
     try {
       tzdata.initializeTimeZones();
+      // 必须把 tz.local 设成设备真实时区：默认是 UTC，排进去的挂钟时间会被
+      // iOS 按本地时区解释，提醒整整晚 8 小时——看起来就是"设了没反应"
+      try {
+        final name = await FlutterTimezone.getLocalTimezone();
+        tz.setLocalLocation(tz.getLocation(name.identifier));
+      } catch (e) {
+        debugPrint('notify tz failed: $e'); // 拿不到就退回 UTC，顶多时间偏差
+      }
       await _plugin.initialize(
         settings: const InitializationSettings(
           iOS: DarwinInitializationSettings(
@@ -149,6 +166,14 @@ class Notify {
     }
     return (h, m);
   }
+}
+
+/// 这个 day+time 的提醒还来得及响吗——时间已经过了的排了也不会响，
+/// UI 用它提前告诉用户，别让人以为提醒坏了
+bool reminderWillFire(DateTime day, String? time) {
+  final hm = Notify._parseTime(time);
+  return DateTime(day.year, day.month, day.day, hm.$1, hm.$2)
+      .isAfter(DateTime.now());
 }
 
 /// 页面里用的短名字

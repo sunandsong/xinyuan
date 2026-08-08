@@ -407,6 +407,9 @@ class _TaskFormState extends State<_TaskForm> {
       AppData.I.updateTask(editing);
       if (_remind) {
         scheduleTaskReminder(editing);
+        if (!reminderWillFire(_day, _time)) {
+          snack(context, '这个提醒时间已经过了，这次不会响');
+        }
       } else {
         cancelTaskReminder(editing);
       }
@@ -421,7 +424,12 @@ class _TaskFormState extends State<_TaskForm> {
         time: _remind ? _time : null,
         remind: _remind,
       );
-      if (_remind) scheduleTaskReminder(t);
+      if (_remind) {
+        scheduleTaskReminder(t);
+        if (!reminderWillFire(_day, _time)) {
+          snack(context, '这个提醒时间已经过了，这次不会响');
+        }
+      }
     }
     Navigator.pop(context);
   }
