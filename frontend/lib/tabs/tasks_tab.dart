@@ -14,10 +14,34 @@ class TasksTab extends StatefulWidget {
   State<TasksTab> createState() => _TasksTabState();
 }
 
-class _TasksTabState extends State<TasksTab> {
+class _TasksTabState extends State<TasksTab>
+    with SingleTickerProviderStateMixin {
   DateTime selected = dOnly(DateTime.now());
   late DateTime anchor = DateTime(selected.year, selected.month, 1);
   bool expanded = false; // false = 周视图, true = 月视图展开
+
+  /// 0=周视图 1=月视图；拖动时直接跟手指走，松手再吸附到 0/1
+  late final AnimationController _cal = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 200),
+  );
+
+  // 日历各部分的固定高度，跟手拖动要按像素算进度
+  static const _headerH = 20.0, _gapH = 4.0, _cellH = 56.0;
+  double get _weekH => _headerH + _gapH + _cellH;
+  double get _monthH {
+    final a = DateTime(selected.year, selected.month, 1);
+    final rows =
+        ((a.weekday % 7 + DateUtils.getDaysInMonth(a.year, a.month)) / 7)
+            .ceil();
+    return _headerH + _gapH + rows * _cellH;
+  }
+
+  @override
+  void dispose() {
+    _cal.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,13 +84,50 @@ class _TasksTabState extends State<TasksTab> {
           _topbar(),
           const SizedBox(height: 14),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onHorizontalDragEnd: _onSwipe,
-            onVerticalDragEnd: _onVerticalSwipe,
-            child: AnimatedSize(
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: expanded ? _monthGrid() : _weekStrip(),
+            // 跟手：拖多少露多少，不是松手才一次性弹开
+            onVerticalDragUpdate: (d) =>
+                _cal.value += d.delta.dy / (_monthH - _weekH),
+            onVerticalDragEnd: _snapCal,
+            child: AnimatedBuilder(
+              animation: _cal,
+              builder: (context, _) {
+                final t = _cal.value;
+                final monthH = _monthH;
+                return SizedBox(
+                  height: _weekH + (monthH - _weekH) * t,
+                  child: ClipRect(
+                    child: Stack(children: [
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: monthH,
+                        child: IgnorePointer(
+                          ignoring: t < .5,
+                          child: Opacity(opacity: t, child: _monthGrid()),
+                        ),
+                      ),
+                      if (t < .999)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: _weekH,
+                          child: IgnorePointer(
+                            ignoring: t >= .5,
+                            child: Opacity(
+                              // 周视图先淡出，别和月视图糊在一起
+                              opacity: (1 - t * 2).clamp(0.0, 1.0),
+                              child: _weekStrip(),
+                            ),
+                          ),
+                        ),
+                    ]),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -185,7 +246,7 @@ class _TasksTabState extends State<TasksTab> {
       key: const ValueKey('month'),
       children: [
         _weekHeader(),
-        const SizedBox(height: 4),
+        const SizedBox(height: _gapH),
         for (var r = 0; r < rows; r++)
           Row(children: [
             for (var c = 0; c < 7; c++)
@@ -201,16 +262,20 @@ class _TasksTabState extends State<TasksTab> {
   }
 
   Widget _weekHeader() {
-    return Row(children: [
-      for (final w in weekNames)
-        Expanded(
-          child: Center(
-            child: Text(w,
-                style: TextStyle(
-                    fontSize: 13, color: Colors.white.withValues(alpha: .6))),
+    // 高度固定成 _headerH：跟手展开的像素账要按它算
+    return SizedBox(
+      height: _headerH,
+      child: Row(children: [
+        for (final w in weekNames)
+          Expanded(
+            child: Center(
+              child: Text(w,
+                  style: TextStyle(
+                      fontSize: 13, color: Colors.white.withValues(alpha: .6))),
+            ),
           ),
-        ),
-    ]);
+      ]),
+    );
   }
 
   // 蓝底上的日历格子（白色系）
@@ -285,7 +350,7 @@ class _TasksTabState extends State<TasksTab> {
       key: const ValueKey('week'),
       children: [
         _weekHeader(),
-        const SizedBox(height: 2),
+        const SizedBox(height: _gapH), // 和月视图同一个间距，跟手切换时不跳
         Row(children: [
           for (var i = 0; i < 7; i++)
             Expanded(
@@ -466,10 +531,12 @@ class _TasksTabState extends State<TasksTab> {
   }
 
   // 上下滑：展开 / 收起
-  void _onVerticalSwipe(DragEndDetails d) {
+  /// 松手吸附：快甩看方向，慢放看过没过半
+  void _snapCal(DragEndDetails d) {
     final v = d.primaryVelocity ?? 0;
-    if (v.abs() < 80) return;
-    setState(() => expanded = v > 0);
+    final open = v > 250 || (v > -250 && _cal.value > .5);
+    setState(() => expanded = open);
+    _cal.animateTo(open ? 1 : 0, curve: Curves.easeOutCubic);
   }
 }
 

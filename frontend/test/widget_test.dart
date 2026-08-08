@@ -211,7 +211,7 @@ void main() {
     for (final entry in ['人生清单编辑', '荣誉陈列馆', '点亮世界', '时光胶囊']) {
       await tester.tap(find.text(entry));
       await tester.pumpAndSettle();
-      expect(find.text('登录后，心愿与勋章将云端同步'), findsOneWidget,
+      expect(find.text('没有账号？去注册'), findsOneWidget,
           reason: '$entry 未登录时应该先弹登录，而不是直接进去');
       // 关掉弹层，确认没有跳走（「我的」页还在）
       await tester.tapAt(const Offset(20, 20));
@@ -293,7 +293,7 @@ void main() {
     expect(asked, ['wish'], reason: '打开时只请求当前榜');
     expect(find.text('别人'), findsOneWidget);
     expect(find.text('松之（我）'), findsOneWidget, reason: '我那行要标出来');
-    expect(find.text('第 2 名 · 5'), findsOneWidget);
+    expect(find.text('第 2 名 · 5个心愿'), findsOneWidget);
 
     // 切到「奖杯」榜：换一次请求
     await tester.tap(find.text('奖杯'));
@@ -309,7 +309,7 @@ void main() {
     await tester.tap(find.text('足迹'));
     await tester.pumpAndSettle();
     expect(find.text('还没有人上榜，你可以是第一个'), findsOneWidget);
-    expect(find.text('还没上榜'), findsOneWidget);
+    expect(find.text('还没上榜，加把劲'), findsOneWidget);
 
     d.signedIn = false;
     ApiClient.http_ = http.Client();
