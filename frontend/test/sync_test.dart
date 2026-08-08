@@ -327,6 +327,41 @@ void main() {
       expect(d.wishes[1].title, '改过的标题', reason: '就地替换，不能让改过的跳到末尾');
     });
 
+    test('头像：启动拉取失败也不消失（本地存了一份）', () async {
+      SharedPreferences.setMockInitialValues({
+        'auth_token': 't',
+        'auth_account': 'songzhang',
+        'avatar_url': 'https://cos.example.com/avatar/a.jpg',
+      });
+      ApiClient.http_ = MockClient((req) async => _json({'error': 'down'}, 500));
+
+      await d.initSession();
+      expect(d.avatarUrl, 'https://cos.example.com/avatar/a.jpg',
+          reason: '云函数冷启动慢/网络抖动时，头像不能跟着消失');
+      await d.logout();
+    });
+
+    test('头像：云端是空的不许把本地头像抹掉，还要补推上去', () async {
+      SharedPreferences.setMockInitialValues({});
+      d.avatarUrl = 'https://cos.example.com/avatar/b.jpg';
+      await login(pull: {
+        'now': 1,
+        'wishes': [],
+        'profile': {'nickname': '松之', 'createdAt': 1730000000000},
+      });
+
+      expect(d.avatarUrl, 'https://cos.example.com/avatar/b.jpg',
+          reason: '上次头像推送失败时，云端是 null，不能反过来清掉本地');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        rec.requests.any(
+            (r) => r.url.path.endsWith('/me') && r.body.contains('b.jpg')),
+        isTrue,
+        reason: '还要把本地头像补推给云端',
+      );
+      d.avatarUrl = null;
+    });
+
     test('重启兜底：云端没新改动时，本地缓存把数据装回来', () async {
       // 心愿只存内存，重启后内存是空的；增量拉取又只拉水位之后的改动，
       // 云端没新东西就一条都拉不回来——必须靠本地缓存兜底，不然等于数据丢了

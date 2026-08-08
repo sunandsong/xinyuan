@@ -511,7 +511,15 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       if (profile != null) {
         final nick = profile['nickname'] as String?;
         if (nick != null && nick.isNotEmpty) nickname = nick;
-        avatarUrl = profile['avatarUrl'] as String?;
+        // 云端有头像就用云端的；云端没有但本地有（上次推送悄悄失败了），
+        // 保住本地的并补推一次，别让 null 把头像抹掉
+        final cloudAvatar = profile['avatarUrl'] as String?;
+        if (cloudAvatar != null) {
+          avatarUrl = cloudAvatar;
+        } else if (avatarUrl != null) {
+          unawaited(_pushProfile(avatarUrl: avatarUrl));
+        }
+        _saveAvatarLocal();
         accountCreatedAt = _fromMs(profile['createdAt'] as num?);
         final cloudAchv = ((profile['achievements'] as Map?) ?? const {})
             .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
@@ -1004,10 +1012,22 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   /// 上传好的照片设为头像
   void setAvatarPhoto(String url) {
     avatarUrl = url;
+    _saveAvatarLocal();
     notifyListeners();
     if (signedIn) {
       unawaited(_pushProfile(avatarUrl: url));
     }
+  }
+
+  /// 头像链接本地也存一份：不然每次启动都赌云端拉取成功，
+  /// 云函数冷启动慢或网络一抖，头像就"消失"了（心愿有缓存兜底，头像也得有）
+  static const _avatarKey = 'avatar_url';
+  void _saveAvatarLocal() {
+    unawaited(SharedPreferences.getInstance().then(
+      (p) => avatarUrl == null
+          ? p.remove(_avatarKey)
+          : p.setString(_avatarKey, avatarUrl!),
+    ));
   }
 
   Future<void> _pushProfile({
@@ -1040,6 +1060,10 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     account = await Session.account();
     final nick = await Session.nick();
     if (nick != null && nick.isNotEmpty) nickname = nick;
+    if (signedIn) {
+      // 先装本地存的头像，云端拉取成功后会覆盖；拉取失败也不至于头像消失
+      avatarUrl = (await SharedPreferences.getInstance()).getString(_avatarKey);
+    }
     if (signedIn) {
       // 先装本地缓存再增量拉；没缓存（新装/缓存坏了）就必须全量拉，
       // 不然增量什么都拉不到，界面只剩默认清单
@@ -1086,6 +1110,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     account = null;
     accountCreatedAt = null;
     avatarUrl = null;
+    _saveAvatarLocal(); // 清掉本地存的头像
     achvUnlocked = {};
     _saveAchvLocal();
     checkins = {};
