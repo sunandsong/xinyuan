@@ -591,6 +591,7 @@ class MeTab extends StatelessWidget {
                     birthday: birthday,
                   );
                   Navigator.pop(context);
+                  snack(context, '资料已保存 ✅');
                 },
               ),
               const SizedBox(height: 6),
