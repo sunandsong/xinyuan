@@ -72,12 +72,12 @@ class _SplashPageState extends State<SplashPage>
                   Transform.scale(
                     scale: .82 + .18 * _pop.value,
                     child: SizedBox(
-                      width: 128,
-                      height: 128,
+                      width: 84,
+                      height: 84,
                       child: CustomPaint(painter: _LogoPainter(_logo.value)),
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 0),
                   // 人生清单
                   Opacity(
                     opacity: _title.value.clamp(0, 1),

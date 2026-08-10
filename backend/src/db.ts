@@ -2,7 +2,7 @@
 // 同步统一用 Last-Write-Wins（updatedAt 大者胜），软删除用 deleted 传播。
 
 import { COL, ENV_ID } from './config';
-import { Letter, PullResult, Share, Task, UserProfile, Wish } from './types';
+import { Feedback, Letter, PullResult, Share, Task, UserProfile, Wish } from './types';
 
 export interface Db {
   getUserByAccount(account: string): Promise<UserProfile | null>;
@@ -15,6 +15,8 @@ export interface Db {
   upsertTasks(uid: string, items: Array<Partial<Task> & { _id: string; updatedAt: number }>): Promise<void>;
   upsertLetters(uid: string, items: Array<Partial<Letter> & { _id: string; updatedAt: number }>): Promise<void>;
 
+  createFeedback(fb: Feedback): Promise<void>;
+
   createShare(share: Share): Promise<void>;
   getShareByCode(code: string): Promise<Share | null>;
   bumpShareViews(code: string): Promise<void>;
@@ -25,6 +27,24 @@ export interface Db {
   topUsers(field: string, limit: number): Promise<UserProfile[]>;
   /** 该字段上比我多的有几个人（用来算名次，不用把全表拉下来） */
   countAbove(field: string, value: number): Promise<number>;
+
+  /** 内容榜：哪个心愿标题被最多人完成过（跨全部用户统计，同名心愿算一起） */
+  topWishTitles(limit: number): Promise<Array<{ title: string; count: number }>>;
+  /** 内容榜：哪个景点被最多人打卡过 */
+  topPlaces(limit: number): Promise<Array<{ place: string; count: number }>>;
+
+  /** 内容榜穿透：哪些用户完成过这个标题的心愿 */
+  usersWhoCompletedWish(title: string, limit: number): Promise<PublicUser[]>;
+  /** 内容榜穿透：哪些用户打卡过这个景点 */
+  usersWhoCheckedIn(place: string, limit: number): Promise<PublicUser[]>;
+}
+
+/** 内容榜穿透列表只给这几样——跟排行榜一个尺度，不泄露账号名 */
+export interface PublicUser {
+  uid: string;
+  nickname: string;
+  avatarUrl: string | null;
+  gender: string | null;
 }
 
 // CloudBase 文档库不允许 payload 含 _id（它是文档主键）
@@ -193,6 +213,89 @@ class CloudDb implements Db {
     return r.total ?? 0;
   }
 
+  async topWishTitles(limit: number): Promise<Array<{ title: string; count: number }>> {
+    const r = await this.db
+      .collection(COL.wishes)
+      .where({ done: true, deleted: this.cmd.neq(true) })
+      .limit(QUERY_LIMIT)
+      .get();
+    const counts = new Map<string, number>();
+    for (const w of r.data ?? []) {
+      const t = String(w.title ?? '').trim();
+      if (!t) continue;
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([title, count]) => ({ title, count }));
+  }
+
+  async topPlaces(limit: number): Promise<Array<{ place: string; count: number }>> {
+    const r = await this.db
+      .collection(COL.users)
+      .where({ deleted: this.cmd.neq(true) })
+      .limit(QUERY_LIMIT)
+      .get();
+    const counts = new Map<string, number>();
+    for (const u of r.data ?? []) {
+      for (const place of Object.keys(u.checkins ?? {})) {
+        counts.set(place, (counts.get(place) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([place, count]) => ({ place, count }));
+  }
+
+  async usersWhoCompletedWish(title: string, limit: number): Promise<PublicUser[]> {
+    // wishes 和 users 是两个表，join 不了：先查这个标题下完成过的 uid（去重），
+    // 再按 uid 批量查资料。心愿标题不会太多人完成，两次查询成本可控。
+    const wr = await this.db
+      .collection(COL.wishes)
+      .where({ title, done: true, deleted: this.cmd.neq(true) })
+      .limit(QUERY_LIMIT)
+      .get();
+    const uids = [...new Set((wr.data ?? []).map((w: any) => w.uid as string))].slice(
+      0,
+      limit,
+    );
+    if (uids.length === 0) return [];
+    const ur = await this.db
+      .collection(COL.users)
+      .where({ _id: this.cmd.in(uids), deleted: this.cmd.neq(true) })
+      .limit(QUERY_LIMIT)
+      .get();
+    return (ur.data ?? []).map((u: any) => ({
+      uid: u._id,
+      nickname: u.nickname || '匿名',
+      avatarUrl: u.avatarUrl ?? null,
+      gender: u.gender ?? null,
+    }));
+  }
+
+  async usersWhoCheckedIn(place: string, limit: number): Promise<PublicUser[]> {
+    // checkins 是 { 景点名: 时间戳 } 的动态字段，按点路径查有没有这个 key
+    const r = await this.db
+      .collection(COL.users)
+      .where({
+        deleted: this.cmd.neq(true),
+        [`checkins.${place}`]: this.cmd.exists(true),
+      })
+      .limit(limit)
+      .get();
+    return (r.data ?? []).map((u: any) => ({
+      uid: u._id,
+      nickname: u.nickname || '匿名',
+      avatarUrl: u.avatarUrl ?? null,
+      gender: u.gender ?? null,
+    }));
+  }
+
+  async createFeedback(fb: Feedback) {
+    await this.db.collection(COL.feedback).doc(fb._id).set(noId(fb));
+  }
   async createShare(share: Share) {
     await this.db.collection(COL.shares).doc(share._id).set(noId(share));
   }

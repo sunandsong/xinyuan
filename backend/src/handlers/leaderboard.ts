@@ -26,11 +26,14 @@ export async function leaderboard(req: Req, uid: string) {
 
   return ok({
     by,
-    // 只给昵称和头像：榜单是所有登录用户都能看的，不返回账号名和 uid
+    // 榜单是所有登录用户都能看的，不返回账号名；uid 给出去是为了能点进详情页，
+    // 详情接口（GET /users/:id）自己也只吐公开信息，不会因为这个多泄露什么
     top: top.map((u, i) => ({
       rank: i + 1,
+      uid: u._id,
       nickname: u.nickname || '匿名',
       avatarUrl: u.avatarUrl ?? null,
+      gender: u.gender ?? null,
       count: (u as any)[field] ?? 0,
       isMe: u._id === uid,
     })),

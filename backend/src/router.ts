@@ -1,9 +1,17 @@
 // 汇总路由 + 鉴权：public 先匹配，其余需登录。
 import { getUid } from './auth';
 import * as auth from './handlers/auth';
+import { submitFeedback } from './handlers/feedback';
 import * as geocode from './handlers/geocode';
+import {
+  placeInsights,
+  placeVisitors,
+  wishCompleters,
+  wishInsights,
+} from './handlers/insights';
 import { leaderboard } from './handlers/leaderboard';
 import * as me from './handlers/me';
+import { getPublicProfile } from './handlers/profile';
 import { releasesPage } from './handlers/releases';
 import * as share from './handlers/share';
 import * as sync from './handlers/sync';
@@ -23,11 +31,17 @@ function protectedRoutes(uid: string) {
   return [
     route('GET', '/me', (r) => me.getMe(r, uid)),
     route('GET', '/leaderboard', (r) => leaderboard(r, uid)),
+    route('GET', '/insights/wishes', (r) => wishInsights(r)),
+    route('GET', '/insights/places', (r) => placeInsights(r)),
+    route('GET', '/insights/wishes/users', (r) => wishCompleters(r)),
+    route('GET', '/insights/places/users', (r) => placeVisitors(r)),
+    route('GET', '/users/:id', (r, p) => getPublicProfile(r, p.id)),
     route('PATCH', '/me', (r) => me.patchMe(r, uid)),
     route('DELETE', '/auth/account', (r) => me.deleteAccount(r, uid)),
     route('GET', '/sync/pull', (r) => sync.pull(r, uid)),
     route('POST', '/sync/push', (r) => sync.push(r, uid)),
     route('POST', '/share', (r) => share.createShare(r, uid)),
+    route('POST', '/feedback', (r) => submitFeedback(r, uid)),
     route('POST', '/upload', (r) => upload(r, uid)),
     route('POST', '/photo-urls', (r) => photoUrls(r, uid)),
     route('GET', '/geocode/reverse', (r) => geocode.reverseGeocode(r)),

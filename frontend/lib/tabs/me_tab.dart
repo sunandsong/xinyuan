@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart' show CupertinoDatePicker, CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
+import '../api/api.dart';
 import '../data.dart';
 import '../pages/login_page.dart';
 import '../pages/world_page.dart';
@@ -59,6 +60,18 @@ class MeTab extends StatelessWidget {
                       '${data.letters.length} 封',
                       () => _push(context, const CapsulePage()),
                     ),
+                    _row(
+                      context,
+                      '意见反馈',
+                      '',
+                      () => data.signedIn
+                          ? _openFeedback(context)
+                          : _showLogin(context),
+                    ),
+                    // 版本号：跟其它设置项同一张卡、同一种排版，不能点，所以没有 chevron。
+                    // 手动跟 pubspec.yaml 的 version 保持一致就行，改动不频繁，
+                    // 没必要为这一行字多引一个 package_info 插件
+                    _infoRow('版本', '1.0.0'),
                     data.signedIn
                         ? _action(
                             context,
@@ -82,7 +95,7 @@ class MeTab extends StatelessWidget {
             if (data.signedIn)
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 18, bottom: 8),
+                  padding: const EdgeInsets.only(top: 18, bottom: 20),
                   child: GestureDetector(
                     onTap: () => _confirmDelete(context),
                     child: const Text(
@@ -91,7 +104,9 @@ class MeTab extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
+              )
+            else
+              const SizedBox(height: 20),
           ],
         );
       },
@@ -117,49 +132,60 @@ class MeTab extends StatelessWidget {
         children: [
           Row(
             children: [
-              // 大头像 + 光环（可编辑）
+              // 大头像 + 光环（可编辑）+ 右下角性别角标（没填就不显示）
               GestureDetector(
                 onTap: signed ? () => _editProfile(context) : null,
-                child: Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .35),
-                      width: 2,
-                    ),
-                  ),
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFFFFFFF), Color(0xFFE7ECFF)],
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: .35),
+                          width: 2,
+                        ),
                       ),
-                    ),
-                    alignment: Alignment.center,
-                    child: signed && data.avatarUrl != null
-                        ? ClipOval(
-                            child: WishPhoto(
-                              data.avatarUrl!,
-                              width: 72,
-                              height: 72,
-                              fallback: const Icon(
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFFFFFFF), Color(0xFFE7ECFF)],
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: signed && data.avatarUrl != null
+                            ? ClipOval(
+                                child: WishPhoto(
+                                  data.avatarUrl!,
+                                  width: 72,
+                                  height: 72,
+                                  fallback: const Icon(
+                                    Icons.person_rounded,
+                                    size: 38,
+                                    color: Color(0xFFB9C3E8),
+                                  ),
+                                ),
+                              )
+                            : const Icon(
                                 Icons.person_rounded,
                                 size: 38,
                                 color: Color(0xFFB9C3E8),
                               ),
-                            ),
-                          )
-                        : const Icon(
-                            Icons.person_rounded,
-                            size: 38,
-                            color: Color(0xFFB9C3E8),
-                          ),
-                  ),
+                      ),
+                    ),
+                    if (signed && data.gender != null)
+                      Positioned(
+                        right: -1,
+                        bottom: -1,
+                        child: _genderBadge(data.gender!),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(width: 16),
@@ -242,6 +268,26 @@ class MeTab extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// 头像右下角的性别角标：男蓝女粉，白边圆底压住头部渐变，没设性别时调用方不显示。
+  /// 试过不带圆圈直接放色块图标，跟渐变背景撞色看不清，还是圆底最清楚
+  Widget _genderBadge(String gender) {
+    final isMale = gender == '男';
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        color: isMale ? const Color(0xFF5B9BE0) : const Color(0xFFE87CA0),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Icon(
+        isMale ? Icons.male_rounded : Icons.female_rounded,
+        size: 14,
+        color: Colors.white,
       ),
     );
   }
@@ -343,6 +389,26 @@ class MeTab extends StatelessWidget {
     );
   }
 
+  /// 跟 _row 同一种排版的静态信息行——不能点，所以没有 TapRow 和 chevron
+  Widget _infoRow(String title, String value, {bool last = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      decoration: last
+          ? null
+          : const BoxDecoration(
+              border: Border(bottom: BorderSide(color: T.field)),
+            ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(title, style: const TextStyle(fontSize: 16.5)),
+          ),
+          Text(value, style: const TextStyle(fontSize: 15, color: T.faint)),
+        ],
+      ),
+    );
+  }
+
   /// 底部弹出的滚轮式年月日选择（系统 Cupertino 转轮，不用引三方）
   static Future<DateTime?> _pickBirthday(
     BuildContext context,
@@ -398,6 +464,39 @@ class MeTab extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// 编辑资料弹层里「标签 + 右侧内容」的一行，性别、生日共用这套排版
+  Widget _formRow({
+    required String label,
+    required Widget child,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: T.field,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14.5,
+                color: T.muted,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            child,
+          ],
         ),
       ),
     );
@@ -507,79 +606,91 @@ class MeTab extends StatelessWidget {
                 ),
                 style: const TextStyle(fontSize: 17),
               ),
-              const SizedBox(height: 12),
-              // 性别 + 年龄：都是选填，性别再点一下可取消
-              Row(
-                children: [
-                  for (final g in ['男', '女']) ...[
-                    GestureDetector(
-                      onTap: () =>
-                          setSheet(() => gender = gender == g ? null : g),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 22,
-                          vertical: 11,
-                        ),
-                        decoration: BoxDecoration(
-                          color: gender == g
-                              ? T.accent.withValues(alpha: .14)
-                              : T.field,
-                          borderRadius: BorderRadius.circular(11),
-                          border: Border.all(
-                            color: gender == g ? T.accent : Colors.transparent,
-                          ),
-                        ),
-                        child: Text(
-                          g,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: gender == g
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: gender == g ? T.accent : T.muted,
+              const SizedBox(height: 10),
+              // 性别：图标 + 文字卡片，选中的描边+浅底+主题色，未选灰字白底
+              _formRow(
+                label: '性别',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final g in ['男', '女'])
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: GestureDetector(
+                          onTap: () =>
+                              setSheet(() => gender = gender == g ? null : g),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: gender == g
+                                  ? T.accent.withValues(alpha: .12)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
+                                color: gender == g ? T.accent : T.line,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  g == '男'
+                                      ? Icons.male_rounded
+                                      : Icons.female_rounded,
+                                  size: 15,
+                                  color: gender == g ? T.accent : T.muted,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  g,
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: gender == g ? T.accent : T.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
                   ],
-                  // 生日：选了自动算年龄显示出来
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        final picked = await _pickBirthday(
-                          context,
-                          birthday ?? DateTime(2000, 1, 1),
-                        );
-                        if (picked != null) {
-                          setSheet(() => birthday = dOnly(picked));
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 11,
-                        ),
-                        decoration: BoxDecoration(
-                          color: T.field,
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Text(
-                          birthday == null
-                              ? '生日'
-                              : '${ymdDots(birthday!)} · ${_ageOf(birthday!)}岁',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: birthday == null ? T.muted : T.ink,
-                            fontWeight: birthday == null
-                                ? FontWeight.w400
-                                : FontWeight.w600,
-                          ),
-                        ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // 生日：选了自动算年龄显示出来，整行都能点
+              _formRow(
+                label: '生日',
+                onTap: () async {
+                  final picked = await _pickBirthday(
+                    context,
+                    birthday ?? DateTime(2000, 1, 1),
+                  );
+                  if (picked != null) setSheet(() => birthday = dOnly(picked));
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      birthday == null
+                          ? '未设置'
+                          : '${ymdDots(birthday!)} · ${_ageOf(birthday!)}岁',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: birthday == null ? T.muted : T.ink,
+                        fontWeight: birthday == null
+                            ? FontWeight.w400
+                            : FontWeight.w600,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 2),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 18, color: T.muted.withValues(alpha: .7)),
+                  ],
+                ),
               ),
               const SizedBox(height: 18),
               BigBtn(
@@ -593,6 +704,86 @@ class MeTab extends StatelessWidget {
                   Navigator.pop(context);
                   snack(context, '资料已保存 ✅');
                 },
+              ),
+              const SizedBox(height: 6),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ---------- 意见反馈 ----------
+  void _openFeedback(BuildContext context) {
+    final ctrl = TextEditingController();
+    bool loading = false;
+
+    showAppSheet(
+      context,
+      StatefulBuilder(
+        builder: (context, setSheet) {
+          Future<void> submit() async {
+            final text = ctrl.text.trim();
+            if (text.isEmpty) {
+              snack(context, '写点内容再提交吧');
+              return;
+            }
+            setSheet(() => loading = true);
+            try {
+              await FeedbackApi.submit(text);
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              snack(context, '收到啦，谢谢反馈 ✅');
+            } on ApiException catch (e) {
+              setSheet(() => loading = false);
+              snack(context, e.message);
+            } catch (_) {
+              setSheet(() => loading = false);
+              snack(context, '提交失败，请重试');
+            }
+          }
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '意见反馈',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: Text(
+                  '哪里不好用、想要什么功能，都可以说说',
+                  style: TextStyle(fontSize: 13, color: T.muted),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              TextField(
+                controller: ctrl,
+                maxLines: 5,
+                maxLength: 500,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '说说你的想法…',
+                  filled: true,
+                  fillColor: T.field,
+                  contentPadding: const EdgeInsets.all(14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(11),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                style: const TextStyle(fontSize: 15),
+              ),
+              const SizedBox(height: 6),
+              BigBtn(
+                loading ? '提交中…' : '提交',
+                onTap: loading ? () {} : submit,
               ),
               const SizedBox(height: 6),
             ],

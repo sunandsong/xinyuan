@@ -28,4 +28,5 @@ export const COL = {
   tasks: 'tasks',
   letters: 'letters',
   shares: 'shares',
+  feedback: 'feedback',
 } as const;

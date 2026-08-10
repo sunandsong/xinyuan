@@ -6,8 +6,16 @@ import '../ui.dart';
 
 /// 一枚成就：达成条件由现有数据现算；点亮记录（recordedAt）云端持久化，拿到即永久
 class Achv {
-  const Achv(this.emoji, this.name, this.desc, this.goal, this.value,
-      this.color, this.recordedAt, this.slug);
+  const Achv(
+    this.emoji,
+    this.name,
+    this.desc,
+    this.goal,
+    this.value,
+    this.color,
+    this.recordedAt,
+    this.slug,
+  );
   final String emoji;
   final String name;
   final String desc;
@@ -40,6 +48,25 @@ const achvSlugByName = <String, String>{
   '时光旅人': 'first_letter',
 };
 
+/// slug → (emoji, 名称, 主题色)：纯展示元数据，跟 achievements() 里的达成条件计算
+/// 分开放，方便排行榜详情页展示"别人解锁了哪些勋章"时不用依赖 AppData 现算进度
+const achvMeta = <String, (String, String, Color)>{
+  'first_task': ('🎯', '初试身手', Color(0xFF6FA8DC)),
+  'task_10': ('✅', '渐入佳境', Color(0xFF5EB87C)),
+  'task_100': ('💯', '百炼成钢', Color(0xFFB07E2E)),
+  'streak_3': ('🔥', '三日之约', Color(0xFFE0855A)),
+  'streak_7': ('📆', '七日成习', Color(0xFFD96A8B)),
+  'streak_30': ('🏔️', '三十而立', Color(0xFF8B5AD9)),
+  'first_wish': ('⭐', '首愿达成', Color(0xFFF3C877)),
+  'wish_5': ('🌟', '五愿成真', Color(0xFFE8B44C)),
+  'wish_10': ('👑', '十全十美', Color(0xFFDA9A2B)),
+  'half_way': ('🌗', '心愿过半', Color(0xFF7A8FD8)),
+  'first_step': ('🧩', '拆解行家', Color(0xFF4FA394)),
+  'first_photo': ('📸', '留下印记', Color(0xFF6A5AE0)),
+  'first_note': ('📝', '过程记录者', Color(0xFF5C8A6E)),
+  'first_letter': ('✉️', '时光旅人', Color(0xFFA06AD8)),
+};
+
 /// 使用 App 的成就清单（按进阶顺序排列）
 List<Achv> achievements(AppData d) {
   final doneTasks = d.doneTaskCount;
@@ -47,44 +74,147 @@ List<Achv> achievements(AppData d) {
   final doneWishes = d.wishes.where((w) => w.done).length;
   final total = d.wishes.length;
   final pct = total == 0 ? 0 : doneWishes * 100 ~/ total;
-  final hasStep =
-      d.wishes.any((w) => w.steps.any((s) => s.done)) ? 1 : 0;
+  final hasStep = d.wishes.any((w) => w.steps.any((s) => s.done)) ? 1 : 0;
   final hasPhoto = d.wishes.any((w) => w.photos.isNotEmpty) ? 1 : 0;
   final hasNote = d.wishes.any((w) => w.notes.isNotEmpty) ? 1 : 0;
   final hasLetter = d.letters.isNotEmpty ? 1 : 0;
   final rec = d.achvUnlocked;
-  Achv a(String emoji, String name, String desc, int goal, int value,
-          Color color, String slug) =>
-      Achv(emoji, name, desc, goal, value, color, rec[slug], slug);
+  Achv a(
+    String emoji,
+    String name,
+    String desc,
+    int goal,
+    int value,
+    Color color,
+    String slug,
+  ) => Achv(emoji, name, desc, goal, value, color, rec[slug], slug);
   return [
-    a('🎯', '初试身手', '完成第 1 个任务', 1, doneTasks,
-        const Color(0xFF6FA8DC), 'first_task'),
-    a('✅', '渐入佳境', '完成 10 个任务', 10, doneTasks,
-        const Color(0xFF5EB87C), 'task_10'),
-    a('💯', '百炼成钢', '完成 100 个任务', 100, doneTasks,
-        const Color(0xFFB07E2E), 'task_100'),
-    a('🔥', '三日之约', '连续 3 天完成任务', 3, streak,
-        const Color(0xFFE0855A), 'streak_3'),
-    a('📆', '七日成习', '连续 7 天完成任务', 7, streak,
-        const Color(0xFFD96A8B), 'streak_7'),
-    a('🏔️', '三十而立', '连续 30 天完成任务', 30, streak,
-        const Color(0xFF8B5AD9), 'streak_30'),
-    a('⭐', '首愿达成', '点亮第 1 个心愿', 1, doneWishes,
-        const Color(0xFFF3C877), 'first_wish'),
-    a('🌟', '五愿成真', '点亮 5 个心愿', 5, doneWishes,
-        const Color(0xFFE8B44C), 'wish_5'),
-    a('👑', '十全十美', '点亮 10 个心愿', 10, doneWishes,
-        const Color(0xFFDA9A2B), 'wish_10'),
-    a('🌗', '心愿过半', '清单完成度达到 50%', 50, pct,
-        const Color(0xFF7A8FD8), 'half_way'),
-    a('🧩', '拆解行家', '完成 1 个心愿里程碑', 1, hasStep,
-        const Color(0xFF4FA394), 'first_step'),
-    a('📸', '留下印记', '给心愿传第 1 张照片', 1, hasPhoto,
-        const Color(0xFF6A5AE0), 'first_photo'),
-    a('📝', '过程记录者', '写下第 1 条心愿笔记', 1, hasNote,
-        const Color(0xFF5C8A6E), 'first_note'),
-    a('✉️', '时光旅人', '写 1 封给未来的信', 1, hasLetter,
-        const Color(0xFFA06AD8), 'first_letter'),
+    a(
+      '🎯',
+      '初试身手',
+      '完成第 1 个任务',
+      1,
+      doneTasks,
+      const Color(0xFF6FA8DC),
+      'first_task',
+    ),
+    a(
+      '✅',
+      '渐入佳境',
+      '完成 10 个任务',
+      10,
+      doneTasks,
+      const Color(0xFF5EB87C),
+      'task_10',
+    ),
+    a(
+      '💯',
+      '百炼成钢',
+      '完成 100 个任务',
+      100,
+      doneTasks,
+      const Color(0xFFB07E2E),
+      'task_100',
+    ),
+    a(
+      '🔥',
+      '三日之约',
+      '连续 3 天完成任务',
+      3,
+      streak,
+      const Color(0xFFE0855A),
+      'streak_3',
+    ),
+    a(
+      '📆',
+      '七日成习',
+      '连续 7 天完成任务',
+      7,
+      streak,
+      const Color(0xFFD96A8B),
+      'streak_7',
+    ),
+    a(
+      '🏔️',
+      '三十而立',
+      '连续 30 天完成任务',
+      30,
+      streak,
+      const Color(0xFF8B5AD9),
+      'streak_30',
+    ),
+    a(
+      '⭐',
+      '首愿达成',
+      '点亮第 1 个心愿',
+      1,
+      doneWishes,
+      const Color(0xFFF3C877),
+      'first_wish',
+    ),
+    a(
+      '🌟',
+      '五愿成真',
+      '点亮 5 个心愿',
+      5,
+      doneWishes,
+      const Color(0xFFE8B44C),
+      'wish_5',
+    ),
+    a(
+      '👑',
+      '十全十美',
+      '点亮 10 个心愿',
+      10,
+      doneWishes,
+      const Color(0xFFDA9A2B),
+      'wish_10',
+    ),
+    a(
+      '🌗',
+      '心愿过半',
+      '清单完成度达到 50%',
+      50,
+      pct,
+      const Color(0xFF7A8FD8),
+      'half_way',
+    ),
+    a(
+      '🧩',
+      '拆解行家',
+      '完成 1 个心愿里程碑',
+      1,
+      hasStep,
+      const Color(0xFF4FA394),
+      'first_step',
+    ),
+    a(
+      '📸',
+      '留下印记',
+      '给心愿传第 1 张照片',
+      1,
+      hasPhoto,
+      const Color(0xFF6A5AE0),
+      'first_photo',
+    ),
+    a(
+      '📝',
+      '过程记录者',
+      '写下第 1 条心愿笔记',
+      1,
+      hasNote,
+      const Color(0xFF5C8A6E),
+      'first_note',
+    ),
+    a(
+      '✉️',
+      '时光旅人',
+      '写 1 封给未来的信',
+      1,
+      hasLetter,
+      const Color(0xFFA06AD8),
+      'first_letter',
+    ),
   ];
 }
 
@@ -151,16 +281,20 @@ class TreePage extends StatelessWidget {
                       child: Row(
                         children: [
                           DarkPill(
-                              icon: Icons.arrow_back_ios_new_rounded,
-                              onTap: () => Navigator.pop(context)),
+                            icon: Icons.arrow_back_ios_new_rounded,
+                            onTap: () => Navigator.pop(context),
+                          ),
                           const Expanded(
                             child: Center(
-                              child: Text('荣 誉 殿 堂',
-                                  style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 4,
-                                      color: _lightInk)),
+                              child: Text(
+                                '荣 誉 殿 堂',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 4,
+                                  color: _lightInk,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 38),
@@ -208,51 +342,64 @@ class TreePage extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                        color: _gold.withValues(alpha: .28),
-                        blurRadius: 34,
-                        spreadRadius: 2),
+                      color: _gold.withValues(alpha: .28),
+                      blurRadius: 34,
+                      spreadRadius: 2,
+                    ),
                   ],
                 ),
               ),
               CustomPaint(
-                  size: const Size(132, 132), painter: _RingPainter(frac)),
+                size: const Size(132, 132),
+                painter: _RingPainter(frac),
+              ),
               const Text('🏆', style: TextStyle(fontSize: 54)),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        Text('HALL OF HONOR',
-            style: TextStyle(
-                fontSize: 11,
-                letterSpacing: 4,
-                fontWeight: FontWeight.w700,
-                color: _gold.withValues(alpha: .7))),
+        Text(
+          'HALL OF HONOR',
+          style: TextStyle(
+            fontSize: 11,
+            letterSpacing: 4,
+            fontWeight: FontWeight.w700,
+            color: _gold.withValues(alpha: .7),
+          ),
+        ),
         const SizedBox(height: 10),
         RichText(
-          text: TextSpan(children: [
-            TextSpan(
+          text: TextSpan(
+            children: [
+              TextSpan(
                 text: '$got',
                 style: const TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w800,
-                    height: 1,
-                    color: _goldHi,
-                    fontFeatures: [FontFeature.tabularFigures()])),
-            TextSpan(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  color: _goldHi,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+              TextSpan(
                 text: '  / $total 枚成就',
                 style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: _lightInk.withValues(alpha: .55))),
-          ]),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: _lightInk.withValues(alpha: .55),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         Text(
-            got >= total
-                ? '殿堂已收满，了不起'
-                : '再点亮 ${total - got} 枚，收满整座殿堂',
-            style: TextStyle(
-                fontSize: 12.5, color: _lightInk.withValues(alpha: .4))),
+          got >= total ? '殿堂已收满，了不起' : '再点亮 ${total - got} 枚，收满整座殿堂',
+          style: TextStyle(
+            fontSize: 12.5,
+            color: _lightInk.withValues(alpha: .4),
+          ),
+        ),
       ],
     );
   }
@@ -261,22 +408,23 @@ class TreePage extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-            child: Container(
-                height: 1,
-                color: _gold.withValues(alpha: .16))),
+          child: Container(height: 1, color: _gold.withValues(alpha: .16)),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(text,
-              style: TextStyle(
-                  fontSize: 11.5,
-                  letterSpacing: 3,
-                  fontWeight: FontWeight.w700,
-                  color: _gold.withValues(alpha: .75))),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 11.5,
+              letterSpacing: 3,
+              fontWeight: FontWeight.w700,
+              color: _gold.withValues(alpha: .75),
+            ),
+          ),
         ),
         Expanded(
-            child: Container(
-                height: 1,
-                color: _gold.withValues(alpha: .16))),
+          child: Container(height: 1, color: _gold.withValues(alpha: .16)),
+        ),
       ],
     );
   }
@@ -311,41 +459,46 @@ class TreePage extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 11.5,
-                height: 1.25,
-                fontWeight: FontWeight.w600,
-                color: locked
-                    ? _lightInk.withValues(alpha: .38)
-                    : _lightInk.withValues(alpha: .92)),
+              fontSize: 11.5,
+              height: 1.25,
+              fontWeight: FontWeight.w600,
+              color: locked
+                  ? _lightInk.withValues(alpha: .38)
+                  : _lightInk.withValues(alpha: .92),
+            ),
           ),
           const SizedBox(height: 3),
           Text(
             locked
                 ? '${a.value.clamp(0, a.goal)}/${a.goal}'
                 : a.recordedAt != null
-                    ? ymDots(DateTime.fromMillisecondsSinceEpoch(
-                        a.recordedAt!))
-                    : '已点亮',
+                ? ymDots(DateTime.fromMillisecondsSinceEpoch(a.recordedAt!))
+                : '已点亮',
             style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
-                fontFeatures: const [FontFeature.tabularFigures()],
-                color: locked
-                    ? _lightInk.withValues(alpha: .25)
-                    : _gold.withValues(alpha: .8)),
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: locked
+                  ? _lightInk.withValues(alpha: .25)
+                  : _gold.withValues(alpha: .8),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showDetail(BuildContext context, Achv a) => showTrophyDialog(context, a);
+  void _showDetail(BuildContext context, Achv a) =>
+      showTrophyDialog(context, a);
 }
 
 /// 奖杯弹窗：没有卡片没有按钮，奖杯从暗场里升起来，轻点任意处收起。
 /// 已点亮 = 光芒 + 奖杯；未点亮 = 暗奖杯 + 一圈进度。
-Future<void> showTrophyDialog(BuildContext context, Achv a,
-    {bool justUnlocked = false}) {
+Future<void> showTrophyDialog(
+  BuildContext context,
+  Achv a, {
+  bool justUnlocked = false,
+}) {
   return showGeneralDialog(
     context: context,
     barrierDismissible: true,
@@ -356,7 +509,10 @@ Future<void> showTrophyDialog(BuildContext context, Achv a,
     transitionBuilder: (context, anim, __, child) {
       final t = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
       return BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16 * anim.value, sigmaY: 16 * anim.value),
+        filter: ImageFilter.blur(
+          sigmaX: 16 * anim.value,
+          sigmaY: 16 * anim.value,
+        ),
         child: FadeTransition(
           opacity: anim,
           child: ScaleTransition(
@@ -433,11 +589,13 @@ class _TrophyViewState extends State<_TrophyView>
                       height: 230,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: RadialGradient(colors: [
-                          (done ? a.color : const Color(0xFF3A4166))
-                              .withValues(alpha: done ? .34 : .16),
-                          Colors.transparent,
-                        ]),
+                        gradient: RadialGradient(
+                          colors: [
+                            (done ? a.color : const Color(0xFF3A4166))
+                                .withValues(alpha: done ? .34 : .16),
+                            Colors.transparent,
+                          ],
+                        ),
                       ),
                     ),
                     // 未点亮：外圈进度
@@ -445,7 +603,8 @@ class _TrophyViewState extends State<_TrophyView>
                       CustomPaint(
                         size: const Size(196, 196),
                         painter: _RingPainter(
-                            a.goal == 0 ? 0 : a.value / a.goal),
+                          a.goal == 0 ? 0 : a.value / a.goal,
+                        ),
                       ),
                     _trophy(a, done),
                   ],
@@ -453,12 +612,15 @@ class _TrophyViewState extends State<_TrophyView>
               ),
               const SizedBox(height: 4),
               if (widget.justUnlocked) ...[
-                Text('新 荣 誉 到 手',
-                    style: TextStyle(
-                        fontSize: 11.5,
-                        letterSpacing: 5,
-                        fontWeight: FontWeight.w700,
-                        color: TreePage._gold.withValues(alpha: .85))),
+                Text(
+                  '新 荣 誉 到 手',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    letterSpacing: 5,
+                    fontWeight: FontWeight.w700,
+                    color: TreePage._gold.withValues(alpha: .85),
+                  ),
+                ),
                 const SizedBox(height: 10),
               ],
               Text(
@@ -471,26 +633,33 @@ class _TrophyViewState extends State<_TrophyView>
                   shadows: done
                       ? [
                           Shadow(
-                              color: a.color.withValues(alpha: .55),
-                              blurRadius: 22)
+                            color: a.color.withValues(alpha: .55),
+                            blurRadius: 22,
+                          ),
                         ]
                       : null,
                 ),
               ),
               const SizedBox(height: 10),
-              Text(a.desc,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 13.5,
-                      height: 1.5,
-                      color: Colors.white.withValues(alpha: .6))),
+              Text(
+                a.desc,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.5,
+                  color: Colors.white.withValues(alpha: .6),
+                ),
+              ),
               const SizedBox(height: 16),
               _footnote(a, done),
               const SizedBox(height: 34),
-              Text('轻点任意处收起',
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      color: Colors.white.withValues(alpha: .3))),
+              Text(
+                '轻点任意处收起',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: Colors.white.withValues(alpha: .3),
+                ),
+              ),
             ],
           ),
         ),
@@ -500,8 +669,12 @@ class _TrophyViewState extends State<_TrophyView>
 
   /// 奖杯图：有图标用图标，没有就退回奖章（图标还没生成时也不会崩）
   Widget _trophy(Achv a, bool done) {
-    final fallback =
-        _Medallion(color: a.color, emoji: a.emoji, locked: !done, size: 138);
+    final fallback = _Medallion(
+      color: a.color,
+      emoji: a.emoji,
+      locked: !done,
+      size: 138,
+    );
     final img = Image.asset(
       a.icon,
       width: 168,
@@ -526,8 +699,8 @@ class _TrophyViewState extends State<_TrophyView>
   Widget _footnote(Achv a, bool done) {
     final text = done
         ? (a.recordedAt != null
-            ? '${ymDots(DateTime.fromMillisecondsSinceEpoch(a.recordedAt!))} 点亮'
-            : '已点亮')
+              ? '${ymDots(DateTime.fromMillisecondsSinceEpoch(a.recordedAt!))} 点亮'
+              : '已点亮')
         : '${a.value.clamp(0, a.goal)} / ${a.goal}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
@@ -535,17 +708,21 @@ class _TrophyViewState extends State<_TrophyView>
         borderRadius: BorderRadius.circular(99),
         color: Colors.white.withValues(alpha: .07),
         border: Border.all(
-            color: (done ? TreePage._gold : const Color(0xFF8892B8))
-                .withValues(alpha: .3)),
+          color: (done ? TreePage._gold : const Color(0xFF8892B8)).withValues(
+            alpha: .3,
+          ),
+        ),
       ),
-      child: Text(text,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            letterSpacing: .5,
-            fontFeatures: const [FontFeature.tabularFigures()],
-            color: done ? TreePage._gold : const Color(0xFF9AA2C4),
-          )),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: .5,
+          fontFeatures: const [FontFeature.tabularFigures()],
+          color: done ? TreePage._gold : const Color(0xFF9AA2C4),
+        ),
+      ),
     );
   }
 }
@@ -575,12 +752,12 @@ class _RaysPainter extends CustomPainter {
         ..lineTo(math.cos(a0 + half) * len, math.sin(a0 + half) * len)
         ..close();
       canvas.drawPath(
-          p,
-          Paint()
-            ..shader = RadialGradient(colors: [
-              color.withValues(alpha: .34),
-              color.withValues(alpha: 0),
-            ]).createShader(Rect.fromCircle(center: Offset.zero, radius: r)));
+        p,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [color.withValues(alpha: .34), color.withValues(alpha: 0)],
+          ).createShader(Rect.fromCircle(center: Offset.zero, radius: r)),
+      );
     }
     canvas.restore();
   }
@@ -600,12 +777,13 @@ class _RingPainter extends CustomPainter {
     final rect = Rect.fromCircle(center: c, radius: r);
     // 轨道
     canvas.drawCircle(
-        c,
-        r,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4
-          ..color = const Color(0xFF2E3556));
+      c,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..color = const Color(0xFF2E3556),
+    );
     // 进度弧
     canvas.drawArc(
       rect,
@@ -623,7 +801,7 @@ class _RingPainter extends CustomPainter {
             TreePage._goldLo,
             TreePage._gold,
             TreePage._goldHi,
-            TreePage._gold
+            TreePage._gold,
           ],
         ).createShader(rect),
     );
@@ -632,11 +810,12 @@ class _RingPainter extends CustomPainter {
     final p = c + Offset(math.cos(a) * r, math.sin(a) * r);
     canvas.drawCircle(p, 4.5, Paint()..color = TreePage._goldHi);
     canvas.drawCircle(
-        p,
-        8,
-        Paint()
-          ..color = TreePage._goldHi.withValues(alpha: .5)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+      p,
+      8,
+      Paint()
+        ..color = TreePage._goldHi.withValues(alpha: .5)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
   }
 
   @override
@@ -645,11 +824,12 @@ class _RingPainter extends CustomPainter {
 
 /// 金属立体奖章：金边环 + 彩色盘面 + 高光 + 彩带 + 底部辉光；未点亮为暗刻
 class _Medallion extends StatelessWidget {
-  const _Medallion(
-      {required this.color,
-      required this.emoji,
-      this.locked = false,
-      this.size = 74.0});
+  const _Medallion({
+    required this.color,
+    required this.emoji,
+    this.locked = false,
+    this.size = 74.0,
+  });
   final Color color;
   final String emoji;
   final bool locked;
@@ -681,9 +861,10 @@ class _Medallion extends StatelessWidget {
                 borderRadius: BorderRadius.circular(99),
                 boxShadow: [
                   BoxShadow(
-                      color: color.withValues(alpha: .55),
-                      blurRadius: 18,
-                      spreadRadius: -4),
+                    color: color.withValues(alpha: .55),
+                    blurRadius: 18,
+                    spreadRadius: -4,
+                  ),
                 ],
               ),
             ),
@@ -692,8 +873,9 @@ class _Medallion extends StatelessWidget {
           Positioned(
             bottom: -2,
             child: CustomPaint(
-                size: Size(_ring * .405, _ring * .297),
-                painter: _RibbonPainter(color)),
+              size: Size(_ring * .405, _ring * .297),
+              painter: _RibbonPainter(color),
+            ),
           ),
           // 金边环
           Container(
@@ -714,13 +896,15 @@ class _Medallion extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                    color: Color(0x66F3C877),
-                    blurRadius: 16,
-                    spreadRadius: -3),
+                  color: Color(0x66F3C877),
+                  blurRadius: 16,
+                  spreadRadius: -3,
+                ),
                 BoxShadow(
-                    color: Colors.black38,
-                    blurRadius: 8,
-                    offset: Offset(0, 4)),
+                  color: Colors.black38,
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
               ],
             ),
             alignment: Alignment.center,
@@ -811,8 +995,11 @@ class _Medallion extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0xFF232842), width: 2),
               ),
-              child: Icon(Icons.lock_rounded,
-                  size: _ring * .15, color: const Color(0xFFC7CCE0)),
+              child: Icon(
+                Icons.lock_rounded,
+                size: _ring * .15,
+                color: const Color(0xFFC7CCE0),
+              ),
             ),
           ),
         ],

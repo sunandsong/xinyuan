@@ -7,8 +7,10 @@ class ApiConfig {
       'https://renshengqingdan-d8feva5q55d12bab-1258070735.ap-shanghai.app.tcloudbase.com/api';
   // 默认打线上；本地起 backend 的 npm run dev 时（它也是读写同一个云环境）：
   //   flutter run --dart-define=API_BASE=http://127.0.0.1:8787/api
-  static const String base =
-      String.fromEnvironment('API_BASE', defaultValue: cloudBase);
+  static const String base = String.fromEnvironment(
+    'API_BASE',
+    defaultValue: cloudBase,
+  );
 }
 
 class ApiException implements Exception {
@@ -87,6 +89,8 @@ class ApiClient {
         return '内容不存在或已失效';
       case 'unsupported_type':
         return '这种图片格式暂不支持';
+      case 'content_required':
+        return '写点内容再提交吧';
       default:
         return code;
     }
@@ -113,7 +117,8 @@ class ApiClient {
   );
 
   Future<Map<String, dynamic>> delete(String path) => _do(
-    () => http_.delete(Uri.parse('${ApiConfig.base}$path'), headers: _headers()),
+    () =>
+        http_.delete(Uri.parse('${ApiConfig.base}$path'), headers: _headers()),
   );
 }
 
@@ -188,6 +193,27 @@ class RankApi {
   /// [by] = wish（心愿实现数）| task（任务完成数）| achv（奖杯数）| place（地图点亮数）
   static Future<Map<String, dynamic>> top(String by) =>
       ApiClient.I.get('/leaderboard?by=$by');
+
+  /// 排行榜点进详情用：昵称/头像/性别 + 四项统计与名次 + 已解锁勋章
+  static Future<Map<String, dynamic>> userProfile(String uid) =>
+      ApiClient.I.get('/users/$uid');
+
+  /// 内容榜：哪个心愿被最多人完成过（跨全部用户统计标题，不看是谁）
+  static Future<Map<String, dynamic>> topWishes() =>
+      ApiClient.I.get('/insights/wishes');
+
+  /// 内容榜：哪个景点被最多人打卡过
+  static Future<Map<String, dynamic>> topSpots() =>
+      ApiClient.I.get('/insights/places');
+
+  /// 内容榜穿透：谁完成过这个心愿
+  static Future<Map<String, dynamic>> wishCompleters(String title) => ApiClient
+      .I
+      .get('/insights/wishes/users?title=${Uri.encodeQueryComponent(title)}');
+
+  /// 内容榜穿透：谁打卡过这个景点
+  static Future<Map<String, dynamic>> placeVisitors(String place) => ApiClient.I
+      .get('/insights/places/users?place=${Uri.encodeQueryComponent(place)}');
 }
 
 /// 心愿分享短码接口
@@ -205,6 +231,12 @@ class ShareApi {
       if (color != null) 'color': color,
     });
   }
+}
+
+/// 意见反馈：存进后端 feedback 表，人工看，不用额外接客服系统
+class FeedbackApi {
+  static Future<void> submit(String content) =>
+      ApiClient.I.post('/feedback', {'content': content});
 }
 
 /// 图片直传凭证：云函数网关请求体限得很小（约 100KB），图片本体传不过去，

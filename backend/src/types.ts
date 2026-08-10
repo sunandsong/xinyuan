@@ -81,6 +81,13 @@ export interface Letter {
   deleted: boolean;
 }
 
+export interface Feedback {
+  _id: string;
+  uid: string;
+  content: string;
+  createdAt: number;
+}
+
 export interface Share {
   _id: string;
   code: string;
