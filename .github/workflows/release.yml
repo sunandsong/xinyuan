@@ -62,7 +62,7 @@ jobs:
           if [ -n "$PREV" ]; then RANGE="$PREV..HEAD"; else RANGE="HEAD"; fi
           {
             echo 'NOTES<<NOTES_EOF'
-            git log $RANGE --no-merges --pretty=format:'%H' | head -50 | while read -r sha; do
+            git log $RANGE --no-merges --pretty=format:'%H%n' | head -50 | while read -r sha; do
               git log -1 --format='· %s' "$sha"
               # 正文按要点列出，去掉 Co-Authored-By 这类工具生成的尾注
               git log -1 --format='%b' "$sha" \
