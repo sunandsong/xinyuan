@@ -55,6 +55,7 @@ export async function upsert(req: Req) {
     uid = b.id;
     existing = await db.getProfile(uid);
     if (!existing) return notFound();
+    if (existing.isDemo !== true) return bad('not_demo');
   } else {
     uid = 'demo_' + randomBytes(4).toString('hex');
   }
