@@ -9,3 +9,7 @@ Flutter 前端 + CloudBase（腾讯云开发）TypeScript 后端的个人心愿�
   改成了纯本地免费方案（关键词规则 + 通用兜底模板，见 `frontend/lib/presets.dart` 的
   `stepTemplateFor`）。后续遇到类似"能不能让 AI 生成 XXX"的需求，默认先考虑规则/模板/
   本地算法能不能顶上去，不要默认就去接付费 API；真要接，先跟用户确认这个取舍。
+
+## 进行中的工作
+
+- 管理端项目进行中——**接手任何会话前先读 `docs/HANDOFF.md`**（阶段状态、续点、换机注意事项都在里面）。
