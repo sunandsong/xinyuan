@@ -44,15 +44,38 @@ export interface Db {
   usersWhoCheckedIn(place: string, limit: number): Promise<PublicUser[]>;
 
   // ---- 管理端通用内容表 CRUD（Task 2）----
-  /** 任意集合分页查询：where 是等值过滤条件，返回本页数据 + 命中总数 */
+  /** 任意集合分页查询：where 是等值过滤条件，返回本页数据 + 命中总数；
+   * orderBy 排序；since 是「field 最近 N 毫秒内」的范围过滤（等值过滤覆盖不了 gte，单独开个口子）。 */
   listDocs(
     col: string,
-    opts: { skip?: number; limit?: number; where?: Record<string, unknown> },
+    opts: {
+      skip?: number;
+      limit?: number;
+      where?: Record<string, unknown>;
+      orderBy?: string;
+      orderDir?: 'asc' | 'desc';
+      since?: { field: string; ms: number };
+      excludeTrue?: string[];
+    },
   ): Promise<{ items: any[]; total: number }>;
   /** 有 id 更新、无 id 新建（新建时 id 由数据库生成并返回） */
   upsertDoc(col: string, id: string | undefined, patch: Record<string, unknown>): Promise<string>;
   /** 物理删除单条文档 */
   deleteDoc(col: string, id: string): Promise<void>;
+
+  // ---- 管理端查询聚合（Task 4）----
+  /** 全部未注销用户（含 isDemo，是否排除由调用方决定） */
+  allUsers(): Promise<UserProfile[]>;
+  /** 全部未删除心愿（跨用户，用于 stats 汇总 / 用户列表按 uid 聚合 done/total） */
+  allWishes(): Promise<Wish[]>;
+  /** 全部登录日志（供 stats 的 dau/留存内存计算，一次拉全量） */
+  allLogins(): Promise<Array<{ uid: string; at: number }>>;
+  /** 全部行为埋点（供 stats 的 topEvents 内存计算，一次拉全量） */
+  allEvents(): Promise<Array<{ uid: string; event: string; at: number }>>;
+  /** col 里未删除、且 uid 不在 excludeUids 里的文档数 */
+  countActive(col: string, excludeUids: string[]): Promise<number>;
+  /** 未处理反馈数（handled != true） */
+  countFeedbackOpen(): Promise<number>;
 }
 
 /** 内容榜穿透列表只给这几样——跟排行榜一个尺度，不泄露账号名 */
@@ -345,14 +368,33 @@ class CloudDb implements Db {
   // ---- 管理端通用内容表 CRUD（Task 2）----
   async listDocs(
     col: string,
-    opts: { skip?: number; limit?: number; where?: Record<string, unknown> } = {},
+    opts: {
+      skip?: number;
+      limit?: number;
+      where?: Record<string, unknown>;
+      orderBy?: string;
+      orderDir?: 'asc' | 'desc';
+      since?: { field: string; ms: number };
+      /** 这些字段按「!= true」过滤，而不是等值匹配——软删标记等字段在老数据上可能
+       * 干脆没这个 key（而不是显式 false），等值查 false 会漏掉它们。 */
+      excludeTrue?: string[];
+    } = {},
   ): Promise<{ items: any[]; total: number }> {
-    const { skip = 0, limit = 20, where = {} } = opts;
+    const { skip = 0, limit = 20, where = {}, orderBy, orderDir = 'desc', since, excludeTrue } = opts;
+    const w = { ...where };
+    if (since) w[since.field] = this.cmd.gte(Date.now() - since.ms);
+    for (const f of excludeTrue ?? []) w[f] = this.cmd.neq(true);
     // count() 和 get() 各建各的 query：同一个 query 对象连续 skip/limit/count 链式调用
     // 有互相污染的风险，分开建更保险，反正就多一次网络往返。
     const [r, c] = await Promise.all([
-      this.db.collection(col).where(where).skip(skip).limit(limit).get(),
-      this.db.collection(col).where(where).count(),
+      (orderBy
+        ? this.db.collection(col).where(w).orderBy(orderBy, orderDir)
+        : this.db.collection(col).where(w)
+      )
+        .skip(skip)
+        .limit(limit)
+        .get(),
+      this.db.collection(col).where(w).count(),
     ]);
     return { items: r.data ?? [], total: c.total ?? 0 };
   }
@@ -368,6 +410,52 @@ class CloudDb implements Db {
 
   async deleteDoc(col: string, id: string): Promise<void> {
     await this.db.collection(col).doc(id).delete();
+  }
+
+  // ---- 管理端查询聚合（Task 4）----
+  // 这几个都是「拉一次全量、内存里算」——沿用 topWishTitles/topPlaces 的单次
+  // limit(QUERY_LIMIT) 查询风格，量级是百级用户，不需要多页扫描。
+  async allUsers(): Promise<UserProfile[]> {
+    const r = await this.db
+      .collection(COL.users)
+      .where({ deleted: this.cmd.neq(true) })
+      .limit(QUERY_LIMIT)
+      .get();
+    return r.data ?? [];
+  }
+
+  async allWishes(): Promise<Wish[]> {
+    const r = await this.db
+      .collection(COL.wishes)
+      .where({ deleted: this.cmd.neq(true) })
+      .limit(QUERY_LIMIT)
+      .get();
+    return r.data ?? [];
+  }
+
+  async allLogins(): Promise<Array<{ uid: string; at: number }>> {
+    const r = await this.db.collection(COL.logins).limit(QUERY_LIMIT).get();
+    return r.data ?? [];
+  }
+
+  async allEvents(): Promise<Array<{ uid: string; event: string; at: number }>> {
+    const r = await this.db.collection(COL.events).limit(QUERY_LIMIT).get();
+    return r.data ?? [];
+  }
+
+  async countActive(col: string, excludeUids: string[]): Promise<number> {
+    const where: Record<string, unknown> = { deleted: this.cmd.neq(true) };
+    if (excludeUids.length) where.uid = this.cmd.nin(excludeUids);
+    const r = await this.db.collection(col).where(where).count();
+    return r.total ?? 0;
+  }
+
+  async countFeedbackOpen(): Promise<number> {
+    const r = await this.db
+      .collection(COL.feedback)
+      .where({ handled: this.cmd.neq(true) })
+      .count();
+    return r.total ?? 0;
   }
 
   async softDeleteUser(uid: string) {

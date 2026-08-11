@@ -3,6 +3,7 @@ import { getUid } from './auth';
 import * as auth from './handlers/auth';
 import { requireAdmin } from './handlers/admin/auth';
 import * as content from './handlers/admin/content';
+import * as queries from './handlers/admin/queries';
 import { track } from './handlers/events';
 import { submitFeedback } from './handlers/feedback';
 import * as geocode from './handlers/geocode';
@@ -37,6 +38,12 @@ const adminRoutes = [
   route('GET', '/admin/content/:col', (r, p) => content.list(r, p.col)),
   route('POST', '/admin/content/:col', (r, p) => content.upsert(r, p.col)),
   route('POST', '/admin/content/:col/delete', (r, p) => content.remove(r, p.col)),
+  route('GET', '/admin/stats', (r) => queries.stats(r)),
+  route('GET', '/admin/users', (r) => queries.userList(r)),
+  route('GET', '/admin/users/:uid', (r, p) => queries.userDetail(r, p.uid)),
+  route('GET', '/admin/feedback', (r) => queries.feedbackList(r)),
+  route('GET', '/admin/logins', (r) => queries.loginList(r)),
+  route('GET', '/admin/events', (r) => queries.eventList(r)),
 ];
 
 function protectedRoutes(uid: string) {
