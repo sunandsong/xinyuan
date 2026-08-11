@@ -8,7 +8,9 @@ export interface Db {
   getUserByAccount(account: string): Promise<UserProfile | null>;
   createUser(user: UserProfile): Promise<void>;
   getProfile(uid: string): Promise<UserProfile | null>;
-  upsertProfile(uid: string, patch: Partial<UserProfile>): Promise<UserProfile>;
+  /** opts.replaceMaps：跳过 achievements/checkins 的并集合并，整包替换写入——
+   *  演示用户编辑是 diff 语义（删掉的 key 要真的消失），并集合并会把删掉的 key 顶回来。 */
+  upsertProfile(uid: string, patch: Partial<UserProfile>, opts?: { replaceMaps?: boolean }): Promise<UserProfile>;
 
   pull(uid: string, since: number): Promise<PullResult>;
   upsertWishes(uid: string, items: Array<Partial<Wish> & { _id: string; updatedAt: number }>): Promise<void>;
@@ -147,7 +149,11 @@ class CloudDb implements Db {
     const r = await this.db.collection(COL.users).doc(uid).get();
     return r.data?.[0] ?? null;
   }
-  async upsertProfile(uid: string, patch: Partial<UserProfile>): Promise<UserProfile> {
+  async upsertProfile(
+    uid: string,
+    patch: Partial<UserProfile>,
+    opts?: { replaceMaps?: boolean },
+  ): Promise<UserProfile> {
     const now = Date.now();
     const exist = await this.getProfile(uid);
     if (!exist) {
@@ -165,9 +171,13 @@ class CloudDb implements Db {
     // achievements/checkins 是「拿到即永久」的集合字段：整包替换会把补发/其它端并发写入的
     // key 抹掉。改成并集合入——新 key 才加，已有 key 保留旧时间戳。exist 上面已经查过，
     // 放在这里改（而不是每个调用方各自查一遍）不多发一次查询。
+    // opts.replaceMaps 跳过这一步：演示用户编辑（demo.ts）是 diff 语义，调用方已经算好
+    // 「删掉的 key 就该消失」的完整 map，并集合并会把删掉的 key 顶回来。
     const merged: Partial<UserProfile> = { ...patch };
-    if (patch.achievements) merged.achievements = unionMerge(exist.achievements, patch.achievements, now);
-    if (patch.checkins) merged.checkins = unionMerge(exist.checkins, patch.checkins, now);
+    if (!opts?.replaceMaps) {
+      if (patch.achievements) merged.achievements = unionMerge(exist.achievements, patch.achievements, now);
+      if (patch.checkins) merged.checkins = unionMerge(exist.checkins, patch.checkins, now);
+    }
 
     const next = { ...exist, ...merged, _id: uid, updatedAt: now };
     await this.db.collection(COL.users).doc(uid).update(noId({ ...merged, updatedAt: now }));

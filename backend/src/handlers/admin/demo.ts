@@ -76,7 +76,9 @@ export async function upsert(req: Req) {
 
   let user: UserProfile;
   if (existing) {
-    user = await db.upsertProfile(uid, fields);
+    // diff 语义：fields.achievements/checkins 已经是「删掉的 key 真的不在里面」的完整 map，
+    // 不能走 upsertProfile 默认的并集合并（会把删掉的 key 顶回来）。
+    user = await db.upsertProfile(uid, fields, { replaceMaps: true });
   } else {
     user = { _id: uid, account: '', avatarEmoji: null, createdAt: now, updatedAt: now, ...fields };
     await db.createDoc(COL.users, uid, user as unknown as Record<string, unknown>);
