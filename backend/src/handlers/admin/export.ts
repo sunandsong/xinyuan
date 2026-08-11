@@ -13,7 +13,7 @@ const PAGE = 1000;
 /** 单集合翻页拉全；集合在这个环境还没建过（ResourceNotFound）时按空集合处理——
  * 跟 config.ts 的 listActive 是同一个道理：导出要尽量给出结果，不能因为一张表还没
  * 建过就让整个导出 500。 */
-export async function dumpCollection(col: string): Promise<{ items: any[]; truncated: boolean }> {
+export async function dumpCollection(col: string): Promise<{ items: any[]; truncated: boolean; errored?: boolean }> {
   const items: any[] = [];
   let skip = 0;
   let truncated = false;
@@ -35,7 +35,9 @@ export async function dumpCollection(col: string): Promise<{ items: any[]; trunc
       skip += PAGE;
     }
   } catch {
-    return { items: [], truncated: false };
+    // 查询异常（含集合还没建过）：以前静默当空集合，跟「这张表本来就没数据」没法区分，
+    // 加个 errored 标记，让调用方知道这条不是真的空，是查失败了。
+    return { items: [], truncated: false, errored: true };
   }
   return { items: items.slice(0, MAX_PER_COLLECTION), truncated };
 }
@@ -59,10 +61,12 @@ export async function exportAll(_req: Req) {
 
   const collections: Record<string, any[]> = {};
   const truncated: string[] = [];
-  for (const [col, { items, truncated: t }] of entries) {
+  const errored: string[] = [];
+  for (const [col, { items, truncated: t, errored: e }] of entries) {
     collections[col] = col === COL.users ? items.map(({ passwordHash, ...rest }) => rest) : items;
     if (t) truncated.push(col);
+    if (e) errored.push(col);
   }
 
-  return ok({ exportedAt: Date.now(), collections, truncated });
+  return ok({ exportedAt: Date.now(), collections, truncated, errored });
 }

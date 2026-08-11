@@ -31,6 +31,10 @@ export async function push(req: Req, uid: string) {
   const body = (req.body ?? {}) as PushBody;
   const db = getDb();
 
+  // 封禁用户拦在数据面入口：跟 pull 一致，多一次 getProfile 查询可接受
+  const profile = await db.getProfile(uid);
+  if (profile?.banned) return unauthorized();
+
   const wishes = (body.wishes ?? []).filter((w) => w && w._id && typeof w.updatedAt === 'number');
   const tasks = (body.tasks ?? []).filter((t) => t && t._id && typeof t.updatedAt === 'number');
   const letters = (body.letters ?? []).filter((l) => l && l._id && typeof l.updatedAt === 'number');

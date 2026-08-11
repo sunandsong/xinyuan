@@ -94,6 +94,23 @@ function noId<T extends Record<string, any>>(o: T): Omit<T, '_id'> {
   return rest;
 }
 
+/** achievements/checkins 并集合入：新 key 才加，已有 key 保留旧值——这类「拿到即永久」的
+ * 字段不适用 LWW（覆盖式 upsert 会把补发/其它端并发写入的 key 抹掉）。 */
+function unionMerge(
+  existing: Record<string, number> | undefined,
+  incoming: unknown,
+  now: number,
+): Record<string, number> {
+  const merged: Record<string, number> = { ...(existing ?? {}) };
+  if (incoming && typeof incoming === 'object') {
+    for (const [k, v] of Object.entries(incoming as Record<string, unknown>)) {
+      if (k in merged) continue;
+      merged[k] = typeof v === 'number' && v > 0 ? v : now;
+    }
+  }
+  return merged;
+}
+
 /** 单次查询能带回的最大条数（CloudBase 上限） */
 const QUERY_LIMIT = 1000;
 /** 批量 upsert 每批条数，必须 <= QUERY_LIMIT，否则查不全存在性会误当新记录覆盖 */
@@ -145,8 +162,15 @@ class CloudDb implements Db {
       await this.db.collection(COL.users).doc(uid).set(noId(doc));
       return doc;
     }
-    const next = { ...exist, ...patch, _id: uid, updatedAt: now };
-    await this.db.collection(COL.users).doc(uid).update(noId({ ...patch, updatedAt: now }));
+    // achievements/checkins 是「拿到即永久」的集合字段：整包替换会把补发/其它端并发写入的
+    // key 抹掉。改成并集合入——新 key 才加，已有 key 保留旧时间戳。exist 上面已经查过，
+    // 放在这里改（而不是每个调用方各自查一遍）不多发一次查询。
+    const merged: Partial<UserProfile> = { ...patch };
+    if (patch.achievements) merged.achievements = unionMerge(exist.achievements, patch.achievements, now);
+    if (patch.checkins) merged.checkins = unionMerge(exist.checkins, patch.checkins, now);
+
+    const next = { ...exist, ...merged, _id: uid, updatedAt: now };
+    await this.db.collection(COL.users).doc(uid).update(noId({ ...merged, updatedAt: now }));
     return next;
   }
   /** 按 updatedAt 升序取一页，这样被截断时还能拿最后一条当游标续拉 */

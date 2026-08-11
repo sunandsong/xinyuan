@@ -52,7 +52,9 @@ export async function login(req: Req) {
   if (!user || user.deleted || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
     return json(401, { error: 'invalid_credentials' });
   }
-  if (user.banned) return bad('banned');
+  // 401 而不是 400：跟 pull/push 的封禁拦截返回值约定一致（unauthorized() 是 {error:'unauthorized'}，
+  // 这里要保留更具体的 'banned' 文案，所以现取 json() 而不是复用 unauthorized()）
+  if (user.banned) return json(401, { error: 'banned' });
   const token = signJwt({ uid: user._id }, JWT_SECRET);
 
   // 打点：登录日志 + 盖 lastLoginAt。绝不能因为这个挡登录，两件事都单独吞错。

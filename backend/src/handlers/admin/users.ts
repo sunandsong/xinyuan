@@ -82,9 +82,15 @@ export async function grant(req: Req, uid: string) {
 
   const patch: Record<string, unknown> = {};
   const achievements = mergeGrant(user.achievements, b.achievements, now);
-  if (achievements) patch.achievements = achievements;
+  if (achievements) {
+    patch.achievements = achievements;
+    patch.achvCount = Object.keys(achievements).length;
+  }
   const checkins = mergeGrant(user.checkins, b.checkins, now);
-  if (checkins) patch.checkins = checkins;
+  if (checkins) {
+    patch.checkins = checkins;
+    patch.placeCount = Object.keys(checkins).length;
+  }
   if (Object.keys(patch).length === 0) return bad('nothing_to_grant');
 
   const next = await db.upsertProfile(uid, patch);
