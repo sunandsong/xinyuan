@@ -1,6 +1,6 @@
 import { COL } from '../config';
 import { getDb } from '../db';
-import { bad, ok, Req } from '../http';
+import { bad, ok, Req, unauthorized } from '../http';
 import { PushBody } from '../types';
 import { pickProfilePatch } from './me';
 
@@ -8,6 +8,8 @@ import { pickProfilePatch } from './me';
 export async function pull(req: Req, uid: string) {
   const since = Number(req.query.since ?? '0') || 0;
   const result = await getDb().pull(uid, since);
+  // 封禁用户拦在数据面入口：401 走 App 端已有的「登录已过期」处理，不单独开一套提示
+  if (result.profile?.banned) return unauthorized();
   // 绝不把 passwordHash 返回客户端
   if (result.profile) {
     const { passwordHash, ...safe } = result.profile as any;

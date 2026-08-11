@@ -90,6 +90,8 @@ export interface Feedback {
   uid: string;
   content: string;
   createdAt: number;
+  handled?: boolean; // 管理端处理状态（Task 5）
+  note?: string; // 管理端处理备注（Task 5）
 }
 
 export interface Share {

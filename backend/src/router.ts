@@ -4,6 +4,7 @@ import * as auth from './handlers/auth';
 import { requireAdmin } from './handlers/admin/auth';
 import * as content from './handlers/admin/content';
 import * as queries from './handlers/admin/queries';
+import * as adminUsers from './handlers/admin/users';
 import { track } from './handlers/events';
 import { submitFeedback } from './handlers/feedback';
 import * as geocode from './handlers/geocode';
@@ -44,6 +45,13 @@ const adminRoutes = [
   route('GET', '/admin/feedback', (r) => queries.feedbackList(r)),
   route('GET', '/admin/logins', (r) => queries.loginList(r)),
   route('GET', '/admin/events', (r) => queries.eventList(r)),
+  route('POST', '/admin/users/:uid/reset-password', (r, p) => adminUsers.resetPassword(r, p.uid)),
+  route('POST', '/admin/users/:uid/ban', (r, p) => adminUsers.ban(r, p.uid)),
+  route('POST', '/admin/users/:uid/delete', (r, p) => adminUsers.remove(r, p.uid)),
+  route('POST', '/admin/users/:uid/grant', (r, p) => adminUsers.grant(r, p.uid)),
+  route('POST', '/admin/users/:uid/reset-profile', (r, p) => adminUsers.resetProfile(r, p.uid)),
+  route('POST', '/admin/feedback/:id/delete', (r, p) => adminUsers.feedbackDelete(r, p.id)),
+  route('POST', '/admin/feedback/:id', (r, p) => adminUsers.feedbackUpdate(r, p.id)),
 ];
 
 function protectedRoutes(uid: string) {

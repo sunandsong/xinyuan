@@ -52,6 +52,7 @@ export async function login(req: Req) {
   if (!user || user.deleted || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
     return json(401, { error: 'invalid_credentials' });
   }
+  if (user.banned) return bad('banned');
   const token = signJwt({ uid: user._id }, JWT_SECRET);
 
   // 打点：登录日志 + 盖 lastLoginAt。绝不能因为这个挡登录，两件事都单独吞错。
