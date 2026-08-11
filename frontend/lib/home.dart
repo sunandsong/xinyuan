@@ -160,6 +160,60 @@ class _HomeShellState extends State<HomeShell>
                 ),
               ),
             ),
+          // 同步出错横幅：云端拿不到 / 改动推不上去都明着说，
+          // 绝不悄悄拿本地数据顶替——那样出了问题完全看不见
+          ListenableBuilder(
+            listenable: AppData.I,
+            builder: (context, _) {
+              final err = AppData.I.syncError;
+              if (err == null) return const SizedBox.shrink();
+              return Positioned(
+                top: MediaQuery.paddingOf(context).top + 6,
+                left: 13,
+                right: 13,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE05A5A),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: T.shadowCard,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cloud_off_rounded,
+                            size: 16, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            err,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => AppData.I.retrySync(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 10),
+                            minimumSize: const Size(0, 30),
+                          ),
+                          child: const Text('重试',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
       // ponytail: 实时背景模糊太贵（每帧重算），换成高不透明度纯色；想要毛玻璃再换回 BackdropFilter

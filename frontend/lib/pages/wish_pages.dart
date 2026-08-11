@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import '../api/api.dart';
 import '../data.dart';
 import '../photos.dart';
 import '../presets.dart';
@@ -11,6 +12,52 @@ import 'login_page.dart';
 import 'share_page.dart';
 
 /// 心愿详情（进行中）
+/// 「N 人也想做 · M 人已实现」：全网同名心愿的人数统计（不含自己）。
+/// 没登录、接口失败或没别人设过，整行都不出现。
+class CrowdStatsLine extends StatefulWidget {
+  const CrowdStatsLine({super.key, required this.title});
+  final String title;
+  @override
+  State<CrowdStatsLine> createState() => _CrowdStatsLineState();
+}
+
+class _CrowdStatsLineState extends State<CrowdStatsLine> {
+  int _wanted = 0;
+  int _done = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    RankApi.wishStats(widget.title).then((r) {
+      if (!mounted) return;
+      setState(() {
+        _wanted = (r['wanted'] as num?)?.toInt() ?? 0;
+        _done = (r['done'] as num?)?.toInt() ?? 0;
+      });
+    }).catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_wanted == 0) return const SizedBox.shrink();
+    final parts = [
+      '$_wanted 人也想做',
+      if (_done > 0) '$_done 人已实现',
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 11),
+      child: Text(
+        '🌏 ${parts.join(' · ')}',
+        style: const TextStyle(
+          fontSize: 12.5,
+          color: T.muted,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
 class WishDetailPage extends StatelessWidget {
   const WishDetailPage({super.key, required this.wish});
   final Wish wish;
@@ -82,6 +129,7 @@ class WishDetailPage extends StatelessWidget {
                               padding: const EdgeInsets.fromLTRB(13, 11, 13, 0),
                               sliver: SliverList(
                                 delegate: SliverChildListDelegate([
+                                  CrowdStatsLine(title: wish.title),
                                   _targetTag(context),
                                   const SizedBox(height: 11),
                                   _steps(context),
@@ -303,20 +351,13 @@ class WishDetailPage extends StatelessWidget {
             color: T.field,
             borderRadius: BorderRadius.circular(999),
           ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.notifications_none_rounded, size: 14, color: T.muted),
-              SizedBox(width: 6),
-              Text(
-                '+ 设个期限，到期提醒我',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: T.muted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          child: const Text(
+            '+ 设个期限',
+            style: TextStyle(
+              fontSize: 13.5,
+              color: T.muted,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       );

@@ -196,14 +196,15 @@ class _RankPageState extends State<RankPage> {
     ),
   );
 
-  /// 6 个 tab 塞不进一屏了，改横向滚动
+  /// 手机上 6 个 tab 塞不进一屏，横向滚动；平板放得下就整排居中，别靠左空一块
   Widget _tabs() {
     return SizedBox(
       height: 62,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        children: [
+      child: Center(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(children: [
           for (var i = 0; i < _boards.length; i++)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -244,7 +245,8 @@ class _RankPageState extends State<RankPage> {
                 ),
               ),
             ),
-        ],
+          ]),
+        ),
       ),
     );
   }

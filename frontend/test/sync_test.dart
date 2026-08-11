@@ -286,15 +286,14 @@ void main() {
       expect(d.wishes.length, 50, reason: '回到未登录预览态');
     });
 
-    test('增量拉取：第二次只从上次的时间戳往后拉，本地已有的不动', () async {
+    test('每次启动都全量拉，界面完全以云端返回为准', () async {
       SharedPreferences.setMockInitialValues({});
       ApiClient.http_ = rec.client(
         pull: {
           'now': 1000,
           'wishes': [
-            _wish('w1', '留着的'),
+            _wish('w1', '第一次有的'),
             _wish('w2', '会被改的'),
-            _wish('w3', '会被删的'),
           ],
         },
         nextPull: {
@@ -307,24 +306,17 @@ void main() {
         },
       );
 
-      // 首次登录：全量
       await d.loginOrRegister('songzhang', 'pw123456');
       expect(rec.pulledSince, [0]);
-      expect(d.wishes.length, 3);
+      expect(d.wishes.length, 2);
 
-      // 再次启动：增量
+      // 再次启动：还是全量——云端是唯一数据源，本地不留镜像
       await d.initSession();
-      expect(rec.pulledSince, [0, 1000], reason: '第二次必须带上次的时间戳，不能再从 0 全量拉');
+      expect(rec.pulledSince, [0, 0], reason: '没有本地缓存，永远从 0 全量拉');
 
       final titles = d.wishes.map((w) => w.title).toList();
-      expect(titles, contains('留着的'), reason: '没变的记录本地留着，不重复拉');
-      expect(titles, contains('改过的标题'), reason: '变了的就地替换');
-      expect(titles, contains('新来的'));
-      expect(titles, isNot(contains('会被删的')), reason: 'deleted 标记要真的删掉');
-      expect(d.wishes.length, 3);
-
-      // 顺序没被打乱：改过的还在原位
-      expect(d.wishes[1].title, '改过的标题', reason: '就地替换，不能让改过的跳到末尾');
+      expect(titles, ['改过的标题', '新来的'],
+          reason: '界面就是云端这次返回的样子，云端没给的不该出现');
     });
 
     test('头像：启动拉取失败也不消失（本地存了一份）', () async {
@@ -362,43 +354,7 @@ void main() {
       d.avatarUrl = null;
     });
 
-    test('重启兜底：云端没新改动时，本地缓存把数据装回来', () async {
-      // 心愿只存内存，重启后内存是空的；增量拉取又只拉水位之后的改动，
-      // 云端没新东西就一条都拉不回来——必须靠本地缓存兜底，不然等于数据丢了
-      SharedPreferences.setMockInitialValues({
-        'auth_token': 't',
-        'auth_account': 'songzhang',
-        'sync_last_pull_songzhang': 5000,
-        'sync_cache_songzhang': jsonEncode({
-          'wishes': [_wish('w1', '缓存里的心愿')],
-          'tasks': <Object>[],
-          'letters': <Object>[],
-        }),
-      });
-      ApiClient.http_ = rec.client(pull: {'now': 6000}); // 增量：啥新东西都没有
-
-      await d.initSession();
-      expect(rec.pulledSince, [5000], reason: '有缓存才允许增量拉');
-      expect(d.wishes.map((w) => w.title), contains('缓存里的心愿'));
-    });
-
-    test('重启没缓存（比如新换的手机）：必须全量拉，不能拿水位去增量', () async {
-      SharedPreferences.setMockInitialValues({
-        'auth_token': 't',
-        'auth_account': 'songzhang',
-        'sync_last_pull_songzhang': 5000,
-      });
-      ApiClient.http_ = rec.client(pull: {
-        'now': 6000,
-        'wishes': [_wish('w1', '云端的心愿')],
-      });
-
-      await d.initSession();
-      expect(rec.pulledSince, [0], reason: '没缓存还增量拉的话，水位之前的数据全漏');
-      expect(d.wishes.map((w) => w.title), contains('云端的心愿'));
-    });
-
-    test('拉取失败不清空本地数据，也不阻断登录', () async {
+    test('拉取失败：清空列表 + 亮 syncError，绝不拿本地数据顶替；重试成功后恢复', () async {
       d.addWish('本地的心愿', red);
       ApiClient.http_ = MockClient((req) async =>
           req.url.path.endsWith('/auth/login')
@@ -407,7 +363,30 @@ void main() {
 
       await d.loginOrRegister('songzhang', 'pw123456');
       expect(d.signedIn, isTrue, reason: '拉取挂了也得让人先进去');
-      expect(d.wishes.map((w) => w.title), contains('本地的心愿'));
+      expect(d.wishes, isEmpty,
+          reason: '云端拿不到就空着并报错，本地数据冒充账号数据会把故障藏起来');
+      expect(d.syncError, isNotNull, reason: '必须让人看见同步出了问题');
+
+      // 云端恢复，点重试
+      ApiClient.http_ = rec.client(pull: {
+        'now': 1,
+        'wishes': [_wish('w1', '云端的心愿')],
+      });
+      await d.retrySync();
+      expect(d.syncError, isNull, reason: '重试成功后横幅要熄灭');
+      expect(d.wishes.map((w) => w.title), contains('云端的心愿'));
+    });
+
+    test('推送失败：亮 syncError；重试推成功后熄灭', () async {
+      await login(pull: {'now': 1, 'wishes': []});
+      ApiClient.http_ = rec.client(failPush: true);
+      d.addWish('推不上去的', red);
+      await waitFlush();
+      expect(d.syncError, isNotNull, reason: '改动没保存到云端必须让人看见');
+
+      ApiClient.http_ = rec.client();
+      await d.retrySync();
+      expect(d.syncError, isNull, reason: '补推成功后横幅要熄灭');
     });
   });
 }

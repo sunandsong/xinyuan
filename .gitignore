@@ -2,3 +2,4 @@
 *.log
 
 # 各子项目有各自的 .gitignore（frontend/.gitignore、backend/.gitignore）
+.claude/settings.local.json

@@ -327,7 +327,6 @@ class _TaskFormState extends State<_TaskForm> {
     if (picked != null) setState(() => _day = dOnly(picked));
   }
 
-  /// 铃铛胶囊：没开提醒时点一下选时间顺便打开；已经开着再点就直接关掉
   void submit() {
     final text = _title.text.trim();
     if (text.isEmpty) return;

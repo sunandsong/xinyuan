@@ -36,15 +36,6 @@ class Session {
   static Future<String?> account() async =>
       (await SharedPreferences.getInstance()).getString(_kAccount);
 
-  /// 上次增量拉取的服务端时间戳。按账号存：换账号必须从 0 重新全量拉，
-  /// 否则会拿着别人的时间戳去拉，直接漏掉一大片数据。
-  static String _pullKey(String? account) => 'sync_last_pull_${account ?? ""}';
-
-  static Future<int> lastPull(String? account) async =>
-      (await SharedPreferences.getInstance()).getInt(_pullKey(account)) ?? 0;
-
-  static Future<void> saveLastPull(String? account, int ms) async =>
-      (await SharedPreferences.getInstance()).setInt(_pullKey(account), ms);
   static Future<String?> nick() async =>
       (await SharedPreferences.getInstance()).getString(_kNick);
   static bool get isLoggedIn => ApiClient.I.token != null;

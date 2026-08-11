@@ -198,8 +198,6 @@ class Task {
     required this.day,
     this.wishId,
     this.done = false,
-    this.time,
-    this.remind = false,
     this.color,
     this.desc,
     DateTime? createdAt,
@@ -212,8 +210,6 @@ class Task {
   DateTime day;
   String? wishId; // null = 杂事
   bool done;
-  String? time; // "HH:mm"，配合 remind 用；没设就提醒默认走 9:00
-  bool remind; // 当天要不要发本地提醒
   Color? color; // 任务自身颜色
   String? desc; // 描述
   DateTime createdAt;
@@ -224,8 +220,6 @@ class Task {
     '_id': id,
     'title': title,
     'day': _dayStr(day),
-    'time': time,
-    'remind': remind,
     'done': done,
     'wishId': wishId,
     if (color != null) 'color': _hex(color!),
@@ -241,8 +235,6 @@ class Task {
     day: _dayParse(j['day'] as String? ?? _dayStr(DateTime.now())),
     wishId: j['wishId'] as String?,
     done: j['done'] as bool? ?? false,
-    time: j['time'] as String?,
-    remind: j['remind'] as bool? ?? false,
     color: (j['color'] is String && (j['color'] as String).isNotEmpty)
         ? _colorFromHex(j['color'] as String)
         : null,
@@ -318,7 +310,6 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       _pushTimer?.cancel();
-      _saveCache();
       unawaited(_flushPush());
     }
   }
@@ -369,7 +360,6 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     _pushTimer?.cancel();
     // 300ms 够合并批量导入这类连续调用了，同时把"改完立刻被杀掉"的风险窗口缩到最小
     _pushTimer = Timer(const Duration(milliseconds: 300), () {
-      _saveCache();
       unawaited(_flushPush());
     });
   }
@@ -438,7 +428,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           profile: i == 0 ? rankCounters() : null,
         );
       } catch (e) {
-        // 静默失败：把这批和还没发的都放回去，下次该条目再变更（或下次启动）时重推
+        // 失败：把这批和还没发的都放回去等重推，并亮横幅——改动没上云必须让人知道
         for (var j = i; j < chunks.length; j++) {
           _dirtyWishes.addAll(chunks[j].wishes);
           _dirtyTasks.addAll(chunks[j].tasks);
@@ -446,8 +436,15 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         }
         // 401 单独处理：不是网络抖动，重试也没用，得提示重新登录
         if (e is ApiException && e.code == 401) unawaited(_handleUnauthorized());
+        syncError = '有改动还没保存到云端';
+        notifyListeners();
         return;
       }
+    }
+    // 全部推完：推送类报错解除（拉取失败的横幅留给 retrySync 补拉后清）
+    if (syncError != null && !_needPull) {
+      syncError = null;
+      notifyListeners();
     }
   }
 
@@ -481,14 +478,12 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// 拉取云端数据。
-  /// [full] = true 时全量拉并整体替换本地（登录/切账号时用）；
-  /// 否则只拉上次拉取之后变过的记录，合并进本地——启动一次的数据库读取量
-  /// 从「这个账号的全部记录」降到「上次之后改过的几条」，额度差一个数量级。
-  Future<void> _pullFromCloud({bool full = false}) async {
+  /// 全量拉取云端数据并整体替换本地。云端是唯一数据源：
+  /// 本地不留数据镜像，拉不到就返回 false，由调用方亮出错误——
+  /// 绝不悄悄拿本地/默认数据顶替，不然出了问题完全看不见。
+  Future<bool> _pullFromCloud() async {
     try {
-      final since = full ? 0 : await Session.lastPull(account);
-      final res = await SyncApi.pull(since);
+      final res = await SyncApi.pull(0);
       final ws = (res['wishes'] as List?) ?? [];
       final ts = (res['tasks'] as List?) ?? [];
       final ls = (res['letters'] as List?) ?? [];
@@ -496,17 +491,12 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       _dirtyWishes.clear();
       _dirtyTasks.clear();
       _dirtyLetters.clear();
-      if (since == 0) {
-        wishes.clear();
-        tasks.clear();
-        letters.clear();
-      }
+      wishes.clear();
+      tasks.clear();
+      letters.clear();
       _mergeList(wishes, ws, Wish.fromJson, (w) => w.id, (w) => w.deleted);
       _mergeList(tasks, ts, Task.fromJson, (t) => t.id, (t) => t.deleted);
       _mergeList(letters, ls, Letter.fromJson, (l) => l.id, (l) => l.deleted);
-      // 服务端给的时间戳，下次从这里往后拉；拉失败就不推进，宁可重拉一次也别漏
-      final now = (res['now'] as num?)?.toInt();
-      if (now != null) await Session.saveLastPull(account, now);
       final profile = res['profile'] as Map<String, dynamic>?;
       if (profile != null) {
         final nick = profile['nickname'] as String?;
@@ -558,11 +548,43 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           unawaited(SyncApi.push(profile: counters));
         }
       }
-      _saveCache();
+      _needPull = false;
+      syncError = null;
+      return true;
     } catch (e) {
-      // 拉取失败：保留当前本地数据（可能来自本地缓存），不阻断登录/启动流程
       if (e is ApiException && e.code == 401) unawaited(_handleUnauthorized());
+      return false;
     }
+  }
+
+  /// 同步出错时的提示文案；null = 一切正常。主界面据此亮红色横幅。
+  /// 云端拿不到 / 改动推不上去都必须让人看见，不允许静默降级。
+  String? syncError;
+
+  /// 上次全量拉取失败，重试时需要重新拉
+  bool _needPull = false;
+
+  /// 云端拉取失败后的兜底状态：清空本地列表 + 亮横幅。
+  /// 宁可界面空着，也不能拿默认清单/旧数据冒充账号数据。
+  void _markPullFailed() {
+    wishes.clear();
+    tasks.clear();
+    letters.clear();
+    syncError = '云端数据加载失败';
+    _needPull = true;
+  }
+
+  /// 横幅上的「重试」：先把没推上去的改动推掉（免得被全量拉取冲掉），再补拉
+  Future<void> retrySync() async {
+    if (!signedIn) return;
+    await _flushPush();
+    final dirtyLeft = _dirtyWishes.isNotEmpty ||
+        _dirtyTasks.isNotEmpty ||
+        _dirtyLetters.isNotEmpty;
+    if (!dirtyLeft && _needPull) {
+      if (!await _pullFromCloud()) _markPullFailed();
+    }
+    notifyListeners();
   }
 
   /// 后台同步撞见 401（token 失效/过期）时置一次位，UI 层弹一次重新登录就复位，
@@ -575,43 +597,6 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     sessionExpired = true;
     await Session.clear(); // 这个 token 确认废了，别再带着它发请求
     notifyListeners();
-  }
-
-  /// 心愿/任务/信件只存内存，重启后全靠这份本地缓存兜底：
-  /// 没有它的话，启动时的增量拉取只拉「上次水位之后」的改动，
-  /// 云端没新东西就一条都拉不回来，界面只剩默认清单（等于数据丢了）。
-  void _saveCache() {
-    final acc = account;
-    if (!signedIn || acc == null) return;
-    final body = jsonEncode({
-      'wishes': wishes.map((w) => w.toJson()).toList(),
-      'tasks': tasks.map((t) => t.toJson()).toList(),
-      'letters': letters.map((l) => l.toJson()).toList(),
-    });
-    unawaited(SharedPreferences.getInstance()
-        .then((p) => p.setString('sync_cache_$acc', body)));
-  }
-
-  /// 启动时装回缓存；装到了返回 true（之后增量拉即可），没装到就得全量拉
-  Future<bool> _loadCache() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      final raw = p.getString('sync_cache_$account');
-      if (raw == null) return false;
-      final m = jsonDecode(raw) as Map<String, dynamic>;
-      wishes
-        ..clear()
-        ..addAll((m['wishes'] as List).map((e) => Wish.fromJson(e)));
-      tasks
-        ..clear()
-        ..addAll((m['tasks'] as List).map((e) => Task.fromJson(e)));
-      letters
-        ..clear()
-        ..addAll((m['letters'] as List).map((e) => Letter.fromJson(e)));
-      return true;
-    } catch (_) {
-      return false; // 缓存坏了就当没有，走全量拉
-    }
   }
 
   /// 为某个已完成心愿生成分享短码，返回短链路径（如 /s/AB12CD）
@@ -694,8 +679,6 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     String? wishId,
     Color? color,
     String? desc,
-    String? time,
-    bool remind = false,
   }) {
     final t = Task(
       id: _newId('t'),
@@ -704,8 +687,6 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       wishId: wishId,
       color: color,
       desc: desc,
-      time: time,
-      remind: remind,
     );
     tasks.add(t);
     _touchTask(t);
@@ -1091,10 +1072,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       avatarUrl = (await SharedPreferences.getInstance()).getString(_avatarKey);
     }
     if (signedIn) {
-      // 先装本地缓存再增量拉；没缓存（新装/缓存坏了）就必须全量拉，
-      // 不然增量什么都拉不到，界面只剩默认清单
-      final cached = await _loadCache();
-      await _pullFromCloud(full: !cached);
+      // 云端是唯一数据源：拉不到就亮横幅 + 空列表，不拿本地数据顶替
+      if (!await _pullFromCloud()) _markPullFailed();
     }
     notifyListeners();
   }
@@ -1118,19 +1097,15 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     this.account = account;
     if (nick != null && nick.isNotEmpty) nickname = nick;
     signedIn = true;
-    await _pullFromCloud(full: true); // 可能是换账号，必须整体替换
-    if (register && wishes.isEmpty) _seedLifeGoals(); // 会随防抖推送上云
+    final pulled = await _pullFromCloud(); // 可能是换账号，必须整体替换
+    if (!pulled) _markPullFailed();
+    // 拉取失败时不播种：等重试拉到云端真实数据再说，别造出一份本地假数据
+    if (register && pulled && wishes.isEmpty) _seedLifeGoals(); // 会随防抖推送上云
     notifyListeners();
   }
 
   /// 退出登录：清会话、清云端数据，回到本地预览
   Future<void> logout() async {
-    await Session.saveLastPull(account, 0); // 本地数据要清空，下次必须全量重拉
-    final acc = account;
-    if (acc != null) {
-      unawaited(SharedPreferences.getInstance()
-          .then((p) => p.remove('sync_cache_$acc')));
-    }
     await Session.clear();
     signedIn = false;
     account = null;
@@ -1150,6 +1125,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     wishes.clear();
     tasks.clear();
     letters.clear();
+    syncError = null; // 未登录纯本地用，同步横幅不该留着
+    _needPull = false;
     _seedLifeGoals(); // 退出后回到未登录预览
     notifyListeners();
   }
