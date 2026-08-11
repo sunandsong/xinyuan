@@ -1,3 +1,4 @@
+import { loadBlockwords, sanitizeNickname } from '../blockwords';
 import { getDb } from '../db';
 import { notFound, ok, Req } from '../http';
 
@@ -23,7 +24,7 @@ function ageFromBirthday(birthday: string): number | null {
  * 不返回账号名、生日具体日期、心愿/任务/打卡等具体内容。 */
 export async function getPublicProfile(_req: Req, targetUid: string) {
   const db = getDb();
-  const profile = await db.getProfile(targetUid);
+  const [profile, words] = await Promise.all([db.getProfile(targetUid), loadBlockwords()]);
   if (!profile || profile.deleted) return notFound();
 
   const counts: Record<string, number> = {};
@@ -37,7 +38,7 @@ export async function getPublicProfile(_req: Req, targetUid: string) {
   );
 
   return ok({
-    nickname: profile.nickname || '匿名',
+    nickname: sanitizeNickname(profile.nickname || '匿名', targetUid, words),
     avatarUrl: profile.avatarUrl ?? null,
     gender: profile.gender ?? null,
     age: profile.birthday ? ageFromBirthday(profile.birthday) : null,

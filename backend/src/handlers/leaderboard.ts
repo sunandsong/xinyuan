@@ -1,3 +1,4 @@
+import { loadBlockwords, sanitizeNickname } from '../blockwords';
 import { getDb } from '../db';
 import { bad, ok, Req } from '../http';
 
@@ -18,7 +19,11 @@ export async function leaderboard(req: Req, uid: string) {
   if (!field) return bad('invalid_board');
 
   const db = getDb();
-  const [top, me] = await Promise.all([db.topUsers(field, TOP_N), db.getProfile(uid)]);
+  const [top, me, words] = await Promise.all([
+    db.topUsers(field, TOP_N),
+    db.getProfile(uid),
+    loadBlockwords(),
+  ]);
   const mine = (me as any)?.[field] ?? 0;
 
   // 名次用 count 查「比我多的有几个」，不用把全表拉下来排
@@ -31,7 +36,7 @@ export async function leaderboard(req: Req, uid: string) {
     top: top.map((u, i) => ({
       rank: i + 1,
       uid: u._id,
-      nickname: u.nickname || '匿名',
+      nickname: sanitizeNickname(u.nickname || '匿名', u._id, words),
       avatarUrl: u.avatarUrl ?? null,
       gender: u.gender ?? null,
       count: (u as any)[field] ?? 0,

@@ -1,3 +1,4 @@
+import { isBlocked, loadBlockwords } from '../blockwords';
 import { getDb } from '../db';
 import { bad, ok, Req } from '../http';
 
@@ -9,9 +10,10 @@ const DRILL_LIMIT = 50;
 /** GET /api/insights/wishes —— 哪个心愿被最多人完成过（跨全部用户统计标题，不看是谁完成的） */
 export async function wishInsights(_req: Req) {
   const db = getDb();
-  const top = await db.topWishTitles(LIMIT);
+  const [top, words] = await Promise.all([db.topWishTitles(LIMIT), loadBlockwords()]);
+  const clean = top.filter((w) => !isBlocked(w.title, words));
   return ok({
-    top: top.map((w, i) => ({ rank: i + 1, title: w.title, count: w.count })),
+    top: clean.map((w, i) => ({ rank: i + 1, title: w.title, count: w.count })),
   });
 }
 
@@ -36,6 +38,8 @@ export async function wishStats(req: Req, uid: string) {
 export async function wishCompleters(req: Req) {
   const title = String(req.query.title ?? '').trim();
   if (!title) return bad('title_required');
+  const words = await loadBlockwords();
+  if (isBlocked(title, words)) return ok({ users: [] });
   const db = getDb();
   const users = await db.usersWhoCompletedWish(title, DRILL_LIMIT);
   return ok({ users });

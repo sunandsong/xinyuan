@@ -6,6 +6,7 @@ import * as content from './handlers/admin/content';
 import * as demo from './handlers/admin/demo';
 import * as queries from './handlers/admin/queries';
 import * as adminUsers from './handlers/admin/users';
+import { getConfig } from './handlers/config';
 import { track } from './handlers/events';
 import { submitFeedback } from './handlers/feedback';
 import * as geocode from './handlers/geocode';
@@ -61,6 +62,7 @@ const adminRoutes = [
 
 function protectedRoutes(uid: string) {
   return [
+    route('GET', '/config', (r) => getConfig(r)),
     route('GET', '/me', (r) => me.getMe(r, uid)),
     route('GET', '/leaderboard', (r) => leaderboard(r, uid)),
     route('GET', '/insights/wishes', (r) => wishInsights(r)),
