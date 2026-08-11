@@ -21,6 +21,13 @@ export const JWT_SECRET = (() => {
 // 不影响其它功能。
 export const AMAP_KEY = process.env.AMAP_KEY || '';
 
+// 管理端鉴权 key（可选，但没配就整个 /admin/* 直接 403，宁可不可用也不裸奔）
+export const ADMIN_KEY = process.env.ADMIN_KEY || '';
+
+// 腾讯云 API 密钥（本任务只声明，暂不使用；后续管理端调 CloudBase 管理 API 时用）
+export const TC_SECRET_ID = process.env.TC_SECRET_ID || '';
+export const TC_SECRET_KEY = process.env.TC_SECRET_KEY || '';
+
 // 集合名
 export const COL = {
   users: 'users',

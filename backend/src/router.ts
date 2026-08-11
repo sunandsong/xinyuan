@@ -1,6 +1,7 @@
 // 汇总路由 + 鉴权：public 先匹配，其余需登录。
 import { getUid } from './auth';
 import * as auth from './handlers/auth';
+import { requireAdmin } from './handlers/admin/auth';
 import { submitFeedback } from './handlers/feedback';
 import * as geocode from './handlers/geocode';
 import {
@@ -17,7 +18,7 @@ import { releasesPage } from './handlers/releases';
 import * as share from './handlers/share';
 import * as sync from './handlers/sync';
 import { photoUrls, upload } from './handlers/upload';
-import { dispatch, notFound, ok, Req, Res, route, unauthorized } from './http';
+import { CORS_HEADERS, dispatch, notFound, ok, Req, Res, route, unauthorized } from './http';
 
 // 路由不带 /api 前缀：CloudBase HTTP 服务会剥掉 /api；本地请求也统一剥掉后匹配。
 const publicRoutes = [
@@ -27,6 +28,9 @@ const publicRoutes = [
   route('GET', '/share/:code', (req, p) => share.getShare(req, p.code)),
   route('GET', '/releases', () => releasesPage()),
 ];
+
+// 管理端路由：都在 requireAdmin 校验通过之后才走到这里，见 handle()。
+const adminRoutes = [route('GET', '/admin/ping', async () => ok({ pong: true }))];
 
 function protectedRoutes(uid: string) {
   return [
@@ -52,8 +56,19 @@ function protectedRoutes(uid: string) {
 
 export async function handle(req: Req): Promise<Res> {
   try {
+    // 预检请求直接放行，不进鉴权
+    if (req.method === 'OPTIONS') return { statusCode: 204, headers: CORS_HEADERS, body: '' };
+
     // 统一剥掉可能的 /api 前缀（本地带、云端已剥）
     const norm: Req = { ...req, path: req.path.replace(/^\/api(?=\/|$)/, '') || '/' };
+
+    // /admin/* 独立鉴权体系（管理端 key），不复用用户 JWT
+    if (norm.path.startsWith('/admin')) {
+      const denied = requireAdmin(norm);
+      if (denied) return denied;
+      const admin = await dispatch(adminRoutes, norm);
+      return admin ?? notFound();
+    }
 
     const pub = await dispatch(publicRoutes, norm);
     if (pub) return pub;
@@ -64,6 +79,10 @@ export async function handle(req: Req): Promise<Res> {
     const prot = await dispatch(protectedRoutes(uid), norm);
     return prot ?? notFound();
   } catch (e: any) {
-    return { statusCode: 500, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ error: 'internal_error', message: String(e?.message ?? e) }) };
+    return {
+      statusCode: 500,
+      headers: { 'content-type': 'application/json', ...CORS_HEADERS },
+      body: JSON.stringify({ error: 'internal_error', message: String(e?.message ?? e) }),
+    };
   }
 }
