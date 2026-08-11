@@ -4,7 +4,7 @@ import { bad, ok, Req } from '../../http';
 import { audit } from './audit';
 
 /** 内容/配置集合白名单：物理删，无归属校验（管理端全权维护） */
-const CONTENT_COLS = new Set([
+export const CONTENT_COLS = new Set([
   'preset_wishes',
   'preset_steps',
   'poster_task',

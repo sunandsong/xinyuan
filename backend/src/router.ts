@@ -1,9 +1,12 @@
 // 汇总路由 + 鉴权：public 先匹配，其余需登录。
 import { getUid } from './auth';
 import * as auth from './handlers/auth';
+import * as adminAudit from './handlers/admin/audit';
 import { requireAdmin } from './handlers/admin/auth';
 import * as content from './handlers/admin/content';
 import * as demo from './handlers/admin/demo';
+import { exportAll } from './handlers/admin/export';
+import { quota } from './handlers/admin/quota';
 import * as queries from './handlers/admin/queries';
 import * as adminUsers from './handlers/admin/users';
 import { getConfig } from './handlers/config';
@@ -47,6 +50,9 @@ const adminRoutes = [
   route('GET', '/admin/feedback', (r) => queries.feedbackList(r)),
   route('GET', '/admin/logins', (r) => queries.loginList(r)),
   route('GET', '/admin/events', (r) => queries.eventList(r)),
+  route('GET', '/admin/audit', (r) => adminAudit.list(r)),
+  route('GET', '/admin/export', (r) => exportAll(r)),
+  route('GET', '/admin/quota', (r) => quota(r)),
   route('POST', '/admin/users/:uid/reset-password', (r, p) => adminUsers.resetPassword(r, p.uid)),
   route('POST', '/admin/users/:uid/ban', (r, p) => adminUsers.ban(r, p.uid)),
   route('POST', '/admin/users/:uid/delete', (r, p) => adminUsers.remove(r, p.uid)),
