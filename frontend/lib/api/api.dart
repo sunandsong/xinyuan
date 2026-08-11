@@ -206,6 +206,10 @@ class RankApi {
   static Future<Map<String, dynamic>> topSpots() =>
       ApiClient.I.get('/insights/places');
 
+  /// 心愿详情页：这个标题多少人也想做/已实现（不含自己）
+  static Future<Map<String, dynamic>> wishStats(String title) => ApiClient.I
+      .get('/insights/wishes/stats?title=${Uri.encodeQueryComponent(title)}');
+
   /// 内容榜穿透：谁完成过这个心愿
   static Future<Map<String, dynamic>> wishCompleters(String title) => ApiClient
       .I

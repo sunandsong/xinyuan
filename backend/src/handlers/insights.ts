@@ -24,6 +24,14 @@ export async function placeInsights(_req: Req) {
   });
 }
 
+/** GET /api/insights/wishes/stats?title=xxx —— 这个心愿多少人也想做/已实现（不含自己） */
+export async function wishStats(req: Req, uid: string) {
+  const title = String(req.query.title ?? '').trim();
+  if (!title) return bad('title_required');
+  const db = getDb();
+  return ok(await db.wishTitleStats(title, uid));
+}
+
 /** GET /api/insights/wishes/users?title=xxx —— 穿透：谁完成过这个心愿 */
 export async function wishCompleters(req: Req) {
   const title = String(req.query.title ?? '').trim();

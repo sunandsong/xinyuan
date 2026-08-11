@@ -35,6 +35,11 @@ export interface Db {
 
   /** 内容榜穿透：哪些用户完成过这个标题的心愿 */
   usersWhoCompletedWish(title: string, limit: number): Promise<PublicUser[]>;
+  /** 这个标题的心愿：多少人写进了清单、多少人已实现（按人去重，可排除自己） */
+  wishTitleStats(
+    title: string,
+    excludeUid?: string,
+  ): Promise<{ wanted: number; done: number }>;
   /** 内容榜穿透：哪些用户打卡过这个景点 */
   usersWhoCheckedIn(place: string, limit: number): Promise<PublicUser[]>;
 }
@@ -247,6 +252,26 @@ class CloudDb implements Db {
       .sort((a, b) => b[1] - a[1])
       .slice(0, limit)
       .map(([place, count]) => ({ place, count }));
+  }
+
+  async wishTitleStats(
+    title: string,
+    excludeUid?: string,
+  ): Promise<{ wanted: number; done: number }> {
+    const r = await this.db
+      .collection(COL.wishes)
+      .where({ title, deleted: this.cmd.neq(true) })
+      .limit(QUERY_LIMIT)
+      .get();
+    const wanted = new Set<string>();
+    const done = new Set<string>();
+    for (const w of r.data ?? []) {
+      const uid = String(w.uid ?? '');
+      if (!uid || uid === excludeUid) continue;
+      wanted.add(uid);
+      if (w.done === true) done.add(uid);
+    }
+    return { wanted: wanted.size, done: done.size };
   }
 
   async usersWhoCompletedWish(title: string, limit: number): Promise<PublicUser[]> {

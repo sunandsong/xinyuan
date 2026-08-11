@@ -8,6 +8,7 @@ import {
   placeVisitors,
   wishCompleters,
   wishInsights,
+  wishStats,
 } from './handlers/insights';
 import { leaderboard } from './handlers/leaderboard';
 import * as me from './handlers/me';
@@ -33,6 +34,7 @@ function protectedRoutes(uid: string) {
     route('GET', '/leaderboard', (r) => leaderboard(r, uid)),
     route('GET', '/insights/wishes', (r) => wishInsights(r)),
     route('GET', '/insights/places', (r) => placeInsights(r)),
+    route('GET', '/insights/wishes/stats', (r) => wishStats(r, uid)),
     route('GET', '/insights/wishes/users', (r) => wishCompleters(r)),
     route('GET', '/insights/places/users', (r) => placeVisitors(r)),
     route('GET', '/users/:id', (r, p) => getPublicProfile(r, p.id)),
