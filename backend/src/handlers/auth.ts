@@ -1,4 +1,4 @@
-import { JWT_SECRET } from '../config';
+import { COL, JWT_SECRET } from '../config';
 import { getDb } from '../db';
 import { bad, json, ok, Req } from '../http';
 import { signJwt } from '../jwt';
@@ -42,7 +42,7 @@ export async function register(req: Req) {
   return ok({ token, profile: publicProfile(user) });
 }
 
-/** POST /api/auth/login  {account, password} */
+/** POST /api/auth/login  {account, password, device?, os?, appVersion?} */
 export async function login(req: Req) {
   const b = req.body ?? {};
   const account = String(b.account ?? '').trim().toLowerCase();
@@ -53,5 +53,24 @@ export async function login(req: Req) {
     return json(401, { error: 'invalid_credentials' });
   }
   const token = signJwt({ uid: user._id }, JWT_SECRET);
+
+  // 打点：登录日志 + 盖 lastLoginAt。绝不能因为这个挡登录，两件事都单独吞错。
+  const now = Date.now();
+  const db = getDb();
+  const ip = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || null;
+  try {
+    await db.upsertDoc(COL.logins, undefined, {
+      uid: user._id,
+      at: now,
+      device: b.device ?? null,
+      os: b.os ?? null,
+      appVersion: b.appVersion ?? null,
+      ip,
+    });
+  } catch {}
+  try {
+    await db.upsertDoc(COL.users, user._id, { lastLoginAt: now });
+  } catch {}
+
   return ok({ token, profile: publicProfile(user) });
 }

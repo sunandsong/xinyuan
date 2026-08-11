@@ -19,6 +19,10 @@ export interface UserProfile {
   createdAt: number;
   updatedAt: number;
   deleted?: boolean;
+  lastLoginAt?: number;
+  lastActiveAt?: number;
+  banned?: boolean; // 管理端封禁（Task 5）
+  isDemo?: boolean; // 演示账号标记（Task 6）
 }
 
 export interface WishStep {

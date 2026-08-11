@@ -3,6 +3,7 @@ import { getUid } from './auth';
 import * as auth from './handlers/auth';
 import { requireAdmin } from './handlers/admin/auth';
 import * as content from './handlers/admin/content';
+import { track } from './handlers/events';
 import { submitFeedback } from './handlers/feedback';
 import * as geocode from './handlers/geocode';
 import {
@@ -54,6 +55,7 @@ function protectedRoutes(uid: string) {
     route('POST', '/sync/push', (r) => sync.push(r, uid)),
     route('POST', '/share', (r) => share.createShare(r, uid)),
     route('POST', '/feedback', (r) => submitFeedback(r, uid)),
+    route('POST', '/events', (r) => track(r, uid)),
     route('POST', '/upload', (r) => upload(r, uid)),
     route('POST', '/photo-urls', (r) => photoUrls(r, uid)),
     route('GET', '/geocode/reverse', (r) => geocode.reverseGeocode(r)),

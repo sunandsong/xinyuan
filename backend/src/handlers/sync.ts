@@ -1,3 +1,4 @@
+import { COL } from '../config';
 import { getDb } from '../db';
 import { bad, ok, Req } from '../http';
 import { PushBody } from '../types';
@@ -11,6 +12,14 @@ export async function pull(req: Req, uid: string) {
   if (result.profile) {
     const { passwordHash, ...safe } = result.profile as any;
     result.profile = safe;
+
+    // 活跃心跳：节流写（超过 1 小时才盖一次），profile 上面已经查过了，不再多发请求
+    const now = Date.now();
+    if (now - (safe.lastActiveAt ?? 0) > 3600_000) {
+      try {
+        await getDb().upsertDoc(COL.users, uid, { lastActiveAt: now });
+      } catch {}
+    }
   }
   return ok(result);
 }

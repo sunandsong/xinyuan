@@ -36,4 +36,6 @@ export const COL = {
   letters: 'letters',
   shares: 'shares',
   feedback: 'feedback',
+  logins: 'logins',
+  events: 'events',
 } as const;
