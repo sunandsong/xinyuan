@@ -42,6 +42,17 @@ export interface Db {
   ): Promise<{ wanted: number; done: number }>;
   /** 内容榜穿透：哪些用户打卡过这个景点 */
   usersWhoCheckedIn(place: string, limit: number): Promise<PublicUser[]>;
+
+  // ---- 管理端通用内容表 CRUD（Task 2）----
+  /** 任意集合分页查询：where 是等值过滤条件，返回本页数据 + 命中总数 */
+  listDocs(
+    col: string,
+    opts: { skip?: number; limit?: number; where?: Record<string, unknown> },
+  ): Promise<{ items: any[]; total: number }>;
+  /** 有 id 更新、无 id 新建（新建时 id 由数据库生成并返回） */
+  upsertDoc(col: string, id: string | undefined, patch: Record<string, unknown>): Promise<string>;
+  /** 物理删除单条文档 */
+  deleteDoc(col: string, id: string): Promise<void>;
 }
 
 /** 内容榜穿透列表只给这几样——跟排行榜一个尺度，不泄露账号名 */
@@ -331,6 +342,34 @@ class CloudDb implements Db {
   async bumpShareViews(code: string) {
     await this.db.collection(COL.shares).where({ code }).update({ views: this.cmd.inc(1) });
   }
+  // ---- 管理端通用内容表 CRUD（Task 2）----
+  async listDocs(
+    col: string,
+    opts: { skip?: number; limit?: number; where?: Record<string, unknown> } = {},
+  ): Promise<{ items: any[]; total: number }> {
+    const { skip = 0, limit = 20, where = {} } = opts;
+    // count() 和 get() 各建各的 query：同一个 query 对象连续 skip/limit/count 链式调用
+    // 有互相污染的风险，分开建更保险，反正就多一次网络往返。
+    const [r, c] = await Promise.all([
+      this.db.collection(col).where(where).skip(skip).limit(limit).get(),
+      this.db.collection(col).where(where).count(),
+    ]);
+    return { items: r.data ?? [], total: c.total ?? 0 };
+  }
+
+  async upsertDoc(col: string, id: string | undefined, patch: Record<string, unknown>): Promise<string> {
+    if (id) {
+      await this.db.collection(col).doc(id).update(noId(patch));
+      return id;
+    }
+    const r = await this.db.collection(col).add(noId(patch));
+    return r.id as string;
+  }
+
+  async deleteDoc(col: string, id: string): Promise<void> {
+    await this.db.collection(col).doc(id).delete();
+  }
+
   async softDeleteUser(uid: string) {
     await Promise.all([
       this.db.collection(COL.users).doc(uid).update({ deleted: true }),

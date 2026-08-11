@@ -2,6 +2,7 @@
 import { getUid } from './auth';
 import * as auth from './handlers/auth';
 import { requireAdmin } from './handlers/admin/auth';
+import * as content from './handlers/admin/content';
 import { submitFeedback } from './handlers/feedback';
 import * as geocode from './handlers/geocode';
 import {
@@ -30,7 +31,12 @@ const publicRoutes = [
 ];
 
 // 管理端路由：都在 requireAdmin 校验通过之后才走到这里，见 handle()。
-const adminRoutes = [route('GET', '/admin/ping', async () => ok({ pong: true }))];
+const adminRoutes = [
+  route('GET', '/admin/ping', async () => ok({ pong: true })),
+  route('GET', '/admin/content/:col', (r, p) => content.list(r, p.col)),
+  route('POST', '/admin/content/:col', (r, p) => content.upsert(r, p.col)),
+  route('POST', '/admin/content/:col/delete', (r, p) => content.remove(r, p.col)),
+];
 
 function protectedRoutes(uid: string) {
   return [
