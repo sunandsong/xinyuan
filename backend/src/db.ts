@@ -74,8 +74,8 @@ export interface Db {
   allEvents(): Promise<Array<{ uid: string; event: string; at: number }>>;
   /** col 里未删除、且 uid 不在 excludeUids 里的文档数 */
   countActive(col: string, excludeUids: string[]): Promise<number>;
-  /** 未处理反馈数（handled != true） */
-  countFeedbackOpen(): Promise<number>;
+  /** 未处理反馈数（handled != true），排除 excludeUids（demo 用户） */
+  countFeedbackOpen(excludeUids: string[]): Promise<number>;
 }
 
 /** 内容榜穿透列表只给这几样——跟排行榜一个尺度，不泄露账号名 */
@@ -450,11 +450,10 @@ class CloudDb implements Db {
     return r.total ?? 0;
   }
 
-  async countFeedbackOpen(): Promise<number> {
-    const r = await this.db
-      .collection(COL.feedback)
-      .where({ handled: this.cmd.neq(true) })
-      .count();
+  async countFeedbackOpen(excludeUids: string[]): Promise<number> {
+    const where: Record<string, unknown> = { handled: this.cmd.neq(true) };
+    if (excludeUids.length) where.uid = this.cmd.nin(excludeUids);
+    const r = await this.db.collection(COL.feedback).where(where).count();
     return r.total ?? 0;
   }
 

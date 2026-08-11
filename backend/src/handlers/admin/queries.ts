@@ -41,7 +41,7 @@ export async function stats(_req: Req) {
       db.allWishes(),
       db.allLogins(),
       db.allEvents(),
-      db.countFeedbackOpen(),
+      db.countFeedbackOpen(demoUids),
       db.countActive(COL.tasks, demoUids),
       db.countActive(COL.letters, demoUids),
       db.topWishTitles(10),
