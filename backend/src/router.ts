@@ -3,6 +3,7 @@ import { getUid } from './auth';
 import * as auth from './handlers/auth';
 import { requireAdmin } from './handlers/admin/auth';
 import * as content from './handlers/admin/content';
+import * as demo from './handlers/admin/demo';
 import * as queries from './handlers/admin/queries';
 import * as adminUsers from './handlers/admin/users';
 import { track } from './handlers/events';
@@ -52,6 +53,10 @@ const adminRoutes = [
   route('POST', '/admin/users/:uid/reset-profile', (r, p) => adminUsers.resetProfile(r, p.uid)),
   route('POST', '/admin/feedback/:id/delete', (r, p) => adminUsers.feedbackDelete(r, p.id)),
   route('POST', '/admin/feedback/:id', (r, p) => adminUsers.feedbackUpdate(r, p.id)),
+  route('GET', '/admin/demo-users', (r) => demo.list(r)),
+  route('POST', '/admin/demo-users', (r) => demo.upsert(r)),
+  route('POST', '/admin/demo-users/mark', (r) => demo.mark(r)),
+  route('POST', '/admin/demo-users/:uid/delete', (r, p) => demo.remove(r, p.uid)),
 ];
 
 function protectedRoutes(uid: string) {
