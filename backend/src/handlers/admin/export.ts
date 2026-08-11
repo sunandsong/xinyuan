@@ -13,22 +13,31 @@ const PAGE = 1000;
 /** 单集合翻页拉全；集合在这个环境还没建过（ResourceNotFound）时按空集合处理——
  * 跟 config.ts 的 listActive 是同一个道理：导出要尽量给出结果，不能因为一张表还没
  * 建过就让整个导出 500。 */
-async function dumpCollection(col: string): Promise<{ items: any[]; truncated: boolean }> {
+export async function dumpCollection(col: string): Promise<{ items: any[]; truncated: boolean }> {
   const items: any[] = [];
   let skip = 0;
+  let truncated = false;
   try {
     for (;;) {
       const { items: page } = await getDb().listDocs(col, { skip, limit: PAGE });
       items.push(...page);
-      if (page.length < PAGE || items.length >= MAX_PER_COLLECTION) break;
+      // MAX_PER_COLLECTION 是 PAGE 的整数倍，命中上限时 items.length 精确等于它——
+      // 用 items.length > MAX_PER_COLLECTION 判断截断永远是 false，是死代码。
+      if (items.length >= MAX_PER_COLLECTION) {
+        // 最后一页没拉满，说明这就是全部数据，没有更多，肯定没截断。
+        // 拉满了则不能单凭这页断定——总数恰好等于上限时最后一页也会是满的，
+        // 所以额外探一页极小的（limit:1）确认后面是否真有数据，避免恰好等于
+        // 上限的集合被误报成 truncated（这只在命中上限那一次多发一次请求）。
+        truncated = page.length === PAGE && (await getDb().listDocs(col, { skip: skip + PAGE, limit: 1 })).items.length > 0;
+        break;
+      }
+      if (page.length < PAGE) break;
       skip += PAGE;
     }
   } catch {
     return { items: [], truncated: false };
   }
-  return items.length > MAX_PER_COLLECTION
-    ? { items: items.slice(0, MAX_PER_COLLECTION), truncated: true }
-    : { items, truncated: false };
+  return { items: items.slice(0, MAX_PER_COLLECTION), truncated };
 }
 
 const ALL_COLS = [
@@ -36,6 +45,7 @@ const ALL_COLS = [
   COL.wishes,
   COL.tasks,
   COL.letters,
+  COL.shares,
   COL.feedback,
   COL.logins,
   COL.events,
