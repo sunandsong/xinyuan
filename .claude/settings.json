@@ -1,16 +1,33 @@
 {
   "permissions": {
+    "defaultMode": "acceptEdits",
     "allow": [
+      "Read",
+      "Edit(**)",
+      "Write(**)",
+      "Glob",
+      "Grep",
       "Bash(flutter:*)",
       "Bash(dart:*)",
       "Bash(xcrun:*)",
       "Bash(open -a Simulator)",
       "Bash(pod:*)",
+      "Bash(npm install:*)",
+      "Bash(npm ci)",
       "Bash(npm run:*)",
-      "Bash(npx tsc:*)",
+      "Bash(npx:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(git stash list:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)",
+      "Bash(touch:*)",
       "Bash(grep:*)",
       "Bash(rg:*)",
       "Bash(find:*)",
@@ -19,13 +36,30 @@
       "Bash(cat:*)",
       "Bash(tail:*)",
       "Bash(head:*)",
-      "Bash(sleep:*)",
-      "Edit(frontend/**)",
-      "Edit(backend/**)",
-      "Edit(docs/**)",
-      "Write(frontend/**)",
-      "Write(backend/**)",
-      "Write(docs/**)"
+      "Bash(which:*)",
+      "Bash(pwd)",
+      "Bash(echo:*)",
+      "Bash(sleep:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git checkout -- :*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.keystore)",
+      "Read(**/*.jks)",
+      "Read(**/id_rsa)",
+      "Read(**/id_ed25519)",
+      "Read(**/*.mobileprovision)"
     ]
   }
 }
