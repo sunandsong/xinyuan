@@ -121,7 +121,7 @@ function AdminLayout() {
             fontSize: 16,
           }}
         >
-          <StarOutlined style={{ color: '#1677ff', fontSize: 20 }} />
+          <StarOutlined style={{ color: '#3EA983', fontSize: 20 }} />
           人生清单
         </div>
         <Menu

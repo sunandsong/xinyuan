@@ -4,8 +4,8 @@ import { DownloadOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { api } from '../api';
 
-// ECharts 双系列色（设计稿定的浅色系）
-const BLUE = '#1677ff';
+// ECharts 双系列色：主色跟 App 端 T.accent（蓝绿松石）对齐，配色橙做对比
+const BLUE = '#3EA983';
 const ORANGE = '#fa8c16';
 
 interface Stats {
