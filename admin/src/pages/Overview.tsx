@@ -33,6 +33,11 @@ const CARD_STYLE = {
   boxShadow: '0 1px 2px rgba(16,24,40,.04), 0 1px 8px rgba(16,24,40,.03)',
 };
 
+// 「热度与分布」两行图表各自的统一高度：同一行内不管条目数多少都用同一个高度，
+// 图表内部留白比按条目数动态撑高、行内参差不齐好看
+const ROW_A_HEIGHT = 220; // 留存率 / 用户活跃分布 / 功能热度 Top（这行都是 3-4 条数据）
+const ROW_B_HEIGHT = 320; // 心愿热度 / 景点打卡 Top10（最多到 10 条）
+
 interface Stats {
   totals: {
     users: number;
@@ -82,6 +87,23 @@ function SectionTitle({ children }: { children: ReactNode }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '28px 0 12px' }}>
       <span style={{ width: 3, height: 14, borderRadius: 2, background: ACCENT }} />
       <span style={{ fontSize: 14, fontWeight: 600, color: INK }}>{children}</span>
+    </div>
+  );
+}
+
+/** 图表暂无数据时的占位——固定高度跟同行的真图表对齐，卡片高度不会跟着塌下去 */
+function EmptyChart({ height, children }: { height: number; children: ReactNode }) {
+  return (
+    <div
+      style={{
+        height,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: MUTED,
+      }}
+    >
+      {children}
     </div>
   );
 }
@@ -407,34 +429,36 @@ export default function Overview() {
       </Row>
 
       <SectionTitle>热度与分布</SectionTitle>
+      {/* 同一行内每张图统一高度——之前按条目数动态算高度，行内几张图参差不齐，
+          一行三张、一行两张各自固定一个高度，图表内部留白比东拼西凑的卡片高度更耐看 */}
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12} lg={8}>
           <Card title="留存率（%，近 30 天注册用户）" size="small" variant="borderless" style={CARD_STYLE}>
-            <ReactECharts option={hbarOption(retentionData, ORANGE)} style={{ height: 160 }} />
+            <ReactECharts option={hbarOption(retentionData, ORANGE)} style={{ height: ROW_A_HEIGHT }} />
           </Card>
         </Col>
         <Col xs={24} md={12} lg={8}>
           <Card title="用户活跃分布" size="small" variant="borderless" style={CARD_STYLE}>
-            <ReactECharts option={hbarOption(bucketsData)} style={{ height: 200 }} />
+            <ReactECharts option={hbarOption(bucketsData)} style={{ height: ROW_A_HEIGHT }} />
           </Card>
         </Col>
         <Col xs={24} md={12} lg={8}>
           <Card title="功能热度 Top（近 7 天）" size="small" variant="borderless" style={CARD_STYLE}>
             {topEvents.length === 0 ? (
-              <div style={{ color: MUTED, padding: 24, textAlign: 'center' }}>暂无埋点数据</div>
+              <EmptyChart height={ROW_A_HEIGHT}>暂无埋点数据</EmptyChart>
             ) : (
-              <ReactECharts option={hbarOption(topEvents)} style={{ height: Math.max(160, topEvents.length * 32) }} />
+              <ReactECharts option={hbarOption(topEvents)} style={{ height: ROW_A_HEIGHT }} />
             )}
           </Card>
         </Col>
         <Col xs={24} md={12} lg={12}>
           <Card title="心愿热度 Top10" size="small" variant="borderless" style={CARD_STYLE}>
             {topWishes.length === 0 ? (
-              <div style={{ color: MUTED, padding: 24, textAlign: 'center' }}>暂无数据</div>
+              <EmptyChart height={ROW_B_HEIGHT}>暂无数据</EmptyChart>
             ) : (
               <ReactECharts
                 option={hbarOption(topWishes.map((w) => [w.title, w.count]))}
-                style={{ height: Math.max(160, topWishes.length * 32) }}
+                style={{ height: ROW_B_HEIGHT }}
               />
             )}
           </Card>
@@ -442,11 +466,11 @@ export default function Overview() {
         <Col xs={24} md={12} lg={12}>
           <Card title="景点打卡 Top10" size="small" variant="borderless" style={CARD_STYLE}>
             {topPlaces.length === 0 ? (
-              <div style={{ color: MUTED, padding: 24, textAlign: 'center' }}>暂无数据</div>
+              <EmptyChart height={ROW_B_HEIGHT}>暂无数据</EmptyChart>
             ) : (
               <ReactECharts
                 option={hbarOption(topPlaces.map((p) => [p.place, p.count]), ORANGE)}
-                style={{ height: Math.max(160, topPlaces.length * 32) }}
+                style={{ height: ROW_B_HEIGHT }}
               />
             )}
           </Card>
