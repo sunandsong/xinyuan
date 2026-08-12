@@ -104,8 +104,11 @@ function AdminLayout() {
   });
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Layout.Sider width={210}>
+    // 整页固定 100vh、禁止外层滚动；滚动只发生在右侧 Content 内部，
+    // 侧栏/顶栏永远钉在原地——之前用 minHeight 撑出整页滚动，长表格一多
+    // 侧边菜单和顶部标题都跟着跑没了。
+    <Layout style={{ height: '100vh', overflow: 'hidden' }}>
+      <Layout.Sider width={210} style={{ height: '100vh', overflowY: 'auto' }}>
         <div
           style={{
             color: '#fff',
@@ -131,9 +134,10 @@ function AdminLayout() {
           onClick={({ key }) => navigate(key)}
         />
       </Layout.Sider>
-      <Layout>
+      <Layout style={{ height: '100vh' }}>
         <Layout.Header
           style={{
+            flexShrink: 0,
             background: '#fff',
             display: 'flex',
             alignItems: 'center',
@@ -146,7 +150,7 @@ function AdminLayout() {
             退出登录
           </Button>
         </Layout.Header>
-        <Layout.Content style={{ margin: 24, background: '#fff' }}>
+        <Layout.Content style={{ margin: 24, background: '#fff', overflowY: 'auto', minHeight: 0 }}>
           <Routes>
             <Route path="/" element={<Overview />} />
             <Route path="/users" element={<Users />} />
