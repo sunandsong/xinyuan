@@ -91,6 +91,8 @@ class ApiClient {
         return '这种图片格式暂不支持';
       case 'content_required':
         return '写点内容再提交吧';
+      case 'banned':
+        return '账号已被封禁，如有疑问请通过意见反馈联系我们';
       default:
         return code;
     }
@@ -136,10 +138,19 @@ class AuthApi {
     });
   }
 
-  static Future<Map<String, dynamic>> login(String account, String password) {
+  static Future<Map<String, dynamic>> login(
+    String account,
+    String password, {
+    String? device,
+    String? os,
+    String? appVersion,
+  }) {
     return ApiClient.I.post('/auth/login', {
       'account': account,
       'password': password,
+      if (device != null) 'device': device,
+      if (os != null) 'os': os,
+      if (appVersion != null) 'appVersion': appVersion,
     });
   }
 
@@ -235,6 +246,17 @@ class ShareApi {
       if (color != null) 'color': color,
     });
   }
+}
+
+/// App 配置下发：登录后一次性拉走公告/最低版本等（内容表数据 App 有内置兜底，暂不消费）
+class ConfigApi {
+  static Future<Map<String, dynamic>> fetch() => ApiClient.I.get('/config');
+}
+
+/// 行为埋点：批量上报，一次最多 50 条，服务端写失败也不影响返回
+class EventsApi {
+  static Future<void> track(List<Map<String, dynamic>> events) =>
+      ApiClient.I.post('/events', {'events': events});
 }
 
 /// 意见反馈：存进后端 feedback 表，人工看，不用额外接客服系统

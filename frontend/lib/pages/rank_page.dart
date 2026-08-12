@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../analytics.dart';
 import '../api/api.dart';
 import '../data.dart';
 import '../theme.dart';
@@ -68,6 +69,7 @@ class _RankPageState extends State<RankPage> {
   @override
   void initState() {
     super.initState();
+    Analytics.I.track('rank_view');
     if (AppData.I.signedIn) _load();
   }
 

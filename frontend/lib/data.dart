@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'dart:convert' show jsonDecode, jsonEncode, utf8;
+import 'dart:io' show Platform;
 import 'dart:math' show Random;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'analytics.dart';
 import 'api/api.dart';
 import 'pages/tree_page.dart' show achvSlugByName;
 import 'pages/world_page.dart' show litPlaceCount;
 import 'presets.dart';
 import 'session.dart';
 import 'theme.dart';
+import 'version.dart';
 
 String _hex(Color c) =>
     (c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase();
@@ -303,7 +306,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   }
   static final AppData I = AppData._();
 
-  /// App 切后台/被杀前，把还没到防抖时间的改动立刻推一次，别等 800ms
+  /// App 切后台/被杀前，把还没到防抖时间的改动立刻推一次，别等 800ms；
+  /// 攒着的埋点也顺路清掉
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive ||
@@ -311,6 +315,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         state == AppLifecycleState.detached) {
       _pushTimer?.cancel();
       unawaited(_flushPush());
+      unawaited(Analytics.I.flush());
     }
   }
 
@@ -435,7 +440,9 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           _dirtyLetters.addAll(chunks[j].letters);
         }
         // 401 单独处理：不是网络抖动，重试也没用，得提示重新登录
-        if (e is ApiException && e.code == 401) unawaited(_handleUnauthorized());
+        if (e is ApiException && e.code == 401) {
+          unawaited(_handleUnauthorized(e.message));
+        }
         syncError = '有改动还没保存到云端';
         notifyListeners();
         return;
@@ -552,7 +559,9 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       syncError = null;
       return true;
     } catch (e) {
-      if (e is ApiException && e.code == 401) unawaited(_handleUnauthorized());
+      if (e is ApiException && e.code == 401) {
+        unawaited(_handleUnauthorized(e.message));
+      }
       return false;
     }
   }
@@ -587,14 +596,19 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// 后台同步撞见 401（token 失效/过期）时置一次位，UI 层弹一次重新登录就复位，
+  /// 后台同步撞见 401（token 失效/过期/被封禁）时置一次位，UI 层弹一次提示就复位，
   /// 不然本地数据还在、看着像正常登录，其实早就同步不动了，用户完全没感知
   bool sessionExpired = false;
 
-  Future<void> _handleUnauthorized() async {
+  /// 401 的具体文案：封禁和过期都走 401，但对用户说的话不一样
+  String sessionExpiredMsg = '登录已过期，请重新登录';
+
+  Future<void> _handleUnauthorized([String? msg]) async {
     if (!signedIn) return; // 已经是未登录态，不重复处理
     signedIn = false;
     sessionExpired = true;
+    if (msg != null && msg.isNotEmpty) sessionExpiredMsg = msg;
+    Analytics.I.enabled = false;
     await Session.clear(); // 这个 token 确认废了，别再带着它发请求
     notifyListeners();
   }
@@ -607,6 +621,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       quote: w.quote,
       color: _hex(w.color),
     );
+    Analytics.I.track('share_create');
     return (res['path'] as String?) ?? '';
   }
 
@@ -654,6 +669,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     t.done = !t.done;
     if (t.done) {
       HapticFeedback.lightImpact();
+      Analytics.I.track('task_done');
     }
     _touchTask(t);
     notifyListeners();
@@ -704,6 +720,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     );
     wishes.add(w);
     _touchWish(w);
+    Analytics.I.track('wish_add');
     notifyListeners();
     return w;
   }
@@ -847,6 +864,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     w.heroIndex = heroIndex % heroes.length;
     HapticFeedback.mediumImpact();
     _touchWish(w);
+    Analytics.I.track('wish_done');
     notifyListeners();
   }
 
@@ -877,6 +895,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     );
     letters.add(l);
     _touchLetter(l);
+    Analytics.I.track('letter_create');
     notifyListeners();
     return l;
   }
@@ -984,6 +1003,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   void checkIn(String name) {
     if (checkins.containsKey(name)) return;
     checkins[name] = DateTime.now().millisecondsSinceEpoch;
+    Analytics.I.track('checkin', {'name': name});
     _saveCheckinsLocal();
     notifyListeners();
     if (signedIn) {
@@ -1059,19 +1079,68 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   bool signedIn = false;
   String? account;
 
+  // ---------- 管理端下发的配置（公告 / 最低版本） ----------
+  /// 生效中的公告 [{title, body}]；强更最低版本号（空 = 不强更）。
+  /// /config 挂在登录态路由下，未登录拿不到——启动先装上次缓存，登录后拉新。
+  List<Map<String, String>> announcements = [];
+  String minVersion = '';
+  static const _configKey = 'app_config_v1';
+
+  Future<void> _loadConfigCache() async {
+    try {
+      final raw = (await SharedPreferences.getInstance()).getString(_configKey);
+      if (raw == null) return;
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      announcements = [
+        for (final a in (j['announcements'] as List? ?? const []))
+          {
+            'title': (a as Map)['title']?.toString() ?? '',
+            'body': a['body']?.toString() ?? '',
+          },
+      ];
+      minVersion = j['minVersion']?.toString() ?? '';
+    } catch (_) {
+      // 缓存坏了当没有
+    }
+  }
+
+  /// 拉配置：只消费公告和最低版本（内容表数据 App 有内置兜底，暂不接）。
+  /// 失败静默——公告/强更晚一次启动看到没关系，不值得打扰用户。
+  Future<void> _fetchConfig() async {
+    try {
+      final r = await ConfigApi.fetch();
+      announcements = [
+        for (final a in (r['announcements'] as List? ?? const []))
+          {
+            'title': (a as Map)['title']?.toString() ?? '',
+            'body': a['body']?.toString() ?? '',
+          },
+      ];
+      minVersion = r['minVersion']?.toString() ?? '';
+      unawaited(SharedPreferences.getInstance().then((p) => p.setString(
+          _configKey,
+          jsonEncode({'announcements': announcements, 'minVersion': minVersion}))));
+      notifyListeners();
+    } catch (_) {}
+  }
+
   /// 启动时装回本地会话；已登录则用云端数据整体替换本地演示数据
   Future<void> initSession() async {
     await _loadAchvLocal();
     await Session.load();
+    await _loadConfigCache();
     signedIn = Session.isLoggedIn;
     account = await Session.account();
     final nick = await Session.nick();
     if (nick != null && nick.isNotEmpty) nickname = nick;
+    Analytics.I.enabled = signedIn;
+    if (signedIn) Analytics.I.track('app_open');
     if (signedIn) {
       // 先装本地存的头像，云端拉取成功后会覆盖；拉取失败也不至于头像消失
       avatarUrl = (await SharedPreferences.getInstance()).getString(_avatarKey);
     }
     if (signedIn) {
+      unawaited(_fetchConfig());
       // 云端是唯一数据源：拉不到就亮横幅 + 空列表，不拿本地数据顶替
       if (!await _pullFromCloud()) _markPullFailed();
     }
@@ -1088,7 +1157,14 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   }) async {
     final res = register
         ? await AuthApi.register(account, password)
-        : await AuthApi.login(account, password);
+        : await AuthApi.login(
+            account,
+            password,
+            // 设备信息只为管理端登录日志排查用，不引 device_info 插件，够认平台就行
+            device: Platform.operatingSystem,
+            os: '${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+            appVersion: kAppVersion,
+          );
     final token = res['token'] as String?;
     if (token == null) throw ApiException(0, '登录失败');
     final profile = res['profile'] as Map<String, dynamic>?;
@@ -1097,6 +1173,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     this.account = account;
     if (nick != null && nick.isNotEmpty) nickname = nick;
     signedIn = true;
+    Analytics.I.enabled = true;
+    unawaited(_fetchConfig());
     final pulled = await _pullFromCloud(); // 可能是换账号，必须整体替换
     if (!pulled) _markPullFailed();
     // 拉取失败时不播种：等重试拉到云端真实数据再说，别造出一份本地假数据
@@ -1107,6 +1185,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   /// 退出登录：清会话、清云端数据，回到本地预览
   Future<void> logout() async {
     await Session.clear();
+    Analytics.I.enabled = false;
     signedIn = false;
     account = null;
     accountCreatedAt = null;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'api/api.dart' show ApiConfig;
 import 'data.dart';
 import 'pages/share_page.dart' show FireworksPainter;
 import 'pages/login_page.dart';
@@ -10,6 +12,7 @@ import 'tabs/tasks_tab.dart';
 import 'tabs/wishes_tab.dart';
 import 'theme.dart';
 import 'ui.dart';
+import 'version.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, this.initialIndex = 0});
@@ -44,15 +47,67 @@ class _HomeShellState extends State<HomeShell>
     });
     _initAchvWatch();
     AppData.I.addListener(_checkSessionExpired);
+    AppData.I.addListener(_checkForceUpdate);
+    _loadDismissedAnnouncement();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForceUpdate());
   }
 
   /// 后台同步撞见 401 时（见 AppData._handleUnauthorized）弹一次提示 + 登录框，
-  /// 复位标记别重复弹；本地数据没清，弹完重新登录就接着同步
+  /// 复位标记别重复弹；本地数据没清，弹完重新登录就接着同步。
+  /// 文案透传：封禁的 401 显示「账号已被封禁」，别一律说成过期。
   void _checkSessionExpired() {
     if (!mounted || !AppData.I.sessionExpired) return;
     AppData.I.sessionExpired = false;
-    snack(context, '登录已过期，请重新登录');
+    snack(context, AppData.I.sessionExpiredMsg);
     showBlurDialog(context, const LoginForm());
+  }
+
+  // ---------- 公告横幅 ----------
+  /// 已关掉的公告标识（title+body 拼一起），关过的不再显示；换了内容算新公告
+  String? _dismissedAnnouncement;
+
+  Future<void> _loadDismissedAnnouncement() async {
+    final p = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() => _dismissedAnnouncement = p.getString('dismissed_announcement'));
+    }
+  }
+
+  Future<void> _dismissAnnouncement(String key) async {
+    setState(() => _dismissedAnnouncement = key);
+    final p = await SharedPreferences.getInstance();
+    await p.setString('dismissed_announcement', key);
+  }
+
+  /// 强更检查：版本低于管理端下发的 minVersion 时弹不可关对话框。
+  /// 每次配置变化都会触发监听，用 _forceUpdateShown 保证只弹一次。
+  bool _forceUpdateShown = false;
+
+  void _checkForceUpdate() {
+    final min = AppData.I.minVersion;
+    if (_forceUpdateShown || !mounted || min.isEmpty) return;
+    if (!versionLessThan(kAppVersion, min)) return;
+    _forceUpdateShown = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('需要更新'),
+          content: Text('当前版本 $kAppVersion 已停止支持，请更新到 $min 以上继续使用。'),
+          actions: [
+            TextButton(
+              onPressed: () => launchUrl(
+                Uri.parse('${ApiConfig.base}/releases'),
+                mode: LaunchMode.externalApplication,
+              ),
+              child: const Text('去下载新版'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _initAchvWatch() async {
@@ -106,6 +161,7 @@ class _HomeShellState extends State<HomeShell>
   void dispose() {
     AppData.I.removeListener(_checkNewAchv);
     AppData.I.removeListener(_checkSessionExpired);
+    AppData.I.removeListener(_checkForceUpdate);
     _fx.dispose();
     super.dispose();
   }
@@ -206,6 +262,79 @@ class _HomeShellState extends State<HomeShell>
                           child: const Text('重试',
                               style: TextStyle(
                                   fontSize: 13, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          // 公告横幅：管理端下发的生效中公告，显示第一条，可关闭（同一条不再弹）。
+          // 同步出错横幅优先——都要显示时公告让位，问题解决了公告自然出现
+          ListenableBuilder(
+            listenable: AppData.I,
+            builder: (context, _) {
+              if (AppData.I.syncError != null) return const SizedBox.shrink();
+              final anns = AppData.I.announcements;
+              if (anns.isEmpty) return const SizedBox.shrink();
+              final a = anns.first;
+              final key = '${a['title']}\n${a['body']}';
+              if (key == _dismissedAnnouncement) return const SizedBox.shrink();
+              return Positioned(
+                top: MediaQuery.paddingOf(context).top + 6,
+                left: 13,
+                right: 13,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4B84DB),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: T.shadowCard,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 1),
+                          child: Icon(Icons.campaign_rounded,
+                              size: 17, color: Colors.white),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if ((a['title'] ?? '').isNotEmpty)
+                                Text(
+                                  a['title']!,
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              if ((a['body'] ?? '').isNotEmpty)
+                                Text(
+                                  a['body']!,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    height: 1.4,
+                                    color: Colors.white.withValues(alpha: .92),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => _dismissAnnouncement(key),
+                          icon: const Icon(Icons.close_rounded,
+                              size: 16, color: Colors.white),
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 30, minHeight: 30),
                         ),
                       ],
                     ),
