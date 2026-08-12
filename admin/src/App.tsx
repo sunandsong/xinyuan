@@ -1,4 +1,27 @@
+import { useState } from 'react';
 import { Layout, Menu, Button, type MenuProps } from 'antd';
+import {
+  DashboardOutlined,
+  TeamOutlined,
+  MessageOutlined,
+  LoginOutlined,
+  ThunderboltOutlined,
+  DatabaseOutlined,
+  StarOutlined,
+  CheckSquareOutlined,
+  MailOutlined,
+  AppstoreOutlined,
+  UnorderedListOutlined,
+  NodeIndexOutlined,
+  PictureOutlined,
+  TrophyOutlined,
+  EnvironmentOutlined,
+  StopOutlined,
+  NotificationOutlined,
+  UserSwitchOutlined,
+  FileSearchOutlined,
+  LogoutOutlined,
+} from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { clearKey, useKey } from './api';
 import Gate from './Gate';
@@ -20,52 +43,90 @@ import Announcements from './pages/Announcements';
 import DemoUsers from './pages/DemoUsers';
 import AuditLog from './pages/AuditLog';
 
+// 用真正的 SubMenu（有 icon，点了会展开/收起）而不是 antd 的 group 类型——
+// group 只是个不可点的分类标签，子项一直平铺显示，压根没有「展开」这回事。
 const menuItems: MenuProps['items'] = [
-  { key: '/', label: '概览' },
-  { key: '/users', label: '用户' },
-  { key: '/feedback', label: '反馈' },
-  { key: '/login-logs', label: '登录日志' },
-  { key: '/events', label: '行为事件' },
+  { key: '/', icon: <DashboardOutlined />, label: '概览' },
+  { key: '/users', icon: <TeamOutlined />, label: '用户' },
+  { key: '/feedback', icon: <MessageOutlined />, label: '反馈' },
+  { key: '/login-logs', icon: <LoginOutlined />, label: '登录日志' },
+  { key: '/events', icon: <ThunderboltOutlined />, label: '行为事件' },
   {
-    type: 'group',
+    key: 'group-data',
+    icon: <DatabaseOutlined />,
     label: '数据表',
     children: [
-      { key: '/wishes', label: '心愿' },
-      { key: '/tasks', label: '任务' },
-      { key: '/capsules', label: '时光胶囊' },
+      { key: '/wishes', icon: <StarOutlined />, label: '心愿' },
+      { key: '/tasks', icon: <CheckSquareOutlined />, label: '任务' },
+      { key: '/capsules', icon: <MailOutlined />, label: '时光胶囊' },
     ],
   },
   {
-    type: 'group',
+    key: 'group-content',
+    icon: <AppstoreOutlined />,
     label: '内容配置',
     children: [
-      { key: '/default-lists', label: '默认清单' },
-      { key: '/milestone-templates', label: '里程碑模板' },
-      { key: '/images', label: '图片素材' },
-      { key: '/honors', label: '荣誉定义' },
-      { key: '/attractions', label: '景点库' },
-      { key: '/blocked-words', label: '屏蔽词' },
-      { key: '/announcements', label: '公告与版本' },
-      { key: '/demo-users', label: '演示用户' },
+      { key: '/default-lists', icon: <UnorderedListOutlined />, label: '默认清单' },
+      { key: '/milestone-templates', icon: <NodeIndexOutlined />, label: '里程碑模板' },
+      { key: '/images', icon: <PictureOutlined />, label: '图片素材' },
+      { key: '/honors', icon: <TrophyOutlined />, label: '荣誉定义' },
+      { key: '/attractions', icon: <EnvironmentOutlined />, label: '景点库' },
+      { key: '/blocked-words', icon: <StopOutlined />, label: '屏蔽词' },
+      { key: '/announcements', icon: <NotificationOutlined />, label: '公告与版本' },
+      { key: '/demo-users', icon: <UserSwitchOutlined />, label: '演示用户' },
     ],
   },
-  { key: '/audit-log', label: '操作日志' },
+  { key: '/audit-log', icon: <FileSearchOutlined />, label: '操作日志' },
 ];
+
+/** 当前路由在哪个分组下——刷新到子页面时对应分组要展开，不然菜单看着像迷路了 */
+const GROUP_OF: Record<string, string> = {
+  '/wishes': 'group-data',
+  '/tasks': 'group-data',
+  '/capsules': 'group-data',
+  '/default-lists': 'group-content',
+  '/milestone-templates': 'group-content',
+  '/images': 'group-content',
+  '/honors': 'group-content',
+  '/attractions': 'group-content',
+  '/blocked-words': 'group-content',
+  '/announcements': 'group-content',
+  '/demo-users': 'group-content',
+};
 
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  // 默认展开当前路由所在的分组；用户手动折叠/展开后跟手，不强制弹回默认态
+  const [openKeys, setOpenKeys] = useState<string[]>(() => {
+    const g = GROUP_OF[location.pathname];
+    return g ? [g] : [];
+  });
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Layout.Sider width={200}>
-        <div style={{ color: '#fff', textAlign: 'center', padding: 16, fontWeight: 'bold' }}>
+      <Layout.Sider width={210}>
+        <div
+          style={{
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: '18px 16px',
+            fontWeight: 'bold',
+            fontSize: 16,
+          }}
+        >
+          <StarOutlined style={{ color: '#1677ff', fontSize: 20 }} />
           人生清单
         </div>
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
+          openKeys={openKeys}
+          onOpenChange={(keys) => setOpenKeys(keys)}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />
@@ -81,7 +142,9 @@ function AdminLayout() {
           }}
         >
           <span style={{ fontSize: 18, fontWeight: 'bold' }}>人生清单 · 管理端</span>
-          <Button onClick={clearKey}>退出登录</Button>
+          <Button icon={<LogoutOutlined />} onClick={clearKey}>
+            退出登录
+          </Button>
         </Layout.Header>
         <Layout.Content style={{ margin: 24, background: '#fff' }}>
           <Routes>
