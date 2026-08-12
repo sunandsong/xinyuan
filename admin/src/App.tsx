@@ -149,7 +149,9 @@ function AdminLayout() {
             退出登录
           </Button>
         </Layout.Header>
-        <Layout.Content style={{ margin: 24, background: '#fff', overflowY: 'auto', minHeight: 0 }}>
+        {/* 淡灰画布跟 App 端 T.bg 对齐——各页面的白色卡片/表格铺在上面才有层次，
+            之前整片纯白背景配白卡片，页面显得很平 */}
+        <Layout.Content style={{ margin: 24, background: '#F2F3F7', overflowY: 'auto', minHeight: 0 }}>
           <Routes>
             <Route path="/" element={<Overview />} />
             <Route path="/users" element={<Users />} />
