@@ -121,7 +121,11 @@ function AdminLayout() {
             fontSize: 16,
           }}
         >
-          <StarOutlined style={{ color: '#3EA983', fontSize: 20 }} />
+          <img
+            src="/logo.png"
+            alt=""
+            style={{ width: 24, height: 24, borderRadius: 6 }}
+          />
           人生清单
         </div>
         <Menu
