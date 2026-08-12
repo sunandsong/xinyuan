@@ -12,12 +12,12 @@
 | 阶段 | 计划文件 | 状态 |
 |---|---|---|
 | A 后端管理 API | `docs/superpowers/plans/2026-08-11-admin-backend.md` | ✅ 全部 9 任务完成，已部署生产，已合并 main |
-| B 管理端前端 | `docs/superpowers/plans/2026-08-12-admin-web.md` | 🔶 Task 1 完成（脚手架/门禁/API客户端/布局壳，代码在 `admin/`）；**从 Task 2（概览页）继续**，Task 2-8 见计划文件 |
-| C App 端配套 | 未写计划 | ⬜ 未开始（拉 /config、登录设备上报、埋点 track()、公告横幅、强更提示、封禁提示；做完需发版） |
+| B 管理端前端 | `docs/superpowers/plans/2026-08-12-admin-web.md` | ✅ 全部 8 任务完成（2026-08-12），已部署静态托管：https://renshengqingdan-d8feva5q55d12bab-1258070735.tcloudbaseapp.com ；CORS 已收紧到该域名；100 个 demo_seed 假用户已打 isDemo 标（统计口径 132→32 真实用户） |
+| C App 端配套 | 未写计划 | ⬜ **下一步从这里开始**（拉 /config、登录设备上报、埋点 track()、公告横幅、强更提示、封禁提示；做完需发版） |
 
 ### 恢复方法
 
-用 superpowers:subagent-driven-development 执行计划 B，从 Task 2 开始（原 `.superpowers/sdd/` 台账在旧电脑上，不随 git 走；本文档就是台账快照）。分支：`feat/admin-web`（与 main 同步）。
+计划 B 已完成，直接进入计划 C（先写计划再实现）。管理端本地开发：`cd admin && npm run dev`（走 vite 代理）；部署：`npm run deploy`。
 
 ### 计划 A 遗留事项（前端/App 阶段处理）
 
