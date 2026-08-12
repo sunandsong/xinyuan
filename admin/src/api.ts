@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from 'react';
 
-export const API_BASE =
-  'https://renshengqingdan-d8feva5q55d12bab-1258070735.ap-shanghai.app.tcloudbase.com/api';
+// 本地开发走 vite 代理（同源免 CORS，见 vite.config.ts）；线上直连 API 域名
+export const API_BASE = import.meta.env.DEV
+  ? '/api'
+  : 'https://renshengqingdan-d8feva5q55d12bab-1258070735.ap-shanghai.app.tcloudbase.com/api';
 
 const KEY_STORAGE = 'admin_key';
 

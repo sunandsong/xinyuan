@@ -35,14 +35,20 @@ function parseFilters(query: Record<string, string>): Record<string, unknown> {
   return where;
 }
 
-/** GET /admin/content/:col —— 分页 + f_ 等值过滤 */
+/** GET /admin/content/:col —— 分页 + f_ 等值过滤。
+ * 集合还没建过（hero_images 这类种子没灌的空表）时建好并按空表返回，别 500。 */
 export async function list(req: Req, col: string) {
   if (!colAllowed(col)) return bad('unknown_collection');
   const q = req.query ?? {};
   const skip = Math.max(0, Number(q.skip) || 0);
   const limit = Math.min(100, Math.max(1, Number(q.limit) || 20));
-  const { items, total } = await getDb().listDocs(col, { skip, limit, where: parseFilters(q) });
-  return ok({ items, total });
+  try {
+    const { items, total } = await getDb().listDocs(col, { skip, limit, where: parseFilters(q) });
+    return ok({ items, total });
+  } catch {
+    await getDb().ensureCollection(col);
+    return ok({ items: [], total: 0 });
+  }
 }
 
 /** POST /admin/content/:col，body: { id?, doc } —— 无 id 新建，有 id 更新；

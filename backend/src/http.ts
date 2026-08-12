@@ -15,8 +15,11 @@ export interface Res {
 }
 
 // 跨域头：管理端是独立前端页面，统一在这里加一次，别每个 handler 重复。
+// 只放行管理端静态托管域名（管理端本地开发走 vite 代理，同源无 CORS；
+// App 是原生请求不受 CORS 约束；下载页跟 API 同域）。换托管域名要同步改这里。
 export const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin':
+    'https://renshengqingdan-d8feva5q55d12bab-1258070735.tcloudbaseapp.com',
   'Access-Control-Allow-Headers': 'content-type,x-admin-key,authorization',
   'Access-Control-Allow-Methods': 'GET,POST,DELETE,PATCH,OPTIONS',
 };

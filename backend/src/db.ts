@@ -66,6 +66,9 @@ export interface Db {
   deleteDoc(col: string, id: string): Promise<void>;
   /** 用调用方指定的自定义 id 建新文档（.set 而非 .update，upsertDoc 的 update 分支对不存在的 id 建不了文档） */
   createDoc(col: string, id: string, doc: Record<string, unknown>): Promise<void>;
+  /** 集合不存在就建（已存在时 createCollection 报错，吞掉）——hero_images 这类
+   * 种子脚本没灌过数据的空表，第一次 list/写入前得有表 */
+  ensureCollection(col: string): Promise<void>;
 
   // ---- 管理端查询聚合（Task 4）----
   /** 全部未注销用户（含 isDemo，是否排除由调用方决定） */
@@ -450,6 +453,14 @@ class CloudDb implements Db {
 
   async createDoc(col: string, id: string, doc: Record<string, unknown>): Promise<void> {
     await this.db.collection(col).doc(id).set(noId(doc));
+  }
+
+  async ensureCollection(col: string): Promise<void> {
+    try {
+      await this.db.createCollection(col);
+    } catch {
+      // 已存在时报错，忽略
+    }
   }
 
   // ---- 管理端查询聚合（Task 4）----
