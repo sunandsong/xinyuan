@@ -21,12 +21,27 @@ const ACCENT = '#3EA983';
 const ACCENT_SOFT = '#E2F1EA';
 const WARN = '#fa8c16';
 const WARN_SOFT = '#FFF1E0';
+const NEUTRAL = '#8A8C98';
+const NEUTRAL_SOFT = '#EEEFF2';
 
 // ECharts 双系列色：主色跟 App 端 T.accent 对齐，配色橙做对比。
 // 已用 dataviz 六项检查校验：CVD 分离度、正常视觉区分度均 PASS；
 // 对比度 WARN 已用可见直接标签（label:{show:true}）兜底。
 const BLUE = ACCENT;
 const ORANGE = WARN;
+
+// 核心指标卡的图标身份色：dataviz 参考色板固定 8 色序里取 6 个（跳过 slot2
+// 橙——橙留给「待处理反馈」当状态色，身份色和状态色不能共用同一个色），
+// slot3 aqua 换成 App 自己的 T.accent，跟页面其它主题色元素保持一致。
+// 六项检查已跑过（对比度 WARN 由每张卡旁边的可见文字标签兜底）。
+const TILE_COLORS: Array<{ fg: string; bg: string }> = [
+  { fg: '#2A78D6', bg: '#E8F1FB' }, // blue
+  { fg: ACCENT, bg: ACCENT_SOFT }, // App 主题色
+  { fg: '#EDA100', bg: '#FDF1DC' }, // yellow
+  { fg: '#E87BA4', bg: '#FCE9F0' }, // magenta
+  { fg: '#008300', bg: '#E3F1E3' }, // green
+  { fg: '#4A3AA7', bg: '#EAE7F8' }, // violet
+];
 
 const CARD_STYLE = {
   borderRadius: 14,
@@ -109,16 +124,23 @@ function EmptyChart({ height, children }: { height: number; children: ReactNode 
 }
 
 /** 统计卡：图标徽标 + 灰色标签 + 大号数字。数字用 ink 而不是色块——
- * 色彩只在图标徽标上做身份标识，文字永远读 ink/muted（dataviz 规范）。 */
+ * 色彩只在图标徽标上做身份标识，文字永远读 ink/muted（dataviz 规范）。
+ * fg/bg 是这张卡的身份色；「待处理反馈」不传身份色，走单独的 warn 状态色
+ * ——身份色和状态色不能共用一个颜色，不然「橙色」到底是「这是第 X 张卡」
+ * 还是「这里出问题了」就分不清了。 */
 function StatTile({
   icon,
   label,
   value,
+  fg = ACCENT,
+  bg = ACCENT_SOFT,
   warn = false,
 }: {
   icon: ReactNode;
   label: string;
   value: number;
+  fg?: string;
+  bg?: string;
   warn?: boolean;
 }) {
   return (
@@ -129,8 +151,8 @@ function StatTile({
             width: 30,
             height: 30,
             borderRadius: 9,
-            background: warn ? WARN_SOFT : ACCENT_SOFT,
-            color: warn ? WARN : ACCENT,
+            background: warn ? WARN_SOFT : bg,
+            color: warn ? WARN : fg,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -233,14 +255,22 @@ export default function Overview() {
 
   const { totals, series, retention, topEvents, topWishes, topPlaces, activeBuckets } = stats;
 
-  const statTiles: Array<[ReactNode, string, number, boolean?]> = [
-    [<TeamOutlined key="i" />, '注册用户', totals.users],
-    [<FireOutlined key="i" />, '今日活跃', totals.todayActive],
-    [<StarOutlined key="i" />, '心愿总数', totals.wishes],
-    [<CheckCircleOutlined key="i" />, '已实现心愿', totals.doneWishes],
-    [<CheckSquareOutlined key="i" />, '任务总数', totals.tasks],
-    [<MailOutlined key="i" />, '时光胶囊', totals.letters],
-    [<MessageOutlined key="i" />, '待处理反馈', totals.feedbackOpen, totals.feedbackOpen > 0],
+  const statTiles: Array<[ReactNode, string, number, { fg: string; bg: string }?, boolean?]> = [
+    [<TeamOutlined key="i" />, '注册用户', totals.users, TILE_COLORS[0]],
+    [<FireOutlined key="i" />, '今日活跃', totals.todayActive, TILE_COLORS[1]],
+    [<StarOutlined key="i" />, '心愿总数', totals.wishes, TILE_COLORS[2]],
+    [<CheckCircleOutlined key="i" />, '已实现心愿', totals.doneWishes, TILE_COLORS[3]],
+    [<CheckSquareOutlined key="i" />, '任务总数', totals.tasks, TILE_COLORS[4]],
+    [<MailOutlined key="i" />, '时光胶囊', totals.letters, TILE_COLORS[5]],
+    // 「待处理反馈」不参与身份配色轮转，走状态色：没有待处理时中性灰，
+    // 有待处理时橙——见 StatTile 的 warn 参数
+    [
+      <MessageOutlined key="i" />,
+      '待处理反馈',
+      totals.feedbackOpen,
+      { fg: NEUTRAL, bg: NEUTRAL_SOFT },
+      totals.feedbackOpen > 0,
+    ],
   ];
 
   const days = series.signups.map(([d]) => d.slice(5)); // MM-DD 就够了，年份挤图
@@ -357,9 +387,9 @@ export default function Overview() {
 
       <SectionTitle>核心指标</SectionTitle>
       <Row gutter={[16, 16]}>
-        {statTiles.map(([icon, label, value, warn]) => (
+        {statTiles.map(([icon, label, value, colors, warn]) => (
           <Col key={label} xs={12} sm={8} md={6} lg={24 / 7}>
-            <StatTile icon={icon} label={label} value={value} warn={warn} />
+            <StatTile icon={icon} label={label} value={value} fg={colors?.fg} bg={colors?.bg} warn={warn} />
           </Col>
         ))}
       </Row>
