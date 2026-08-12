@@ -114,9 +114,8 @@ function AdminLayout() {
             color: '#fff',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
             gap: 8,
-            padding: '18px 16px',
+            padding: '18px 0 18px 24px', // 24px 跟 antd Menu 一级项的左内边距对齐
             fontWeight: 'bold',
             fontSize: 16,
           }}
