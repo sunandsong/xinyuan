@@ -64,7 +64,11 @@ jobs:
           if [ -n "$PREV" ]; then RANGE="$PREV..HEAD"; else RANGE="HEAD"; fi
           {
             echo 'NOTES<<NOTES_EOF'
-            git log $RANGE --no-merges --pretty=format:'%H%n' | head -50 | while read -r sha; do
+            # tformat 给每条记录（含最后一条）补终止换行；之前用 format:'%H%n' 修
+            # 最后一条丢失，结果多提交时记录分隔符+%n 叠出空行，read 到空串直接
+            # git log -1 '' fatal，把整个 step 打挂（b7 就这么失败的）
+            git log $RANGE --no-merges --pretty=tformat:'%H' | head -50 | while read -r sha; do
+              [ -n "$sha" ] || continue
               git log -1 --format='· %s' "$sha"
               # 正文按要点列出，去掉 Co-Authored-By 这类工具生成的尾注
               git log -1 --format='%b' "$sha" \
