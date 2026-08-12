@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode, type RefObject } from 'react';
 import { Alert, Button, Input, Modal, Popconfirm, Space, Switch, Table, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api';
@@ -16,6 +16,9 @@ export default function CrudTable({
   createDefaults,
   softDelete = false,
   pageSize = 20,
+  showActions = true,
+  refreshRef,
+  onData,
 }: {
   col: string;
   columns: ColumnsType<any>;
@@ -27,6 +30,12 @@ export default function CrudTable({
   createDefaults?: () => Record<string, unknown>;
   softDelete?: boolean;
   pageSize?: number;
+  /** false 时不渲染默认的「编辑/删」操作列（页面自己在业务列里放操作，如荣誉定义只许改文案） */
+  showActions?: boolean;
+  /** 页面级写操作（行内开关、上移下移等）完成后调 refreshRef.current() 重拉当前页 */
+  refreshRef?: RefObject<(() => void) | null>;
+  /** 每次取到数据回调一份给页面（上移下移要看相邻行的 sort 值） */
+  onData?: (items: any[]) => void;
 }) {
   const [showDeleted, setShowDeleted] = useState(false);
 
@@ -43,6 +52,8 @@ export default function CrudTable({
     pageSize,
     query,
   );
+  if (refreshRef) refreshRef.current = reload;
+  onData?.(items);
 
   // JSON 编辑弹窗：null=关闭；id 为空串=新建
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
@@ -156,7 +167,7 @@ export default function CrudTable({
           showTotal: (t) => `共 ${t} 条`,
           onChange: setPage,
         }}
-        columns={[...columns, actionColumn]}
+        columns={showActions ? [...columns, actionColumn] : columns}
       />
       <Modal
         title={editing?.id ? `编辑（${editing.id}）` : '新建'}

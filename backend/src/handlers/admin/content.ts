@@ -45,13 +45,28 @@ export async function list(req: Req, col: string) {
   return ok({ items, total });
 }
 
-/** POST /admin/content/:col，body: { id?, doc } —— 无 id 新建，有 id 更新 */
+/** POST /admin/content/:col，body: { id?, doc } —— 无 id 新建，有 id 更新；
+ * 指定的 id 还不存在时按该 id 建新文档（upsertDoc 的 update 分支建不了文档，
+ * announcements 里 sys_min_version 这种固定 id 的配置文档第一次写就靠这个）。 */
 export async function upsert(req: Req, col: string) {
   if (!colAllowed(col)) return bad('unknown_collection');
   const b = req.body ?? {};
   const doc = b.doc && typeof b.doc === 'object' ? b.doc : {};
   const id = typeof b.id === 'string' && b.id ? b.id : undefined;
-  const newId = await getDb().upsertDoc(col, id, { ...doc, updatedAt: Date.now() });
+  const db = getDb();
+  const payload = { ...doc, updatedAt: Date.now() };
+  let newId: string;
+  if (id) {
+    const { items } = await db.listDocs(col, { where: { _id: id }, limit: 1 });
+    if (items.length === 0) {
+      await db.createDoc(col, id, payload);
+    } else {
+      await db.upsertDoc(col, id, payload);
+    }
+    newId = id;
+  } else {
+    newId = await db.upsertDoc(col, undefined, payload);
+  }
   await audit(id ? 'update' : 'create', col, newId);
   return ok({ id: newId });
 }
