@@ -13,11 +13,12 @@
 |---|---|---|
 | A 后端管理 API | `docs/superpowers/plans/2026-08-11-admin-backend.md` | ✅ 全部 9 任务完成，已部署生产，已合并 main |
 | B 管理端前端 | `docs/superpowers/plans/2026-08-12-admin-web.md` | ✅ 全部 8 任务完成（2026-08-12），已部署静态托管：https://renshengqingdan-d8feva5q55d12bab-1258070735.tcloudbaseapp.com ；CORS 已收紧到该域名；100 个 demo_seed 假用户已打 isDemo 标（统计口径 132→32 真实用户） |
-| C App 端配套 | 未写计划 | ⬜ **下一步从这里开始**（拉 /config、登录设备上报、埋点 track()、公告横幅、强更提示、封禁提示；做完需发版） |
+| C App 端配套 | `docs/superpowers/plans/2026-08-12-admin-app.md` | ✅ 完成（2026-08-12）：公告横幅/强更/设备上报/埋点/封禁文案，安卓模拟器实测通过，已随 push 发版。内容表数据（预设清单/景点/海报等）App 仍用内置兜底，远程接管留待有真实需求时逐表做 |
 
 ### 恢复方法
 
-计划 B 已完成，直接进入计划 C（先写计划再实现）。管理端本地开发：`cd admin && npm run dev`（走 vite 代理）；部署：`npm run deploy`。
+三阶段全部完成。管理端本地开发：`cd admin && npm run dev`（走 vite 代理）；部署：`npm run deploy`。
+下一步走「专业化路线」第 2 项起：崩溃监控（Bugly）→ 本地通知 → 增量拉取+缓存 → 稳定性测试 → 合规上架。
 
 ### 计划 A 遗留事项（前端/App 阶段处理）
 
