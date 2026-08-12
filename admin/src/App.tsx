@@ -46,7 +46,7 @@ import AuditLog from './pages/AuditLog';
 // 用真正的 SubMenu（有 icon，点了会展开/收起）而不是 antd 的 group 类型——
 // group 只是个不可点的分类标签，子项一直平铺显示，压根没有「展开」这回事。
 const menuItems: MenuProps['items'] = [
-  { key: '/', icon: <DashboardOutlined />, label: '概览' },
+  { key: '/', icon: <DashboardOutlined />, label: '首页' },
   { key: '/users', icon: <TeamOutlined />, label: '用户' },
   { key: '/feedback', icon: <MessageOutlined />, label: '反馈' },
   { key: '/login-logs', icon: <LoginOutlined />, label: '登录日志' },
