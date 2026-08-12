@@ -121,11 +121,7 @@ function AdminLayout() {
             fontSize: 16,
           }}
         >
-          <img
-            src="/logo.png"
-            alt=""
-            style={{ width: 24, height: 24, borderRadius: 6 }}
-          />
+          <img src="/logo.png" alt="" style={{ width: 24, height: 24 }} />
           人生清单
         </div>
         <Menu
