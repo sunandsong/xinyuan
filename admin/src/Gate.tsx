@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Input, Typography } from 'antd';
 import { API_BASE, setKey } from './api';
+import BrandLogo from './components/BrandLogo';
 import { ACCENT, CARD_STYLE, GRADIENT, INK, MUTED } from './theme';
 
 export default function Gate() {
@@ -53,7 +54,9 @@ export default function Gate() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/logo.png" alt="" style={{ width: 48, height: 48, marginBottom: 12 }} />
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+            <BrandLogo size={52} />
+          </div>
           <Typography.Title level={3} style={{ margin: 0, color: INK }}>
             人生清单
           </Typography.Title>

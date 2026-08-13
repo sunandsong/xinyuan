@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { clearKey, useKey } from './api';
+import BrandLogo from './components/BrandLogo';
 import Gate from './Gate';
 import Overview from './pages/Overview';
 import Users from './pages/Users';
@@ -123,7 +124,7 @@ function AdminLayout() {
             padding: '20px 20px 16px',
           }}
         >
-          <img src="/logo.png" alt="" style={{ width: 28, height: 28 }} />
+          <BrandLogo size={36} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, color: INK, lineHeight: 1.2 }}>人生清单</div>
             <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>管理后台</div>
