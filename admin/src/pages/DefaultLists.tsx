@@ -1,8 +1,10 @@
 import { useRef } from 'react';
-import { Button, Space, Switch, message } from 'antd';
+import { Switch, message } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { api } from '../api';
+import { presetWishForm } from '../crudForms';
 import CrudTable from '../components/CrudTable';
+import { ActionBtn, TableActions } from '../components/TableActions';
 
 interface PresetWish {
   _id: string;
@@ -47,11 +49,11 @@ export default function DefaultLists() {
     <CrudTable
       col="preset_wishes"
       refreshRef={refresh}
+      editForm={presetWishForm}
+      creatable
       onData={(items) => {
         rowsRef.current = items;
       }}
-      pageSize={100}
-      createDefaults={() => ({ title: '', sort: 999, enabled: true })}
       columns={[
         {
           title: '排序',
@@ -73,10 +75,10 @@ export default function DefaultLists() {
           title: '位置',
           width: 100,
           render: (_: unknown, row: PresetWish) => (
-            <Space>
-              <Button size="small" icon={<ArrowUpOutlined />} onClick={() => move(row, -1)} />
-              <Button size="small" icon={<ArrowDownOutlined />} onClick={() => move(row, 1)} />
-            </Space>
+            <TableActions>
+              <ActionBtn icon={<ArrowUpOutlined />} onClick={() => move(row, -1)} />
+              <ActionBtn icon={<ArrowDownOutlined />} onClick={() => move(row, 1)} />
+            </TableActions>
           ),
         },
       ]}

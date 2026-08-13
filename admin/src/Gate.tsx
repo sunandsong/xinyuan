@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Button, Card, Input, Typography } from 'antd';
+import { Button, Input, Typography } from 'antd';
 import { API_BASE, setKey } from './api';
+import { ACCENT, CARD_STYLE, GRADIENT, INK, MUTED } from './theme';
 
 export default function Gate() {
   const [value, setValue] = useState('');
@@ -38,30 +39,52 @@ export default function Gate() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#f0f2f5',
+        background: GRADIENT,
+        padding: 24,
       }}
     >
-      <Card style={{ width: 360 }}>
-        <div style={{ textAlign: 'center', fontSize: 40 }}>🔑</div>
-        <Typography.Title level={4} style={{ textAlign: 'center', marginTop: 8 }}>
-          人生清单 · 管理端
-        </Typography.Title>
-        <Input.Password
-          placeholder="请输入管理密钥"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onPressEnter={handleEnter}
-          style={{ marginTop: 16 }}
-        />
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 400,
+          ...CARD_STYLE,
+          background: '#fff',
+          padding: '36px 32px 32px',
+        }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <img src="/logo.png" alt="" style={{ width: 48, height: 48, marginBottom: 12 }} />
+          <Typography.Title level={3} style={{ margin: 0, color: INK }}>
+            人生清单
+          </Typography.Title>
+          <div style={{ color: MUTED, fontSize: 14, marginTop: 6 }}>管理后台</div>
+        </div>
+        <div className="admin-form-field" style={{ marginBottom: 20 }}>
+          <div className="admin-form-field__label">管理密钥</div>
+          <Input.Password
+            placeholder="请输入管理密钥"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onPressEnter={handleEnter}
+            size="large"
+          />
+        </div>
         {error && (
-          <Typography.Text type="danger" style={{ display: 'block', marginTop: 8 }}>
+          <Typography.Text type="danger" style={{ display: 'block', marginTop: 10, fontSize: 13 }}>
             {error}
           </Typography.Text>
         )}
-        <Button type="primary" block loading={loading} onClick={handleEnter} style={{ marginTop: 16 }}>
-          进入
+        <Button
+          type="primary"
+          block
+          size="large"
+          loading={loading}
+          onClick={handleEnter}
+          style={{ marginTop: 16, background: ACCENT }}
+        >
+          进入管理端
         </Button>
-      </Card>
+      </div>
     </div>
   );
 }

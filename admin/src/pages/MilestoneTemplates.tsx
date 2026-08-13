@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
-import { Button, Input, Modal, Popconfirm, Space, Switch, Tag, message } from 'antd';
+import { Button, Input, Popconfirm, Switch, Tag, message } from 'antd';
 import { api } from '../api';
+import { FormField } from '../components/AdminForm';
+import AdminModal from '../components/AdminModal';
+import { ActionBtn, TableActions } from '../components/TableActions';
 import CrudTable from '../components/CrudTable';
 
 interface StepTemplate {
@@ -69,9 +72,7 @@ export default function MilestoneTemplates() {
       <CrudTable
         col="preset_steps"
         refreshRef={refresh}
-        pageSize={50}
         showActions={false}
-        createDefaults={undefined}
         filters={
           <Button type="primary" onClick={() => setEditing({ id: '', title: '', steps: '' })}>
             新建模板
@@ -100,46 +101,47 @@ export default function MilestoneTemplates() {
           },
           {
             title: '操作',
-            width: 140,
+            width: 148,
             render: (_: unknown, row: StepTemplate) => (
-              <Space>
-                <Button
-                  size="small"
+              <TableActions>
+                <ActionBtn
+                  variant="primary"
                   onClick={() =>
                     setEditing({ id: row._id, title: row.title, steps: (row.steps ?? []).join('\n') })
                   }
                 >
                   编辑
-                </Button>
+                </ActionBtn>
                 <Popconfirm title="删除这套模板？" onConfirm={() => remove(row._id)}>
-                  <Button size="small" danger>
-                    删
-                  </Button>
+                  <ActionBtn variant="danger">删除</ActionBtn>
                 </Popconfirm>
-              </Space>
+              </TableActions>
             ),
           },
         ]}
       />
-      <Modal
+      <AdminModal
         title={editing?.id ? '编辑模板' : '新建模板'}
         open={editing !== null}
         onCancel={() => setEditing(null)}
         onOk={save}
         confirmLoading={saving}
+        width={560}
       >
-        <div style={{ marginBottom: 8 }}>心愿标题（跟用户输入的心愿标题匹配才会推荐这套步骤）：</div>
-        <Input
-          value={editing?.title ?? ''}
-          onChange={(e) => setEditing((c) => (c ? { ...c, title: e.target.value } : c))}
-        />
-        <div style={{ margin: '12px 0 8px' }}>步骤（一行一步）：</div>
-        <Input.TextArea
-          rows={8}
-          value={editing?.steps ?? ''}
-          onChange={(e) => setEditing((c) => (c ? { ...c, steps: e.target.value } : c))}
-        />
-      </Modal>
+        <FormField label="心愿标题" required hint="与用户输入的心愿标题匹配时推荐这套步骤">
+          <Input
+            value={editing?.title ?? ''}
+            onChange={(e) => setEditing((c) => (c ? { ...c, title: e.target.value } : c))}
+          />
+        </FormField>
+        <FormField label="步骤" hint="一行一步">
+          <Input.TextArea
+            rows={8}
+            value={editing?.steps ?? ''}
+            onChange={(e) => setEditing((c) => (c ? { ...c, steps: e.target.value } : c))}
+          />
+        </FormField>
+      </AdminModal>
     </>
   );
 }

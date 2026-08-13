@@ -1,6 +1,13 @@
 import { useState } from 'react';
-import { Button, Input, Modal, Popconfirm, Space, Table, Tag, message } from 'antd';
+import { Input, Popconfirm, Tag, message } from 'antd';
 import { api } from '../api';
+import { FormField } from '../components/AdminForm';
+import AdminModal from '../components/AdminModal';
+import AdminTable from '../components/AdminTable';
+import EmptyState from '../components/EmptyState';
+import { ActionBtn, TableActions } from '../components/TableActions';
+import TablePage from '../components/TablePage';
+import { MUTED } from '../theme';
 import { fmtTime, usePagedList } from '../paged';
 
 interface FeedbackRow {
@@ -13,14 +20,11 @@ interface FeedbackRow {
 }
 
 export default function Feedback() {
-  const { items, total, page, setPage, loading, reload } = usePagedList<FeedbackRow>(
-    '/admin/feedback',
-    20,
-    {},
-  );
+  const { items, pagination, loading, reload } = usePagedList<FeedbackRow>('/admin/feedback', {});
   const [noteRow, setNoteRow] = useState<FeedbackRow | null>(null);
   const [noteText, setNoteText] = useState('');
   const [saving, setSaving] = useState(false);
+  const openCount = items.filter((r) => !r.handled).length;
 
   async function toggleHandled(row: FeedbackRow) {
     try {
@@ -58,19 +62,20 @@ export default function Feedback() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <Table<FeedbackRow>
+    <TablePage
+      subtitle={
+        <>
+          共 {pagination.total} 条反馈{openCount > 0 ? `，本页待处理 ${openCount} 条` : ''}
+        </>
+      }
+    >
+      <AdminTable<FeedbackRow>
         rowKey="_id"
         loading={loading}
         dataSource={items}
-        pagination={{
-          current: page,
-          pageSize: 20,
-          total,
-          showSizeChanger: false,
-          showTotal: (t) => `共 ${t} 条`,
-          onChange: setPage,
-        }}
+        size="middle"
+        locale={{ emptyText: <EmptyState height={160}>暂无反馈</EmptyState> }}
+        paginationBind={pagination}
         columns={[
           { title: '时间', dataIndex: 'createdAt', width: 150, render: fmtTime },
           { title: '用户', dataIndex: 'uid', width: 170, render: (v) => <code style={{ fontSize: 12 }}>{v}</code> },
@@ -81,43 +86,43 @@ export default function Feedback() {
             width: 90,
             render: (v) => (v ? <Tag color="green">已处理</Tag> : <Tag color="orange">待处理</Tag>),
           },
-          { title: '备注', dataIndex: 'note', width: 180, render: (v) => v || <span style={{ color: '#ccc' }}>—</span> },
+          { title: '备注', dataIndex: 'note', width: 180, render: (v) => v || <span style={{ color: MUTED }}>—</span> },
           {
             title: '操作',
-            width: 200,
+            width: 220,
             render: (_, row) => (
-              <Space>
-                <Button size="small" onClick={() => toggleHandled(row)}>
+              <TableActions>
+                <ActionBtn onClick={() => toggleHandled(row)}>
                   {row.handled ? '标未处理' : '标已处理'}
-                </Button>
-                <Button
-                  size="small"
+                </ActionBtn>
+                <ActionBtn
                   onClick={() => {
                     setNoteRow(row);
                     setNoteText(row.note ?? '');
                   }}
                 >
                   备注
-                </Button>
+                </ActionBtn>
                 <Popconfirm title="删除这条反馈？" onConfirm={() => remove(row._id)}>
-                  <Button size="small" danger>
-                    删
-                  </Button>
+                  <ActionBtn variant="danger">删除</ActionBtn>
                 </Popconfirm>
-              </Space>
+              </TableActions>
             ),
           },
         ]}
       />
-      <Modal
+      <AdminModal
         title="处理备注"
         open={noteRow !== null}
         onCancel={() => setNoteRow(null)}
         onOk={saveNote}
         confirmLoading={saving}
+        width={480}
       >
-        <Input.TextArea rows={4} maxLength={1000} value={noteText} onChange={(e) => setNoteText(e.target.value)} />
-      </Modal>
-    </div>
+        <FormField label="备注" hint="最多 1000 字">
+          <Input.TextArea rows={4} maxLength={1000} showCount value={noteText} onChange={(e) => setNoteText(e.target.value)} />
+        </FormField>
+      </AdminModal>
+    </TablePage>
   );
 }

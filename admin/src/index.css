@@ -1,5 +1,37 @@
+@font-face {
+  font-family: MiSans;
+  src: url('/fonts/MiSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: MiSans;
+  src: url('/fonts/MiSans-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: MiSans;
+  src: url('/fonts/MiSans-Demibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: MiSans;
+  src: url('/fonts/MiSans-Demibold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 * {
@@ -8,8 +40,510 @@
 
 body {
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* 表格页：占满内容区，底部分页 */
+.admin-table-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px);
+  padding: 20px 24px 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.admin-table-page__subtitle {
+  flex-shrink: 0;
+  color: #8a8c98;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.admin-table-page__toolbar {
+  flex-shrink: 0;
+  margin-bottom: 16px;
+}
+
+/* 工具栏筛选：Input.Search / Select / Input 统一 36px，避免占位文字被裁切 */
+.admin-table-page__toolbar .ant-input-search .ant-input-affix-wrapper,
+.admin-table-page__toolbar .ant-input-affix-wrapper:not(.ant-input-textarea-affix-wrapper) {
+  height: 36px;
+  padding-block: 0;
+  padding-inline: 12px;
+  box-sizing: border-box;
+}
+
+.admin-table-page__toolbar .ant-input-search .ant-input-affix-wrapper > input.ant-input,
+.admin-table-page__toolbar .ant-input-affix-wrapper > input.ant-input {
+  height: 100%;
+  padding-block: 0;
+  line-height: 34px;
+}
+
+.admin-table-page__toolbar .ant-input-search > .ant-input-group > .ant-input-group-addon .ant-input-search-button {
+  height: 36px;
+  width: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 10px 10px 0;
+}
+
+.admin-table-page__toolbar .ant-select-single .ant-select-selector {
+  height: 36px !important;
+  padding-block: 0 !important;
+  display: flex;
+  align-items: center;
+}
+
+.admin-table-page__toolbar .ant-select {
+  height: 36px;
+}
+
+.admin-toolbar-field.ant-space {
+  align-items: center;
+}
+
+.admin-toolbar-field .ant-input-affix-wrapper {
+  width: 280px;
+  height: 36px;
+  padding-block: 0;
+  padding-inline: 12px;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.admin-toolbar-field .ant-input-affix-wrapper > input.ant-input {
+  height: 100%;
+  padding: 0;
+  line-height: 34px;
+}
+
+.admin-toolbar-field .ant-btn {
+  height: 36px;
+  padding-block: 0;
+  padding-inline: 18px;
+  line-height: 1;
+  border-radius: 10px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+.admin-table-page__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-table-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-table-inner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-table-inner .ant-table-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
+.admin-table-inner .ant-spin-nested-loading,
+.admin-table-inner .ant-spin-container {
+  height: 100%;
+}
+
+.admin-table-card .ant-table-pagination {
+  flex-shrink: 0;
+  margin: 0 !important;
+  padding: 12px 16px !important;
+  border-top: 1px solid #f0f0f0;
+}
+
+.admin-table-tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 24px 16px;
+  box-sizing: border-box;
+  height: calc(100vh - 56px);
+}
+
+.admin-table-tabs .ant-tabs-content-holder {
+  flex: 1;
+  min-height: 0;
+}
+
+.admin-table-tabs .ant-tabs-content,
+.admin-table-tabs .ant-tabs-tabpane {
+  height: 100%;
+}
+
+.admin-table-tabs .admin-table-page {
+  height: 100%;
+  padding: 0;
+}
+
+.admin-table-embedded {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-table-card .ant-table-wrapper .ant-table {
+  border-radius: 0;
+}
+
+.admin-table-card .ant-table-thead > tr > th {
+  font-weight: 500;
+}
+
+.admin-action-btn--danger.ant-btn-dangerous {
+  background: #fff5f5;
+  border-color: #f5c4c4;
+  color: #d64545;
+}
+
+.admin-action-btn--danger.ant-btn-dangerous:not(:disabled):hover {
+  background: #ffebeb;
+  border-color: #e88;
+  color: #c53030;
+}
+
+/* 表格行内操作按钮 */
+.admin-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin-action-btn.ant-btn {
+  height: 28px;
+  padding-inline: 10px;
+  font-size: 13px;
+  border-radius: 8px;
+  border-color: #e6e7ec;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.admin-action-btn.ant-btn:not(:disabled):hover {
+  border-color: #c8cad4;
+  color: #1c1c21;
+  background: #fafbfc;
+}
+
+.admin-action-btn--primary.ant-btn-primary {
+  background: #e2f1ea;
+  border-color: #b8e0d0;
+  color: #2d8f6f;
+  box-shadow: none;
+}
+
+.admin-action-btn--primary.ant-btn-primary:not(:disabled):hover {
+  background: #d4ebe3 !important;
+  border-color: #3ea983 !important;
+  color: #267a5f !important;
+}
+
+.admin-table-card .ant-table-cell .admin-table-actions {
+  min-height: 28px;
+}
+
+/* 统计数字等宽，对齐更整齐 */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* —— 管理端表单 / 弹窗 —— */
+.admin-modal .ant-modal-content {
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(16, 24, 40, 0.12);
+}
+
+.admin-modal .ant-modal-header {
+  padding: 20px 24px 16px;
+  margin-bottom: 0;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.admin-modal .ant-modal-title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.admin-modal .ant-modal-body {
+  padding: 20px 24px;
+  max-height: min(72vh, 680px);
+  overflow-y: auto;
+}
+
+.admin-modal .ant-modal-footer {
+  padding: 14px 24px 18px;
+  margin-top: 0;
+  border-top: 1px solid #eef0f4;
+}
+
+.admin-modal .ant-modal-footer .ant-btn {
+  min-width: 76px;
+  border-radius: 10px;
+}
+
+.admin-modal .ant-modal-footer .ant-btn-primary {
+  box-shadow: 0 2px 0 rgba(62, 169, 131, 0.08);
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-form-field {
+  margin-bottom: 14px;
+}
+
+.admin-form-field__label {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1c1c21;
+  letter-spacing: -0.01em;
+}
+
+.admin-form-field__req {
+  margin-left: 4px;
+  color: #e05a5a;
+}
+
+.admin-form-field__hint {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8a8c98;
+}
+
+.admin-form-field__control .ant-input,
+.admin-form-field__control .ant-input-affix-wrapper,
+.admin-form-field__control .ant-input-number,
+.admin-form-field__control .ant-select-selector,
+.admin-form-field__control .ant-picker {
+  border-color: #e6e7ec;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* 弹窗内输入框、下拉、按钮统一 36px 高 */
+.admin-modal .admin-form-field__control .ant-input,
+.admin-modal .admin-form-field__control .ant-input-affix-wrapper,
+.admin-modal .admin-form-field__control .ant-input-number {
+  height: 36px;
+  padding-block: 0;
+  box-sizing: border-box;
+}
+
+.admin-modal .admin-form-field__control .ant-input-affix-wrapper > input.ant-input {
+  height: 100%;
+  padding-block: 0;
+}
+
+.admin-modal .admin-form-field__control .ant-input-number .ant-input-number-input {
+  height: 34px;
+  padding-block: 0;
+}
+
+.admin-modal .admin-form-field__control .ant-select-single .ant-select-selector {
+  height: 36px !important;
+  padding-block: 0 !important;
+  display: flex;
+  align-items: center;
+}
+
+.admin-modal .admin-form-field__control .ant-select {
+  width: 100%;
+}
+
+.admin-modal .admin-form-field__control .ant-select-multiple .ant-select-selector {
+  min-height: 36px;
+  padding-block: 4px !important;
+}
+
+.admin-modal .admin-form-field__control .ant-btn {
+  height: 36px;
+  padding-block: 0;
+  padding-inline: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.admin-modal .ant-modal-footer .ant-btn {
+  height: 36px;
+  padding-block: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-form-field__control .ant-input:focus,
+.admin-form-field__control .ant-input-affix-wrapper-focused,
+.admin-form-field__control .ant-input-number-focused,
+.admin-form-field__control .ant-select-focused .ant-select-selector,
+.admin-form-field__control .ant-picker-focused {
+  border-color: #3ea983 !important;
+  box-shadow: 0 0 0 3px rgba(62, 169, 131, 0.12);
+}
+
+.admin-form-section {
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+}
+
+.admin-form-section + .admin-form-section {
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid #f0f1f4;
+}
+
+.admin-form-section__title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8c98;
+}
+
+.admin-form-section__desc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #a2a4ae;
+}
+
+.admin-form-section__body {
+  margin-top: 14px;
+}
+
+.admin-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 14px;
+}
+
+.admin-form-row .admin-form-field {
+  margin-bottom: 0;
+}
+
+.admin-form-row--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-form-row .admin-form-field__control .ant-select,
+.admin-form-row .admin-form-field__control .ant-input,
+.admin-form-row .admin-form-field__control .ant-input-number {
+  width: 100%;
+}
+
+.admin-form-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-form-inline > .ant-input,
+.admin-form-inline > .ant-input-affix-wrapper {
+  flex: 1;
+  min-width: 180px;
+}
+
+@media (max-width: 560px) {
+  .admin-form-row,
+  .admin-form-row--3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-form-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #e6e7ec;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fcfcfd 0%, #f8f9fb 100%);
+}
+
+.admin-form-switch__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1c1c21;
+}
+
+.admin-form-switch__hint {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #8a8c98;
+}
+
+.admin-color-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid #e6e7ec;
+  border-radius: 10px;
+  background: #fafbfc;
+}
+
+.admin-color-input:focus-within {
+  border-color: #3ea983;
+  box-shadow: 0 0 0 3px rgba(62, 169, 131, 0.12);
+}
+
+.admin-color-input__swatch {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.admin-color-input__field {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #1c1c21;
+}
+
+.admin-color-input__field::placeholder {
+  color: #c4c6d0;
 }

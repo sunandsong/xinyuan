@@ -1,20 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Button,
-  Checkbox,
-  Input,
-  Modal,
-  Popconfirm,
-  Select,
-  Space,
-  Spin,
-  Table,
-  Tag,
-  message,
-} from 'antd';
+import { Button, Checkbox, Input, Popconfirm, Select, Space, Spin, Tag, message } from 'antd';
 import { api } from '../api';
+import { FormField, FormRow, FormSection } from '../components/AdminForm';
+import AdminModal from '../components/AdminModal';
+import { ActionBtn, TableActions } from '../components/TableActions';
+import AvatarCell from '../components/AvatarCell';
+import AdminTable from '../components/AdminTable';
+import EmptyState from '../components/EmptyState';
 import ImgUpload from '../components/ImgUpload';
-import { fmtTime } from '../paged';
+import TablePage from '../components/TablePage';
+import { fmtTime, useClientPagination } from '../paged';
 
 interface DemoUser {
   _id: string;
@@ -54,9 +49,6 @@ export default function DemoUsers() {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [markOpen, setMarkOpen] = useState(false);
-  const [markText, setMarkText] = useState('');
-  const [marking, setMarking] = useState(false);
 
   const load = useCallback(() => {
     api
@@ -149,48 +141,38 @@ export default function DemoUsers() {
     }
   }
 
-  async function runMark() {
-    const uids = markText
-      .split(/[\s,，、]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (uids.length === 0) {
-      message.warning('填入要打标的 uid');
-      return;
-    }
-    setMarking(true);
-    try {
-      const d = await api.post('/admin/demo-users/mark', { uids });
-      message.success(`已给 ${d.marked} 个账号打上演示标记`);
-      setMarkOpen(false);
-      setMarkText('');
-      load();
-    } catch (e: any) {
-      message.error(`打标失败：${e.message}`);
-    } finally {
-      setMarking(false);
-    }
-  }
+  const { pageItems, pagination, loading } = useClientPagination(rows);
 
   return (
-    <div style={{ padding: 24 }}>
-      <Space style={{ marginBottom: 16 }}>
+    <>
+    <TablePage
+      toolbar={
         <Button type="primary" onClick={() => openEdit()}>
           新建演示用户
         </Button>
-        <Button onClick={() => setMarkOpen(true)}>批量打演示标记</Button>
-      </Space>
-      {rows === null ? (
+      }
+    >
+      {loading ? (
         <div style={{ textAlign: 'center', padding: 48 }}>
           <Spin />
         </div>
       ) : (
-        <Table<DemoUser>
+        <AdminTable<DemoUser>
           rowKey="_id"
-          dataSource={rows}
-          pagination={false}
+          dataSource={pageItems}
+          size="middle"
+          locale={{ emptyText: <EmptyState height={160}>暂无演示用户</EmptyState> }}
+          paginationBind={pagination}
           columns={[
-            { title: '昵称', dataIndex: 'nickname' },
+            {
+              title: '用户',
+              render: (_, r) => (
+                <Space>
+                  <AvatarCell url={r.avatarUrl} name={r.nickname} />
+                  <span>{r.nickname}</span>
+                </Space>
+              ),
+            },
             { title: 'uid', dataIndex: '_id', render: (v) => <code style={{ fontSize: 12 }}>{v}</code> },
             { title: '性别', dataIndex: 'gender', width: 70, render: (v) => v ?? '—' },
             { title: '心愿', dataIndex: 'doneCount', width: 70, render: (v) => v ?? 0 },
@@ -200,25 +182,25 @@ export default function DemoUsers() {
             { title: '更新', dataIndex: 'updatedAt', width: 150, render: (v) => fmtTime(v) },
             {
               title: '操作',
-              width: 130,
+              width: 148,
               render: (_, row) => (
-                <Space>
-                  <Button size="small" onClick={() => openEdit(row)}>
+                <TableActions>
+                  <ActionBtn variant="primary" onClick={() => openEdit(row)}>
                     编辑
-                  </Button>
+                  </ActionBtn>
                   <Popconfirm title="硬删该演示用户及其全部心愿？" onConfirm={() => remove(row._id)}>
-                    <Button size="small" danger>
-                      删
-                    </Button>
+                    <ActionBtn variant="danger">删除</ActionBtn>
                   </Popconfirm>
-                </Space>
+                </TableActions>
               ),
             },
           ]}
         />
       )}
 
-      <Modal
+    </TablePage>
+
+      <AdminModal
         title={editing?.id ? `编辑演示用户（${editing.id}）` : '新建演示用户'}
         open={editing !== null}
         onCancel={() => setEditing(null)}
@@ -227,100 +209,86 @@ export default function DemoUsers() {
         width={640}
       >
         {editLoading && (
-          <div style={{ marginBottom: 8 }}>
+          <div style={{ marginBottom: 12, color: '#8a8c98', fontSize: 13 }}>
             <Spin size="small" /> 正在回填已完成心愿…
           </div>
         )}
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Space wrap>
-            <span>昵称：</span>
-            <Input
-              style={{ width: 180 }}
-              value={editing?.nickname ?? ''}
-              onChange={(e) => setEditing((c) => (c ? { ...c, nickname: e.target.value } : c))}
-            />
-            <span>性别：</span>
-            <Select
-              style={{ width: 90 }}
-              value={editing?.gender ?? ''}
-              onChange={(v) => setEditing((c) => (c ? { ...c, gender: v } : c))}
-              options={[
-                { value: '', label: '不设' },
-                { value: '男', label: '男' },
-                { value: '女', label: '女' },
-              ]}
-            />
-            <span>任务数：</span>
-            <Input
-              type="number"
-              style={{ width: 90 }}
-              value={editing?.taskCount ?? 0}
-              onChange={(e) =>
-                setEditing((c) => (c ? { ...c, taskCount: Math.max(0, Number(e.target.value) || 0) } : c))
-              }
-            />
-          </Space>
-          <Space>
-            <span>头像：</span>
-            <Input
-              placeholder="URL 手填"
-              style={{ width: 320 }}
-              value={editing?.avatarUrl ?? ''}
-              onChange={(e) => setEditing((c) => (c ? { ...c, avatarUrl: e.target.value } : c))}
-            />
-            <ImgUpload text="上传" onDone={(url) => setEditing((c) => (c ? { ...c, avatarUrl: url } : c))} />
-          </Space>
-          <div>
-            勋章（勾上即拥有）：
-            <div style={{ marginTop: 4 }}>
-              <Checkbox.Group
-                value={editing?.achievements ?? []}
-                onChange={(v) => setEditing((c) => (c ? { ...c, achievements: v as string[] } : c))}
-                options={achvDefs.map((a) => ({ label: a.name, value: a.slug }))}
+        <FormSection title="基本资料">
+          <FormRow className="admin-form-row--3">
+            <FormField label="昵称">
+              <Input
+                value={editing?.nickname ?? ''}
+                onChange={(e) => setEditing((c) => (c ? { ...c, nickname: e.target.value } : c))}
               />
+            </FormField>
+            <FormField label="性别">
+              <Select
+                value={editing?.gender ?? ''}
+                onChange={(v) => setEditing((c) => (c ? { ...c, gender: v } : c))}
+                options={[
+                  { value: '', label: '不设' },
+                  { value: '男', label: '男' },
+                  { value: '女', label: '女' },
+                ]}
+              />
+            </FormField>
+            <FormField label="任务数">
+              <Input
+                type="number"
+                value={editing?.taskCount ?? 0}
+                onChange={(e) =>
+                  setEditing((c) => (c ? { ...c, taskCount: Math.max(0, Number(e.target.value) || 0) } : c))
+                }
+              />
+            </FormField>
+          </FormRow>
+          <FormField label="头像">
+            <div className="admin-form-inline">
+              <AvatarCell url={editing?.avatarUrl} name={editing?.nickname} />
+              <Input
+                placeholder="URL 手填"
+                value={editing?.avatarUrl ?? ''}
+                onChange={(e) => setEditing((c) => (c ? { ...c, avatarUrl: e.target.value } : c))}
+              />
+              <ImgUpload text="上传" preset="avatar" onDone={(url) => setEditing((c) => (c ? { ...c, avatarUrl: url } : c))} />
             </div>
-          </div>
-          <div>已完成心愿（回车加一条，删掉即软删对应心愿）：</div>
-          <Select
-            mode="tags"
-            style={{ width: '100%' }}
-            placeholder="如：去看一次海"
-            value={editing?.doneWishTitles ?? []}
-            onChange={(v) => setEditing((c) => (c ? { ...c, doneWishTitles: v } : c))}
-            open={false}
-          />
-          <div>打卡景点（回车加一个）：</div>
-          <Select
-            mode="tags"
-            style={{ width: '100%' }}
-            placeholder="如：故宫"
-            value={editing?.checkins ?? []}
-            onChange={(v) => setEditing((c) => (c ? { ...c, checkins: v } : c))}
-            open={false}
-          />
+          </FormField>
+        </FormSection>
+        <FormSection title="成就与足迹">
+          <FormField label="勋章" hint="勾上即拥有">
+            <Checkbox.Group
+              value={editing?.achievements ?? []}
+              onChange={(v) => setEditing((c) => (c ? { ...c, achievements: v as string[] } : c))}
+              options={achvDefs.map((a) => ({ label: a.name, value: a.slug }))}
+            />
+          </FormField>
+          <FormField label="已完成心愿" hint="回车加一条，删掉即软删对应心愿">
+            <Select
+              mode="tags"
+              style={{ width: '100%' }}
+              placeholder="如：去看一次海"
+              value={editing?.doneWishTitles ?? []}
+              onChange={(v) => setEditing((c) => (c ? { ...c, doneWishTitles: v } : c))}
+              open={false}
+            />
+          </FormField>
+          <FormField label="打卡景点" hint="回车加一个">
+            <Select
+              mode="tags"
+              style={{ width: '100%' }}
+              placeholder="如：故宫"
+              value={editing?.checkins ?? []}
+              onChange={(v) => setEditing((c) => (c ? { ...c, checkins: v } : c))}
+              open={false}
+            />
+          </FormField>
           <Space>
-            <span>计数自动推导：</span>
             <Tag>心愿 {editing?.doneWishTitles.length ?? 0}</Tag>
             <Tag>奖杯 {editing?.achievements.length ?? 0}</Tag>
             <Tag>足迹 {editing?.checkins.length ?? 0}</Tag>
           </Space>
-        </Space>
-      </Modal>
-
-      <Modal
-        title="批量打演示标记"
-        open={markOpen}
-        onCancel={() => setMarkOpen(false)}
-        onOk={runMark}
-        confirmLoading={marking}
-        okText="打标"
-      >
-        <div style={{ marginBottom: 8, color: '#999' }}>
-          把手工造进库里的假账号 uid 贴进来（空格/逗号/换行分隔），打上 isDemo 标记后，
-          统计口径会把它们排除、并出现在本页列表里。
-        </div>
-        <Input.TextArea rows={6} value={markText} onChange={(e) => setMarkText(e.target.value)} />
-      </Modal>
-    </div>
+        </FormSection>
+      </AdminModal>
+    </>
   );
 }

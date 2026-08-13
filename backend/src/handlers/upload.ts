@@ -3,6 +3,7 @@
 // 所以这里只发一次性直传凭证，图片本体由客户端直接 PUT 到云存储，不经过这个云函数。
 import { ENV_ID } from '../config';
 import { bad, ok, Req } from '../http';
+import { resolveStablePhotoUrls, stableUrlToFileId } from '../photo-resolve';
 
 /** 允许的图片类型 → 扩展名 */
 const EXT: Record<string, string> = {
@@ -55,32 +56,14 @@ export async function photoUrls(req: Req, uid: string) {
   const list = Array.isArray(body.urls) ? body.urls.map(String) : [];
   if (list.length === 0 || list.length > 50) return bad('invalid_urls');
 
-  // 稳定链接 → cloud:// fileID；只允许换自己目录下的图
   const entries: Array<[string, string]> = [];
   for (const u of list) {
-    let parsed: URL;
-    try {
-      parsed = new URL(u);
-    } catch {
-      continue;
-    }
-    const bucket = parsed.hostname.split('.')[0];
-    const path = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
-    if (!path.startsWith(`wishes/${uid}/`)) continue;
-    entries.push([u.split('?')[0], `cloud://${ENV_ID}.${bucket}/${path}`]);
+    const key = u.split('?')[0];
+    const fileId = stableUrlToFileId(key, uid);
+    if (fileId) entries.push([key, fileId]);
   }
   if (entries.length === 0) return ok({ urls: {} });
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const cloudbase = require('@cloudbase/node-sdk');
-  const app = cloudbase.init({ env: ENV_ID });
-  const res = await app.getTempFileURL({ fileList: entries.map((e) => e[1]) });
-  const out: Record<string, string> = {};
-  (res.fileList ?? []).forEach(
-    (f: { tempFileURL?: string; download_url?: string }, i: number) => {
-      const u = f.tempFileURL || f.download_url;
-      if (u) out[entries[i][0]] = u;
-    },
-  );
+  const out = await resolveStablePhotoUrls(entries.map((e) => e[0]));
   return ok({ urls: out });
 }

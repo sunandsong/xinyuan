@@ -2,6 +2,7 @@
 // 审计失败绝不能拖垮主业务写操作，写入全部吞掉。
 import { getDb } from '../../db';
 import { ok, Req } from '../../http';
+import { pageLimit } from './paging';
 
 export async function audit(action: string, col: string, id: string, detail?: unknown): Promise<void> {
   try {
@@ -16,12 +17,13 @@ export async function audit(action: string, col: string, id: string, detail?: un
   }
 }
 
-/** GET /admin/audit?skip= —— 审计日志，按时间倒序分页，每页 50 条 */
+/** GET /admin/audit?skip=&limit= —— 审计日志，按时间倒序分页 */
 export async function list(req: Req) {
-  const skip = Math.max(0, Number(req.query?.skip) || 0);
+  const q = req.query ?? {};
+  const skip = Math.max(0, Number(q.skip) || 0);
   const { items, total } = await getDb().listDocs('admin_audit', {
     skip,
-    limit: 50,
+    limit: pageLimit(q),
     orderBy: 'at',
     orderDir: 'desc',
   });

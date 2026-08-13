@@ -42,7 +42,7 @@ export function clearKey() {
 
 /** 当前管理密钥，key 变化（登录/退出/401 被清）时自动重渲染 */
 export function useKey(): string | null {
-  return useSyncExternalStore(subscribe, getKey);
+  return useSyncExternalStore(subscribe, getKey, getKey);
 }
 
 async function request(path: string, options: RequestInit = {}) {

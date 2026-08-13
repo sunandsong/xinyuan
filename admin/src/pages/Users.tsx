@@ -3,7 +3,6 @@ import {
   Button,
   Checkbox,
   Descriptions,
-  Drawer,
   Input,
   Modal,
   Popconfirm,
@@ -17,8 +16,13 @@ import {
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
-
-const PAGE_SIZE = 20; // 跟后端 /admin/users 的分页一致
+import { FormField, FormSection } from '../components/AdminForm';
+import AdminModal from '../components/AdminModal';
+import AdminTable from '../components/AdminTable';
+import AvatarCell from '../components/AvatarCell';
+import { ActionBtn, TableActions } from '../components/TableActions';
+import TablePage from '../components/TablePage';
+import { DEFAULT_TABLE_PAGE_SIZE } from '../tableConfig';
 
 interface UserRow {
   _id: string;
@@ -52,8 +56,6 @@ interface AchvDef {
   name: string;
 }
 
-const AVATAR_COLORS = ['#5B8DEF', '#E0A64B', '#E0708A', '#4FB88A', '#A080E0'];
-
 function fmtTime(ts?: number): string {
   if (!ts) return '—';
   const d = new Date(ts);
@@ -61,49 +63,17 @@ function fmtTime(ts?: number): string {
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** 头像：有图显图（加载失败回退），无图昵称首字彩圆 */
-function AvatarCell({ url, name }: { url?: string | null; name?: string }) {
-  const [broken, setBroken] = useState(false);
-  const n = name || '?';
-  const color = AVATAR_COLORS[Math.abs([...n].reduce((h, c) => h * 31 + c.charCodeAt(0), 0)) % AVATAR_COLORS.length];
-  if (url && !broken) {
-    return (
-      <img
-        src={url}
-        onError={() => setBroken(true)}
-        style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
-      />
-    );
-  }
-  return (
-    <div
-      style={{
-        width: 32,
-        height: 32,
-        borderRadius: '50%',
-        background: color,
-        color: '#fff',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontWeight: 600,
-      }}
-    >
-      {n.slice(0, 1)}
-    </div>
-  );
-}
-
 export default function Users() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<UserRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('lastActiveAt');
   const [loading, setLoading] = useState(false);
 
-  // 详情抽屉
+  // 详情弹窗
   const [detailUid, setDetailUid] = useState<string | null>(null);
   const [detail, setDetail] = useState<DetailData | null>(null);
   const [achvDefs, setAchvDefs] = useState<AchvDef[]>([]);
@@ -115,10 +85,10 @@ export default function Users() {
   const [grantSaving, setGrantSaving] = useState(false);
 
   const load = useCallback(
-    (p = page, kw = q, s = sort) => {
+    (p = page, kw = q, s = sort, size = pageSize) => {
       setLoading(true);
       api
-        .get(`/admin/users?q=${encodeURIComponent(kw)}&sort=${s}&skip=${(p - 1) * PAGE_SIZE}`)
+        .get(`/admin/users?q=${encodeURIComponent(kw)}&sort=${s}&skip=${(p - 1) * size}&limit=${size}`)
         .then((d) => {
           setRows(d.items);
           setTotal(d.total);
@@ -126,8 +96,19 @@ export default function Users() {
         .catch((e) => message.error(`加载失败：${e.message}`))
         .finally(() => setLoading(false));
     },
-    [page, q, sort],
+    [page, q, sort, pageSize],
   );
+
+  function onPageChange(p: number, size: number) {
+    if (size !== pageSize) {
+      setPageSize(size);
+      setPage(1);
+      load(1, q, sort, size);
+      return;
+    }
+    setPage(p);
+    load(p, q, sort, size);
+  }
 
   useEffect(() => {
     load(1);
@@ -237,48 +218,44 @@ export default function Users() {
   const u = detail?.user;
 
   return (
-    <div style={{ padding: 24 }}>
-      <Space style={{ marginBottom: 16 }}>
-        <Input.Search
-          placeholder="搜账号 / 昵称"
-          allowClear
-          style={{ width: 260 }}
-          onSearch={(v) => {
-            setQ(v);
-            setPage(1);
-            load(1, v, sort);
-          }}
-        />
-        <Select
-          value={sort}
-          style={{ width: 160 }}
-          onChange={(v) => {
-            setSort(v);
-            setPage(1);
-            load(1, q, v);
-          }}
-          options={[
-            { value: 'lastActiveAt', label: '按最后活跃' },
-            { value: 'createdAt', label: '按注册时间' },
-            { value: 'doneCount', label: '按实现心愿数' },
-          ]}
-        />
-      </Space>
-      <Table<UserRow>
+    <>
+    <TablePage
+      toolbar={
+        <Space wrap>
+          <Input.Search
+            placeholder="搜账号 / 昵称"
+            allowClear
+            style={{ width: 260 }}
+            onSearch={(v) => {
+              setQ(v);
+              setPage(1);
+              load(1, v, sort);
+            }}
+          />
+          <Select
+            value={sort}
+            style={{ width: 160 }}
+            onChange={(v) => {
+              setSort(v);
+              setPage(1);
+              load(1, q, v);
+            }}
+            options={[
+              { value: 'lastActiveAt', label: '按最后活跃' },
+              { value: 'createdAt', label: '按注册时间' },
+              { value: 'doneCount', label: '按实现心愿数' },
+            ]}
+          />
+          <span style={{ color: '#8A8C98', fontSize: 13 }}>共 {total} 人</span>
+        </Space>
+      }
+    >
+      <AdminTable<UserRow>
         rowKey="_id"
         loading={loading}
         dataSource={rows}
-        pagination={{
-          current: page,
-          pageSize: PAGE_SIZE,
-          total,
-          showSizeChanger: false,
-          showTotal: (t) => `共 ${t} 人`,
-          onChange: (p) => {
-            setPage(p);
-            load(p);
-          },
-        }}
+        size="middle"
+        paginationBind={{ page, pageSize, total, onChange: onPageChange, unit: '人' }}
         columns={[
           {
             title: '用户',
@@ -304,66 +281,81 @@ export default function Users() {
           },
           {
             title: '操作',
-            render: (_, r) => <a onClick={() => openDetail(r._id)}>详情</a>,
+            width: 88,
+            render: (_, r) => (
+              <TableActions>
+                <ActionBtn variant="primary" onClick={() => openDetail(r._id)}>
+                  详情
+                </ActionBtn>
+              </TableActions>
+            ),
           },
         ]}
       />
+    </TablePage>
 
-      <Drawer
-        title={u ? `${u.nickname || u.account || detailUid}` : '用户详情'}
-        width={560}
+    <AdminModal
+        title={u ? `用户 · ${u.nickname || u.account || detailUid}` : '用户详情'}
+        width={640}
         open={detailUid !== null}
-        onClose={() => setDetailUid(null)}
+        onCancel={() => setDetailUid(null)}
+        footer={
+          <Button type="primary" onClick={() => setDetailUid(null)}>
+            关闭
+          </Button>
+        }
       >
         {!detail || !u ? (
           <div style={{ textAlign: 'center', padding: 48 }}>
             <Spin />
           </div>
         ) : (
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <Space align="center">
-              <AvatarCell url={u.avatarUrl} name={u.nickname} />
-              <div>
-                <div style={{ fontWeight: 600 }}>{u.nickname || '—'}</div>
-                <div style={{ color: '#999', fontSize: 12 }}>{u._id}</div>
-              </div>
-              {u.banned && <Tag color="red">已封禁</Tag>}
-            </Space>
+          <>
+            <FormSection title="基本资料">
+              <Space align="center" style={{ marginBottom: 16 }}>
+                <AvatarCell url={u.avatarUrl} name={u.nickname} />
+                <div>
+                  <div style={{ fontWeight: 600 }}>{u.nickname || '—'}</div>
+                  <div style={{ color: '#8a8c98', fontSize: 12 }}>{u._id}</div>
+                </div>
+                {u.banned && <Tag color="red">已封禁</Tag>}
+              </Space>
+              <Descriptions
+                size="small"
+                column={2}
+                items={[
+                  { key: 'account', label: '账号', children: u.account ?? '—' },
+                  { key: 'gender', label: '性别', children: u.gender ?? '—' },
+                  { key: 'birthday', label: '生日', children: u.birthday ?? '—' },
+                  { key: 'createdAt', label: '注册', children: fmtTime(u.createdAt) },
+                  { key: 'lastActive', label: '最后活跃', children: fmtTime(u.lastActiveAt) },
+                  { key: 'lastLogin', label: '最后登录', children: fmtTime(u.lastLoginAt) },
+                  {
+                    key: 'counts',
+                    label: '数据量',
+                    children: `心愿 ${detail.counts.wishes} · 任务 ${detail.counts.tasks} · 胶囊 ${detail.counts.letters}`,
+                    span: 2,
+                  },
+                ]}
+              />
+            </FormSection>
 
-            <Descriptions
-              size="small"
-              column={2}
-              items={[
-                { key: 'account', label: '账号', children: u.account ?? '—' },
-                { key: 'gender', label: '性别', children: u.gender ?? '—' },
-                { key: 'birthday', label: '生日', children: u.birthday ?? '—' },
-                { key: 'createdAt', label: '注册', children: fmtTime(u.createdAt) },
-                { key: 'lastActive', label: '最后活跃', children: fmtTime(u.lastActiveAt) },
-                { key: 'lastLogin', label: '最后登录', children: fmtTime(u.lastLoginAt) },
-                {
-                  key: 'counts',
-                  label: '数据量',
-                  children: `心愿 ${detail.counts.wishes} · 任务 ${detail.counts.tasks} · 胶囊 ${detail.counts.letters}`,
-                  span: 2,
-                },
-              ]}
-            />
+            <FormSection title="用户数据">
+              <Space wrap>
+                <Button size="small" onClick={() => navigate(`/wishes?uid=${u._id}`)}>
+                  看 ta 的心愿
+                </Button>
+                <Button size="small" onClick={() => navigate(`/tasks?uid=${u._id}`)}>
+                  看 ta 的任务
+                </Button>
+                <Button size="small" onClick={() => navigate(`/capsules?uid=${u._id}`)}>
+                  看 ta 的胶囊
+                </Button>
+              </Space>
+            </FormSection>
 
-            <Space wrap>
-              <Button size="small" onClick={() => navigate(`/wishes?uid=${u._id}`)}>
-                看 ta 的心愿
-              </Button>
-              <Button size="small" onClick={() => navigate(`/tasks?uid=${u._id}`)}>
-                看 ta 的任务
-              </Button>
-              <Button size="small" onClick={() => navigate(`/capsules?uid=${u._id}`)}>
-                看 ta 的胶囊
-              </Button>
-            </Space>
-
-            <div>
+            <FormSection title="荣誉与足迹">
               <Space style={{ marginBottom: 8 }}>
-                <b>荣誉 & 足迹</b>
                 <Button size="small" onClick={() => setGrantOpen(true)}>
                   补发
                 </Button>
@@ -380,22 +372,20 @@ export default function Users() {
                   </Tag>
                 ))}
                 {!Object.keys(u.achievements ?? {}).length && !Object.keys(u.checkins ?? {}).length && (
-                  <span style={{ color: '#999' }}>还没有</span>
+                  <span style={{ color: '#8a8c98', fontSize: 13 }}>还没有</span>
                 )}
               </div>
-            </div>
+            </FormSection>
 
-            <div>
-              <b>最近登录（{detail.recentLogins.length}）</b>
+            <FormSection title="最近登录">
               {detail.recentLogins.length === 0 ? (
-                <div style={{ color: '#999', marginTop: 8 }}>无登录记录</div>
+                <div style={{ color: '#8a8c98', fontSize: 13 }}>无登录记录</div>
               ) : (
                 <Table
                   size="small"
                   rowKey={(r) => String(r.at)}
                   dataSource={detail.recentLogins}
                   pagination={false}
-                  style={{ marginTop: 8 }}
                   columns={[
                     { title: '时间', dataIndex: 'at', render: fmtTime },
                     { title: '设备', dataIndex: 'device', render: (v) => v ?? '—' },
@@ -405,74 +395,74 @@ export default function Users() {
                   ]}
                 />
               )}
-            </div>
+            </FormSection>
 
-            <div>
-              <b>管理操作</b>
-              <div style={{ marginTop: 8 }}>
-                <Space wrap>
-                  <Popconfirm title="生成随机新密码并立刻生效？" onConfirm={() => handleResetPassword(u._id)}>
-                    <Button size="small">重置密码</Button>
+            <FormSection title="管理操作">
+              <Space wrap>
+                <Popconfirm title="生成随机新密码并立刻生效？" onConfirm={() => handleResetPassword(u._id)}>
+                  <Button size="small">重置密码</Button>
+                </Popconfirm>
+                <Popconfirm title="把昵称重置成默认昵称？" onConfirm={() => handleResetProfile(u._id, { nickname: true })}>
+                  <Button size="small">重置昵称</Button>
+                </Popconfirm>
+                <Popconfirm title="清空头像？" onConfirm={() => handleResetProfile(u._id, { avatar: true })}>
+                  <Button size="small">清空头像</Button>
+                </Popconfirm>
+                {u.banned ? (
+                  <Popconfirm title="解除封禁？" onConfirm={() => handleBan(u._id, false)}>
+                    <Button size="small">解封</Button>
                   </Popconfirm>
-                  <Popconfirm title="把昵称重置成默认昵称？" onConfirm={() => handleResetProfile(u._id, { nickname: true })}>
-                    <Button size="small">重置昵称</Button>
-                  </Popconfirm>
-                  <Popconfirm title="清空头像？" onConfirm={() => handleResetProfile(u._id, { avatar: true })}>
-                    <Button size="small">清空头像</Button>
-                  </Popconfirm>
-                  {u.banned ? (
-                    <Popconfirm title="解除封禁？" onConfirm={() => handleBan(u._id, false)}>
-                      <Button size="small">解封</Button>
-                    </Popconfirm>
-                  ) : (
-                    <Popconfirm title="封禁后该用户无法登录和同步" onConfirm={() => handleBan(u._id, true)}>
-                      <Button size="small" danger>
-                        封禁
-                      </Button>
-                    </Popconfirm>
-                  )}
-                  <Popconfirm
-                    title="删号（软删）？"
-                    description="用户与其心愿/任务/胶囊全部标删，账号名释放"
-                    onConfirm={() => handleDelete(u._id)}
-                  >
+                ) : (
+                  <Popconfirm title="封禁后该用户无法登录和同步" onConfirm={() => handleBan(u._id, true)}>
                     <Button size="small" danger>
-                      删号
+                      封禁
                     </Button>
                   </Popconfirm>
-                </Space>
-              </div>
-            </div>
-          </Space>
+                )}
+                <Popconfirm
+                  title="删号（软删）？"
+                  description="用户与其心愿/任务/胶囊全部标删，账号名释放"
+                  onConfirm={() => handleDelete(u._id)}
+                >
+                  <Button size="small" danger>
+                    删号
+                  </Button>
+                </Popconfirm>
+              </Space>
+            </FormSection>
+          </>
         )}
-      </Drawer>
+      </AdminModal>
 
-      <Modal
+      <AdminModal
         title="补发荣誉 / 足迹"
         open={grantOpen}
         onCancel={() => setGrantOpen(false)}
         onOk={handleGrant}
         confirmLoading={grantSaving}
         okText="补发"
+        width={520}
       >
-        <div style={{ marginBottom: 8 }}>勋章（已拥有的不在列）：</div>
-        <Checkbox.Group
-          value={grantAchvs}
-          onChange={(v) => setGrantAchvs(v as string[])}
-          options={achvDefs
-            .filter((a) => !(u?.achievements ?? {})[a.slug])
-            .map((a) => ({ label: a.name, value: a.slug }))}
-        />
-        <div style={{ margin: '16px 0 8px' }}>景点打卡（输入景点名回车，可多个）：</div>
-        <Select
-          mode="tags"
-          style={{ width: '100%' }}
-          placeholder="如：故宫"
-          value={grantSpots}
-          onChange={setGrantSpots}
-          open={false}
-        />
-      </Modal>
-    </div>
+        <FormField label="勋章" hint="已拥有的不在列表中">
+          <Checkbox.Group
+            value={grantAchvs}
+            onChange={(v) => setGrantAchvs(v as string[])}
+            options={achvDefs
+              .filter((a) => !(u?.achievements ?? {})[a.slug])
+              .map((a) => ({ label: a.name, value: a.slug }))}
+          />
+        </FormField>
+        <FormField label="景点打卡" hint="输入景点名后回车，可多个">
+          <Select
+            mode="tags"
+            style={{ width: '100%' }}
+            placeholder="如：故宫"
+            value={grantSpots}
+            onChange={setGrantSpots}
+            open={false}
+          />
+        </FormField>
+      </AdminModal>
+    </>
   );
 }

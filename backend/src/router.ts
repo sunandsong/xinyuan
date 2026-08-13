@@ -8,7 +8,8 @@ import * as demo from './handlers/admin/demo';
 import { exportAll } from './handlers/admin/export';
 import { quota } from './handlers/admin/quota';
 import * as queries from './handlers/admin/queries';
-import { adminUpload } from './handlers/admin/upload';
+import { adminPhotoUrls, adminUpload } from './handlers/admin/upload';
+import * as adminGeocode from './handlers/admin/geocode';
 import * as adminUsers from './handlers/admin/users';
 import { getConfig } from './handlers/config';
 import { track } from './handlers/events';
@@ -55,6 +56,10 @@ const adminRoutes = [
   route('GET', '/admin/export', (r) => exportAll(r)),
   route('GET', '/admin/quota', (r) => quota(r)),
   route('POST', '/admin/upload', (r) => adminUpload(r)),
+  route('POST', '/admin/photo-urls', (r) => adminPhotoUrls(r)),
+  route('GET', '/admin/map-config', (r) => adminGeocode.mapConfig(r)),
+  route('GET', '/admin/geocode/search', (r) => adminGeocode.placeSearch(r)),
+  route('GET', '/admin/geocode/reverse', (r) => adminGeocode.reverseGeocode(r)),
   route('POST', '/admin/users/:uid/reset-password', (r, p) => adminUsers.resetPassword(r, p.uid)),
   route('POST', '/admin/users/:uid/ban', (r, p) => adminUsers.ban(r, p.uid)),
   route('POST', '/admin/users/:uid/delete', (r, p) => adminUsers.remove(r, p.uid)),

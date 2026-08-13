@@ -21,6 +21,9 @@ export const JWT_SECRET = (() => {
 // 不影响其它功能。
 export const AMAP_KEY = process.env.AMAP_KEY || '';
 
+/** 高德 JS API 安全密钥（Web 端地图必填，跟 AMAP_KEY 配在同一控制台应用里） */
+export const AMAP_JS_CODE = process.env.AMAP_JS_CODE || '';
+
 // 管理端鉴权 key（可选，但没配就整个 /admin/* 直接 403，宁可不可用也不裸奔）
 export const ADMIN_KEY = process.env.ADMIN_KEY || '';
 

@@ -2,6 +2,7 @@
 import { getDb } from '../../db';
 import { bad, ok, Req } from '../../http';
 import { audit } from './audit';
+import { pageLimit } from './paging';
 
 /** 内容/配置集合白名单：物理删，无归属校验（管理端全权维护） */
 export const CONTENT_COLS = new Set([
@@ -41,7 +42,10 @@ export async function list(req: Req, col: string) {
   if (!colAllowed(col)) return bad('unknown_collection');
   const q = req.query ?? {};
   const skip = Math.max(0, Number(q.skip) || 0);
-  const limit = Math.min(100, Math.max(1, Number(q.limit) || 20));
+  const limit =
+    col === 'blockwords'
+      ? Math.min(2000, Math.max(1, Number(q.limit) || 2000))
+      : pageLimit(q);
   try {
     const { items, total } = await getDb().listDocs(col, { skip, limit, where: parseFilters(q) });
     return ok({ items, total });

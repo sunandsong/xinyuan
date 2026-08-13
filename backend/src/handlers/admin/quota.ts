@@ -1,6 +1,5 @@
-// 管理端额度查询：调腾讯云 TCB DescribeQuotaData 查本月读/写/函数调用/存储用量。
-// 密钥未配置、接口报错、字段对不上——一律 available:false，绝不 500：
-// 这是仪表盘上的可选展示项，查不到就前端显示"未配置密钥"，不能拖垮管理端。
+// 管理端额度查询：调腾讯云 TCB DescribeQuotaData 查本月读/写/函数调用/存储用量，
+// 并结合套餐信息折算资源点总额/已用/预估耗尽时间。
 import * as crypto from 'crypto';
 import { ENV_ID, TC_SECRET_ID, TC_SECRET_KEY } from '../../config';
 import { ok, Req } from '../../http';
@@ -10,6 +9,15 @@ const SERVICE = 'tcb';
 const REGION = 'ap-shanghai';
 const VERSION = '2018-06-08';
 
+/** 套餐 → 每月资源点额度（2026 免费体验版 3000 点/月） */
+const PACKAGE_MONTHLY_CREDITS: Record<string, { name: string; credits: number }> = {
+  baas_trial: { name: '免费体验版', credits: 3000 },
+};
+
+/** 资源点折算：跟 CloudBase 资源点价格文档对齐（200点/万次 调用类） */
+const POINTS_PER_10K = 200;
+const STORAGE_POINTS_PER_GB_DAY = 40;
+
 function sha256Hex(s: string): string {
   return crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 }
@@ -17,7 +25,6 @@ function hmac(key: string | Buffer, msg: string): Buffer {
   return crypto.createHmac('sha256', key).update(msg, 'utf8').digest();
 }
 
-/** 腾讯云 API 3.0 TC3-HMAC-SHA256 通用签名 + 请求。约 40 行，手写不引 SDK。 */
 async function tcbRequest(action: string, payload: Record<string, unknown>): Promise<any> {
   const timestamp = Math.floor(Date.now() / 1000);
   const date = new Date(timestamp * 1000).toISOString().slice(0, 10);
@@ -62,7 +69,6 @@ async function tcbRequest(action: string, payload: Record<string, unknown>): Pro
   return json?.Response;
 }
 
-/** 指标名对不上、拿不到就当没有——TCB 控制台用这几个 MetricName 查用量 */
 const METRICS: Record<string, string> = {
   dbRead: 'DbReadpkg',
   dbWrite: 'DbWritepkg',
@@ -70,7 +76,6 @@ const METRICS: Record<string, string> = {
   storage: 'StorageSizepkg',
 };
 
-/** 本月起 ~ 现在，'YYYY-MM-DD HH:mm:ss'（UTC） */
 function monthRange(): { start: string; end: string } {
   const now = new Date();
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -78,29 +83,82 @@ function monthRange(): { start: string; end: string } {
   return { start: fmt(start), end: fmt(now) };
 }
 
-/** GET /admin/quota —— 本月资源用量骨架，密钥未配/调用失败一律 available:false，不是 500 */
+function daysElapsedInMonth(): number {
+  return new Date().getDate();
+}
+
+function parseLimit(resp: any): number | null {
+  for (const raw of [resp?.Limit, resp?.SubValue]) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
+/** 把各指标用量折算成资源点（估算，供仪表盘看趋势） */
+function metricPoints(key: string, used: number, daysElapsed: number): number {
+  if (used <= 0) return 0;
+  if (key === 'storage') return (used / 1024) * daysElapsed * STORAGE_POINTS_PER_GB_DAY;
+  return (used / 10_000) * POINTS_PER_10K;
+}
+
+async function fetchPackageId(): Promise<string | null> {
+  try {
+    const resp = await tcbRequest('DescribeBillingInfo', { EnvId: ENV_ID });
+    const pkg = resp?.EnvBillingInfoList?.[0]?.PackageId;
+    return typeof pkg === 'string' ? pkg : null;
+  } catch {
+    return null;
+  }
+}
+
+/** GET /admin/quota */
 export async function quota(_req: Req) {
   if (!TC_SECRET_ID || !TC_SECRET_KEY) return ok({ available: false, reason: 'no_secret' });
 
   const { start, end } = monthRange();
+  const daysElapsed = daysElapsedInMonth();
   try {
-    const metrics: Record<string, { used: number | null; limit: number | null }> = {};
-    for (const [key, metricName] of Object.entries(METRICS)) {
-      const resp = await tcbRequest('DescribeQuotaData', {
-        EnvId: ENV_ID,
-        MetricName: metricName,
-        StartTime: start,
-        EndTime: end,
-      });
-      // 实测响应是单值 {MetricName,RequestId,SubValue,Value}，不是数组/数据集
-      // （曾按 QuotaDataSet/Data 数组猜测过，用临时密钥实测校准过来，见 task-8-report.md）。
+    const [packageId, ...metricResps] = await Promise.all([
+      fetchPackageId(),
+      ...Object.values(METRICS).map((metricName) =>
+        tcbRequest('DescribeQuotaData', { EnvId: ENV_ID, MetricName: metricName, StartTime: start, EndTime: end }),
+      ),
+    ]);
+
+    const pkgMeta = (packageId && PACKAGE_MONTHLY_CREDITS[packageId]) || null;
+    const envCredits = Number(process.env.QUOTA_MONTHLY_CREDITS);
+    const monthlyCredits =
+      (Number.isFinite(envCredits) && envCredits > 0 ? envCredits : null) ?? pkgMeta?.credits ?? null;
+
+    const metrics: Record<string, { used: number | null; limit: number | null; points: number | null }> = {};
+    let totalPoints = 0;
+    Object.keys(METRICS).forEach((key, i) => {
+      const resp = metricResps[i];
       const usedNum = Number(resp?.Value);
-      metrics[key] = {
-        used: Number.isFinite(usedNum) ? usedNum : null,
-        limit: resp?.Limit ?? null,
-      };
-    }
-    return ok({ available: true, metrics });
+      const used = Number.isFinite(usedNum) ? usedNum : null;
+      const points = used != null ? Math.round(metricPoints(key, used, daysElapsed) * 10) / 10 : null;
+      if (points) totalPoints += points;
+      metrics[key] = { used, limit: parseLimit(resp), points };
+    });
+
+    const summary =
+      monthlyCredits != null
+        ? {
+            limit: monthlyCredits,
+            used: Math.round(totalPoints * 10) / 10,
+            unit: '点',
+            packageId: packageId ?? undefined,
+            packageName: pkgMeta?.name,
+          }
+        : null;
+
+    return ok({
+      available: true,
+      package: packageId ? { id: packageId, name: pkgMeta?.name } : null,
+      summary,
+      metrics,
+    });
   } catch (e: any) {
     return ok({ available: false, reason: String(e?.message ?? e) });
   }

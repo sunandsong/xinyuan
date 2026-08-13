@@ -3,6 +3,7 @@
 // 跟用户照片的 wishes/{uid}/ 隔开。
 import { ENV_ID } from '../../config';
 import { bad, ok, Req } from '../../http';
+import { resolveStablePhotoUrls } from '../../photo-resolve';
 
 const EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -37,4 +38,12 @@ export async function adminUpload(req: Req) {
     },
     downloadUrl: download_url,
   });
+}
+
+/** POST /admin/photo-urls —— 管理端换用户照片/头像的临时访问链接 */
+export async function adminPhotoUrls(req: Req) {
+  const list = Array.isArray(req.body?.urls) ? req.body.urls.map(String) : [];
+  if (list.length === 0 || list.length > 50) return bad('invalid_urls');
+  const urls = await resolveStablePhotoUrls(list);
+  return ok({ urls });
 }

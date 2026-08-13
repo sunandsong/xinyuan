@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { Input, Select, Space, Table } from 'antd';
+import { Input, Select, Space } from 'antd';
+import AdminTable from '../components/AdminTable';
+import EmptyState from '../components/EmptyState';
+import TablePage from '../components/TablePage';
+import { MUTED } from '../theme';
 import { fmtTime, usePagedList } from '../paged';
 
 interface LoginRow {
@@ -15,38 +19,34 @@ interface LoginRow {
 export default function LoginLogs() {
   const [uid, setUid] = useState('');
   const [days, setDays] = useState('');
-  const { items, total, page, setPage, loading } = usePagedList<LoginRow>('/admin/logins', 20, {
-    uid,
-    days,
-  });
+  const { items, pagination, loading } = usePagedList<LoginRow>('/admin/logins', { uid, days });
 
   return (
-    <div style={{ padding: 24 }}>
-      <Space style={{ marginBottom: 16 }}>
-        <Input.Search placeholder="按 uid 过滤" allowClear style={{ width: 240 }} onSearch={setUid} />
-        <Select
-          value={days}
-          style={{ width: 120 }}
-          onChange={setDays}
-          options={[
-            { value: '', label: '全部时间' },
-            { value: '7', label: '近 7 天' },
-            { value: '30', label: '近 30 天' },
-          ]}
-        />
-      </Space>
-      <Table<LoginRow>
+    <TablePage
+      toolbar={
+        <Space wrap>
+          <Input.Search placeholder="按 uid 过滤" allowClear style={{ width: 240 }} onSearch={setUid} />
+          <Select
+            value={days}
+            style={{ width: 120 }}
+            onChange={setDays}
+            options={[
+              { value: '', label: '全部时间' },
+              { value: '7', label: '近 7 天' },
+              { value: '30', label: '近 30 天' },
+            ]}
+          />
+          <span style={{ color: MUTED, fontSize: 13 }}>共 {pagination.total} 条记录</span>
+        </Space>
+      }
+    >
+      <AdminTable<LoginRow>
         rowKey="_id"
         loading={loading}
         dataSource={items}
-        pagination={{
-          current: page,
-          pageSize: 20,
-          total,
-          showSizeChanger: false,
-          showTotal: (t) => `共 ${t} 条`,
-          onChange: setPage,
-        }}
+        size="middle"
+        locale={{ emptyText: <EmptyState height={160}>暂无登录记录</EmptyState> }}
+        paginationBind={pagination}
         columns={[
           { title: '时间', dataIndex: 'at', width: 150, render: fmtTime },
           { title: '用户', dataIndex: 'uid', render: (v) => <code style={{ fontSize: 12 }}>{v}</code> },
@@ -56,6 +56,6 @@ export default function LoginLogs() {
           { title: 'IP', dataIndex: 'ip', render: (v) => v ?? '—' },
         ]}
       />
-    </div>
+    </TablePage>
   );
 }

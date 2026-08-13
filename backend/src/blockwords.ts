@@ -5,7 +5,7 @@ import { getDb } from './db';
 
 export async function loadBlockwords(): Promise<string[]> {
   try {
-    const { items } = await getDb().listDocs('blockwords', { limit: 1000 });
+    const { items } = await getDb().listDocs('blockwords', { limit: 2000 });
     return items.map((d: any) => String(d.word ?? '')).filter(Boolean);
   } catch {
     return [];

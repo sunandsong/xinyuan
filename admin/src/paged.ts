@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
 import { message } from 'antd';
 import { api } from './api';
+import { DEFAULT_TABLE_PAGE_SIZE, type PaginationBind } from './tableConfig';
 
-/** 服务端分页列表的取数样板：query 变了自动回第一页重拉 */
-export function usePagedList<T>(basePath: string, pageSize: number, query: Record<string, string>) {
+/** 服务端分页列表：query 变了自动回第一页重拉 */
+export function usePagedList<T>(
+  basePath: string,
+  query: Record<string, string> = {},
+  initialPageSize = DEFAULT_TABLE_PAGE_SIZE,
+) {
   const [items, setItems] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [loading, setLoading] = useState(false);
-  const [tick, setTick] = useState(0); // 手动刷新计数：写操作后 reload() 重拉当前页
+  const [tick, setTick] = useState(0);
 
   const qs = Object.entries(query)
     .filter(([, v]) => v !== '')
@@ -17,15 +23,14 @@ export function usePagedList<T>(basePath: string, pageSize: number, query: Recor
 
   useEffect(() => {
     setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qs]);
+  }, [qs, pageSize]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     const sep = qs ? '&' : '';
     api
-      .get(`${basePath}?${qs}${sep}skip=${(page - 1) * pageSize}`)
+      .get(`${basePath}?${qs}${sep}skip=${(page - 1) * pageSize}&limit=${pageSize}`)
       .then((d) => {
         if (cancelled) return;
         setItems(d.items);
@@ -38,7 +43,35 @@ export function usePagedList<T>(basePath: string, pageSize: number, query: Recor
     };
   }, [basePath, pageSize, qs, page, tick]);
 
-  return { items, total, page, setPage, loading, reload: () => setTick((t) => t + 1) };
+  function onPageChange(nextPage: number, nextSize: number) {
+    if (nextSize !== pageSize) setPageSize(nextSize);
+    setPage(nextSize !== pageSize ? 1 : nextPage);
+  }
+
+  const pagination: PaginationBind = { page, pageSize, total, onChange: onPageChange };
+
+  return { items, total, page, pageSize, onPageChange, pagination, loading, reload: () => setTick((t) => t + 1) };
+}
+
+/** 客户端分页（一次拉全量的小表） */
+export function useClientPagination<T>(items: T[] | null) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
+  const total = items?.length ?? 0;
+
+  useEffect(() => {
+    setPage(1);
+  }, [total, pageSize]);
+
+  function onPageChange(nextPage: number, nextSize: number) {
+    if (nextSize !== pageSize) setPageSize(nextSize);
+    setPage(nextSize !== pageSize ? 1 : nextPage);
+  }
+
+  const pageItems = items ? items.slice((page - 1) * pageSize, page * pageSize) : [];
+  const pagination: PaginationBind = { page, pageSize, total, onChange: onPageChange };
+
+  return { pageItems, pagination, loading: items === null };
 }
 
 export function fmtTime(ts?: number): string {

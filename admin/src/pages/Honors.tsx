@@ -1,7 +1,11 @@
 import { useRef, useState } from 'react';
-import { Alert, Button, Image, Input, Modal, Space, message } from 'antd';
+import { Alert, Input, message } from 'antd';
 import { api } from '../api';
+import { FormField } from '../components/AdminForm';
+import AdminModal from '../components/AdminModal';
+import CloudImage from '../components/CloudImage';
 import CrudTable from '../components/CrudTable';
+import { ActionBtn, TableActions } from '../components/TableActions';
 import ImgUpload from '../components/ImgUpload';
 
 interface AchvDef {
@@ -39,17 +43,17 @@ export default function Honors() {
 
   return (
     <>
-      <div style={{ padding: '16px 24px 0' }}>
-        <Alert
-          type="info"
-          showIcon
-          message="勋章的达成条件写在 App 代码里，这里只能改展示文案和图标；新增勋章需要发版。"
-        />
-      </div>
       <CrudTable
         col="achv_defs"
         refreshRef={refresh}
-        pageSize={50}
+        extra={
+          <Alert
+            type="info"
+            showIcon
+            style={{ borderRadius: 10, marginBottom: 16 }}
+            message="勋章的达成条件写在 App 代码里，这里只能改展示文案和图标；新增勋章需要发版。"
+          />
+        }
         showActions={false}
         columns={[
           { title: 'slug', dataIndex: 'slug', width: 130, render: (v) => <code style={{ fontSize: 12 }}>{v}</code> },
@@ -58,40 +62,50 @@ export default function Honors() {
             dataIndex: 'icon',
             width: 80,
             render: (v: string) =>
-              v ? <Image src={v} width={40} height={40} style={{ objectFit: 'cover' }} /> : '—',
+              v ? (
+                <CloudImage url={v} width={40} height={40} style={{ objectFit: 'cover' }} />
+              ) : (
+                <span style={{ color: '#ccc', fontSize: 12 }}>待上传</span>
+              ),
           },
           { title: '名称', dataIndex: 'name', width: 140 },
           { title: '描述', dataIndex: 'desc' },
           {
             title: '操作',
-            width: 90,
+            width: 88,
             render: (_: unknown, row: AchvDef) => (
-              <Button size="small" onClick={() => setEditing(row)}>
-                编辑
-              </Button>
+              <TableActions>
+                <ActionBtn variant="primary" onClick={() => setEditing(row)}>
+                  编辑
+                </ActionBtn>
+              </TableActions>
             ),
           },
         ]}
       />
-      <Modal
+      <AdminModal
         title={`编辑勋章（${editing?.slug ?? ''}）`}
         open={editing !== null}
         onCancel={() => setEditing(null)}
         onOk={save}
         confirmLoading={saving}
+        width={480}
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <div>名称：</div>
+        <FormField label="名称" required>
           <Input value={editing?.name ?? ''} onChange={(e) => setEditing((c) => (c ? { ...c, name: e.target.value } : c))} />
-          <div>描述：</div>
+        </FormField>
+        <FormField label="描述">
           <Input value={editing?.desc ?? ''} onChange={(e) => setEditing((c) => (c ? { ...c, desc: e.target.value } : c))} />
-          <div>图标：</div>
-          <Space>
-            {editing?.icon && <Image src={editing.icon} width={48} height={48} style={{ objectFit: 'cover' }} />}
-            <ImgUpload text="上传图标" onDone={(url) => setEditing((c) => (c ? { ...c, icon: url } : c))} />
-          </Space>
-        </Space>
-      </Modal>
+        </FormField>
+        <FormField label="图标" hint="建议 256×256 正方形">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {editing?.icon && (
+              <CloudImage url={editing.icon} width={48} height={48} style={{ objectFit: 'cover', borderRadius: 10 }} />
+            )}
+            <ImgUpload text="上传图标" preset="icon" onDone={(url) => setEditing((c) => (c ? { ...c, icon: url } : c))} />
+          </div>
+        </FormField>
+      </AdminModal>
     </>
   );
 }

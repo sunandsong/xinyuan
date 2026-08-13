@@ -3,6 +3,7 @@ import { COL } from '../../config';
 import { getDb } from '../../db';
 import { notFound, ok, Req } from '../../http';
 import { UserProfile } from '../../types';
+import { pageLimit } from './paging';
 
 const DAY = 86_400_000;
 
@@ -22,9 +23,12 @@ function recentDayKeys(days: number): string[] {
   return Array.from({ length: days }, (_, i) => dayKey(now - (days - 1 - i) * DAY));
 }
 
-function todayStart(): number {
+/** 本周一 0 点（本地时区） */
+function weekStart(): number {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
   return d.getTime();
 }
 
@@ -36,9 +40,10 @@ export async function stats(_req: Req) {
   const demoSet = new Set(demoUids);
   const liveUsers = users.filter((u) => !u.isDemo);
 
-  const [wishes, logins, events, feedbackOpen, tasksCount, lettersCount, topWishes, topPlaces] =
+  const [wishes, tasks, logins, events, feedbackOpen, tasksCount, lettersCount, topWishes, topPlaces] =
     await Promise.all([
       db.allWishes(),
+      db.allTasks(),
       db.allLogins(),
       db.allEvents(),
       db.countFeedbackOpen(demoUids),
@@ -49,13 +54,18 @@ export async function stats(_req: Req) {
     ]);
 
   const liveWishes = wishes.filter((w) => !demoSet.has(w.uid));
+  const liveTasks = tasks.filter((t) => !demoSet.has(t.uid));
   const liveLogins = logins.filter((l) => !demoSet.has(l.uid));
   const liveEvents = events.filter((e) => !demoSet.has(e.uid));
 
-  const today0 = todayStart();
+  const week0 = weekStart();
   const totals = {
     users: liveUsers.length,
-    todayActive: liveUsers.filter((u) => (u.lastActiveAt ?? 0) >= today0).length,
+    weekActive: liveUsers.filter((u) => (u.lastActiveAt ?? 0) >= week0).length,
+    weekRegistered: liveUsers.filter((u) => u.createdAt >= week0).length,
+    weekCreatedTasks: liveTasks.filter((t) => t.createdAt >= week0).length,
+    weekCompletedTasks: liveTasks.filter((t) => t.done && t.updatedAt >= week0).length,
+    weekCompletedWishes: liveWishes.filter((w) => w.done && (w.doneAt ?? 0) >= week0).length,
     wishes: liveWishes.length,
     doneWishes: liveWishes.filter((w) => w.done).length,
     tasks: tasksCount,
@@ -135,35 +145,75 @@ export async function userList(req: Req) {
   const kw = (q.q ?? '').trim().toLowerCase();
   const sortField = ['lastActiveAt', 'createdAt', 'doneCount'].includes(q.sort) ? q.sort : 'lastActiveAt';
   const skip = Math.max(0, Number(q.skip) || 0);
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = pageLimit(q);
 
   const db = getDb();
   const users = (await db.allUsers()).filter((u) => !u.isDemo);
-  const filtered = kw
+  let filtered = kw
     ? users.filter(
         (u) =>
           (u.account ?? '').toLowerCase().includes(kw) || (u.nickname ?? '').toLowerCase().includes(kw),
       )
     : users;
+
+  const flag = (v?: string) => v === '1' || v === 'true';
+  const needWishes = flag(q.hasWishes);
+  const needTasks = flag(q.hasTasks);
+  const needLetters = flag(q.hasLetters);
+
+  const [allWishes, allTasks, allLetters] = await Promise.all([
+    needWishes ? db.allWishes() : Promise.resolve(null),
+    needTasks ? db.allTasks() : Promise.resolve(null),
+    needLetters ? db.allLetters() : Promise.resolve(null),
+  ]);
+
+  if (needWishes || needTasks || needLetters) {
+    const withData = new Set<string>();
+    if (allWishes) for (const w of allWishes) withData.add(w.uid);
+    if (allTasks) for (const t of allTasks) withData.add(t.uid);
+    if (allLetters) for (const l of allLetters) withData.add(l.uid);
+    filtered = filtered.filter((u) => withData.has(u._id));
+  }
+
   filtered.sort((a: any, b: any) => (b[sortField] ?? 0) - (a[sortField] ?? 0));
 
   const page = filtered.slice(skip, skip + PAGE_SIZE);
-
-  // 只给当前页聚合 wishes done/total，不用为没展示的用户白拉数据
   const pageUids = new Set(page.map((u) => u._id));
-  const wishes = (await db.allWishes()).filter((w) => pageUids.has(w.uid));
+
   const wishAgg = new Map<string, { total: number; done: number }>();
-  for (const w of wishes) {
+  const taskAgg = new Map<string, number>();
+  const letterAgg = new Map<string, number>();
+
+  const wishesForPage = allWishes
+    ? allWishes.filter((w) => pageUids.has(w.uid))
+    : (await db.allWishes()).filter((w) => pageUids.has(w.uid));
+  for (const w of wishesForPage) {
     const a = wishAgg.get(w.uid) ?? { total: 0, done: 0 };
     a.total++;
     if (w.done) a.done++;
     wishAgg.set(w.uid, a);
   }
 
+  if (allTasks) {
+    for (const t of allTasks) {
+      if (!pageUids.has(t.uid)) continue;
+      taskAgg.set(t.uid, (taskAgg.get(t.uid) ?? 0) + 1);
+    }
+  }
+
+  if (allLetters) {
+    for (const l of allLetters) {
+      if (!pageUids.has(l.uid)) continue;
+      letterAgg.set(l.uid, (letterAgg.get(l.uid) ?? 0) + 1);
+    }
+  }
+
   const items = page.map((u) => ({
     ...sanitizeUser(u),
     wishTotal: wishAgg.get(u._id)?.total ?? 0,
     wishDone: wishAgg.get(u._id)?.done ?? 0,
+    taskTotal: taskAgg.get(u._id) ?? 0,
+    letterTotal: letterAgg.get(u._id) ?? 0,
   }));
 
   return ok({ items, total: filtered.length });
@@ -195,7 +245,7 @@ export async function feedbackList(req: Req) {
   const skip = Math.max(0, Number(q.skip) || 0);
   const { items, total } = await getDb().listDocs(COL.feedback, {
     skip,
-    limit: 20,
+    limit: pageLimit(q),
     orderBy: 'createdAt',
     orderDir: 'desc',
   });
@@ -211,7 +261,7 @@ export async function loginList(req: Req) {
   const days = Number(q.days) || 0;
   const { items, total } = await getDb().listDocs(COL.logins, {
     skip,
-    limit: 20,
+    limit: pageLimit(q),
     where,
     orderBy: 'at',
     orderDir: 'desc',
@@ -230,7 +280,7 @@ export async function eventList(req: Req) {
   const days = Number(q.days) || 0;
   const { items, total } = await getDb().listDocs(COL.events, {
     skip,
-    limit: 20,
+    limit: pageLimit(q),
     where,
     orderBy: 'at',
     orderDir: 'desc',

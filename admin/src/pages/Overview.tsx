@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Alert, Button, Card, Col, Progress, Row, Spin, message } from 'antd';
+import { Alert, Button, Card, Col, Progress, Row, Skeleton, message } from 'antd';
 import {
   DownloadOutlined,
   TeamOutlined,
@@ -9,54 +9,42 @@ import {
   CheckSquareOutlined,
   MailOutlined,
   MessageOutlined,
+  PlusOutlined,
+  CheckOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { barOption, hbarOption, trendOption } from '../charts';
+import EmptyState from '../components/EmptyState';
+import SectionTitle from '../components/SectionTitle';
+import { projectMetricEnd, projectQuota } from '../quotaUtils';
+import {
+  ACCENT,
+  CARD_STYLE,
+  CHART_BLUE,
+  CHART_ORANGE,
+  INK,
+  LINE,
+  MUTED,
+  NEUTRAL,
+  NEUTRAL_SOFT,
+  TILE_COLORS,
+  WARN,
+} from '../theme';
 
-// 跟 App 端 theme.dart 的 T.* 同一套 token，管理端和 App 是一个产品，配色不该各画各的
-const INK = '#1C1C21';
-const MUTED = '#8A8C98';
-const LINE = '#E6E7EC';
-const ACCENT = '#3EA983';
-const ACCENT_SOFT = '#E2F1EA';
-const WARN = '#fa8c16';
-const WARN_SOFT = '#FFF1E0';
-const NEUTRAL = '#8A8C98';
-const NEUTRAL_SOFT = '#EEEFF2';
-
-// ECharts 双系列色：主色跟 App 端 T.accent 对齐，配色橙做对比。
-// 已用 dataviz 六项检查校验：CVD 分离度、正常视觉区分度均 PASS；
-// 对比度 WARN 已用可见直接标签（label:{show:true}）兜底。
-const BLUE = ACCENT;
-const ORANGE = WARN;
-
-// 核心指标卡的图标身份色：dataviz 参考色板固定 8 色序里取 6 个（跳过 slot2
-// 橙——橙留给「待处理反馈」当状态色，身份色和状态色不能共用同一个色），
-// slot3 aqua 换成 App 自己的 T.accent，跟页面其它主题色元素保持一致。
-// 六项检查已跑过（对比度 WARN 由每张卡旁边的可见文字标签兜底）。
-const TILE_COLORS: Array<{ fg: string; bg: string }> = [
-  { fg: '#2A78D6', bg: '#E8F1FB' }, // blue
-  { fg: ACCENT, bg: ACCENT_SOFT }, // App 主题色
-  { fg: '#EDA100', bg: '#FDF1DC' }, // yellow
-  { fg: '#E87BA4', bg: '#FCE9F0' }, // magenta
-  { fg: '#008300', bg: '#E3F1E3' }, // green
-  { fg: '#4A3AA7', bg: '#EAE7F8' }, // violet
-];
-
-const CARD_STYLE = {
-  borderRadius: 14,
-  boxShadow: '0 1px 2px rgba(16,24,40,.04), 0 1px 8px rgba(16,24,40,.03)',
-};
-
-// 「热度与分布」两行图表各自的统一高度：同一行内不管条目数多少都用同一个高度，
-// 图表内部留白比按条目数动态撑高、行内参差不齐好看
-const ROW_A_HEIGHT = 220; // 留存率 / 用户活跃分布 / 功能热度 Top（这行都是 3-4 条数据）
-const ROW_B_HEIGHT = 320; // 心愿热度 / 景点打卡 Top10（最多到 10 条）
+const ROW_A_HEIGHT = 220;
+const ROW_B_HEIGHT = 320;
 
 interface Stats {
   totals: {
     users: number;
-    todayActive: number;
+    weekActive: number;
+    weekRegistered: number;
+    weekCreatedTasks: number;
+    weekCompletedTasks: number;
+    weekCompletedWishes: number;
     wishes: number;
     doneWishes: number;
     tasks: number;
@@ -78,63 +66,39 @@ interface Stats {
 interface Quota {
   available: boolean;
   reason?: string;
-  metrics?: Record<string, { used: number | null; limit: number | null }>;
+  package?: { id: string; name?: string } | null;
+  summary?: {
+    limit: number;
+    used: number;
+    unit: string;
+    packageId?: string;
+    packageName?: string;
+  } | null;
+  metrics?: Record<string, { used: number | null; limit: number | null; points?: number | null }>;
 }
 
 const QUOTA_LABELS: Record<string, string> = {
   dbRead: '数据库读（次/月）',
   dbWrite: '数据库写（次/月）',
   functionInvoke: '函数调用（次/月）',
-  storage: '云存储用量',
+  storage: '云存储容量（MB）',
 };
 
-/** 本月用量按日均速外推到月底，给个"照这个速度这月会用多少"的预期 */
-function projectMonthEnd(used: number): number {
-  const now = new Date();
-  const daysElapsed = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  return Math.round((used / daysElapsed) * daysInMonth);
-}
+const METRIC_UNITS: Record<string, string> = {
+  dbRead: '次',
+  dbWrite: '次',
+  functionInvoke: '次',
+  storage: 'MB',
+};
 
-/** 小标题：一条主题色短竖线 + 文字，用来分隔页面里的几个板块 */
-function SectionTitle({ children }: { children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '28px 0 12px' }}>
-      <span style={{ width: 3, height: 14, borderRadius: 2, background: ACCENT }} />
-      <span style={{ fontSize: 14, fontWeight: 600, color: INK }}>{children}</span>
-    </div>
-  );
-}
-
-/** 图表暂无数据时的占位——固定高度跟同行的真图表对齐，卡片高度不会跟着塌下去 */
-function EmptyChart({ height, children }: { height: number; children: ReactNode }) {
-  return (
-    <div
-      style={{
-        height,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: MUTED,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** 统计卡：图标徽标 + 灰色标签 + 大号数字。数字用 ink 而不是色块——
- * 色彩只在图标徽标上做身份标识，文字永远读 ink/muted（dataviz 规范）。
- * fg/bg 是这张卡的身份色；「待处理反馈」不传身份色，走单独的 warn 状态色
- * ——身份色和状态色不能共用一个颜色，不然「橙色」到底是「这是第 X 张卡」
- * 还是「这里出问题了」就分不清了。 */
 function StatTile({
   icon,
   label,
   value,
   fg = ACCENT,
-  bg = ACCENT_SOFT,
+  bg = '#E2F1EA',
   warn = false,
+  onClick,
 }: {
   icon: ReactNode;
   label: string;
@@ -142,16 +106,35 @@ function StatTile({
   fg?: string;
   bg?: string;
   warn?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div style={{ ...CARD_STYLE, background: '#fff', padding: '16px 18px', height: '100%' }}>
+    <div
+      role={onClick ? 'button' : undefined}
+      onClick={onClick}
+      style={{
+        ...CARD_STYLE,
+        background: '#fff',
+        padding: '16px 18px',
+        height: '100%',
+        cursor: onClick ? 'pointer' : undefined,
+        borderLeft: warn ? `3px solid ${WARN}` : undefined,
+        transition: 'box-shadow .15s ease',
+      }}
+      onMouseEnter={(e) => {
+        if (onClick) e.currentTarget.style.boxShadow = '0 2px 8px rgba(16,24,40,.08)';
+      }}
+      onMouseLeave={(e) => {
+        if (onClick) e.currentTarget.style.boxShadow = CARD_STYLE.boxShadow as string;
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
         <div
           style={{
             width: 30,
             height: 30,
             borderRadius: 9,
-            background: warn ? WARN_SOFT : bg,
+            background: warn ? '#FFF1E0' : bg,
             color: warn ? WARN : fg,
             display: 'flex',
             alignItems: 'center',
@@ -164,46 +147,15 @@ function StatTile({
         </div>
         <span style={{ color: MUTED, fontSize: 13 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: INK, lineHeight: 1.2 }}>
+      <div className="tabular-nums" style={{ fontSize: 26, fontWeight: 700, color: INK, lineHeight: 1.2 }}>
         {value.toLocaleString()}
       </div>
     </div>
   );
 }
 
-/** 横向条形图：类目倒序（第一名在最上面）、4px 圆角数据端、纤细回缩网格线 */
-function hbarOption(data: Array<[string, number]>, color = BLUE) {
-  return {
-    grid: { left: 8, right: 40, top: 8, bottom: 8, containLabel: true },
-    xAxis: {
-      type: 'value',
-      minInterval: 1,
-      splitLine: { lineStyle: { color: LINE } },
-      axisLine: { show: false },
-      axisTick: { show: false },
-    },
-    yAxis: {
-      type: 'category',
-      data: data.map(([name]) => name),
-      inverse: true,
-      axisLabel: { width: 120, overflow: 'truncate' as const, color: MUTED },
-      axisLine: { show: false },
-      axisTick: { show: false },
-    },
-    series: [
-      {
-        type: 'bar',
-        data: data.map(([, v]) => v),
-        itemStyle: { color, borderRadius: [0, 4, 4, 0] },
-        barMaxWidth: 18,
-        label: { show: true, position: 'right' as const, color: MUTED },
-      },
-    ],
-    tooltip: { trigger: 'axis' as const },
-  };
-}
-
 export default function Overview() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
   const [quota, setQuota] = useState<Quota | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -214,7 +166,6 @@ export default function Overview() {
       .get('/admin/stats')
       .then(setStats)
       .catch((e) => setError(String(e.message ?? e)));
-    // 额度查询挂了不影响统计展示，各拉各的
     api.get('/admin/quota').then(setQuota).catch(() => setQuota({ available: false, reason: 'error' }));
   }, []);
 
@@ -246,103 +197,47 @@ export default function Overview() {
   }
 
   if (error) return <Alert type="error" message={`统计加载失败：${error}`} style={{ margin: 24 }} />;
-  if (!stats)
+  if (!stats) {
     return (
-      <div style={{ textAlign: 'center', padding: 80 }}>
-        <Spin size="large" />
+      <div style={{ padding: '20px 24px 32px' }}>
+        <Skeleton active paragraph={{ rows: 2 }} style={{ marginBottom: 24 }} />
+        <Row gutter={[16, 16]}>
+          {Array.from({ length: 7 }).map((_, i) => (
+            <Col key={i} xs={12} sm={8} md={6} lg={24 / 7}>
+              <Skeleton.Input active block style={{ height: 88 }} />
+            </Col>
+          ))}
+        </Row>
       </div>
     );
+  }
 
   const { totals, series, retention, topEvents, topWishes, topPlaces, activeBuckets } = stats;
 
-  const statTiles: Array<[ReactNode, string, number, { fg: string; bg: string }?, boolean?]> = [
-    [<TeamOutlined key="i" />, '注册用户', totals.users, TILE_COLORS[0]],
-    [<FireOutlined key="i" />, '今日活跃', totals.todayActive, TILE_COLORS[1]],
-    [<StarOutlined key="i" />, '心愿总数', totals.wishes, TILE_COLORS[2]],
-    [<CheckCircleOutlined key="i" />, '已实现心愿', totals.doneWishes, TILE_COLORS[3]],
-    [<CheckSquareOutlined key="i" />, '任务总数', totals.tasks, TILE_COLORS[4]],
-    [<MailOutlined key="i" />, '时光胶囊', totals.letters, TILE_COLORS[5]],
-    // 「待处理反馈」不参与身份配色轮转，走状态色：没有待处理时中性灰，
-    // 有待处理时橙——见 StatTile 的 warn 参数
-    [
-      <MessageOutlined key="i" />,
-      '待处理反馈',
-      totals.feedbackOpen,
-      { fg: NEUTRAL, bg: NEUTRAL_SOFT },
-      totals.feedbackOpen > 0,
-    ],
+  const statTiles: Array<{
+    icon: ReactNode;
+    label: string;
+    value: number;
+    colors?: { fg: string; bg: string };
+    warn?: boolean;
+    onClick?: () => void;
+  }> = [
+    { icon: <TeamOutlined />, label: '注册用户', value: totals.users, colors: TILE_COLORS[0], onClick: () => navigate('/users') },
+    { icon: <StarOutlined />, label: '心愿总数', value: totals.wishes, colors: TILE_COLORS[2], onClick: () => navigate('/wishes') },
+    { icon: <CheckCircleOutlined />, label: '已实现心愿', value: totals.doneWishes, colors: TILE_COLORS[3] },
+    { icon: <CheckSquareOutlined />, label: '任务总数', value: totals.tasks, colors: TILE_COLORS[4], onClick: () => navigate('/tasks') },
+    { icon: <MailOutlined />, label: '时光胶囊', value: totals.letters, colors: TILE_COLORS[5], onClick: () => navigate('/capsules') },
+    {
+      icon: <MessageOutlined />,
+      label: '待处理反馈',
+      value: totals.feedbackOpen,
+      colors: { fg: NEUTRAL, bg: NEUTRAL_SOFT },
+      warn: totals.feedbackOpen > 0,
+      onClick: () => navigate('/feedback'),
+    },
   ];
 
-  const days = series.signups.map(([d]) => d.slice(5)); // MM-DD 就够了，年份挤图
-
-  const trendOption = {
-    color: [BLUE, ORANGE],
-    tooltip: { trigger: 'axis' as const },
-    legend: { data: ['新增用户', 'DAU'], top: 0, textStyle: { color: MUTED } },
-    grid: { left: 8, right: 44, top: 40, bottom: 8, containLabel: true },
-    xAxis: {
-      type: 'category' as const,
-      data: days,
-      axisLine: { lineStyle: { color: LINE } },
-      axisTick: { show: false },
-      axisLabel: { color: MUTED },
-    },
-    yAxis: {
-      type: 'value' as const,
-      minInterval: 1,
-      splitLine: { lineStyle: { color: LINE } },
-      axisLabel: { color: MUTED },
-    },
-    series: [
-      {
-        name: '新增用户',
-        type: 'line' as const,
-        smooth: true,
-        showSymbol: false,
-        lineStyle: { width: 2 },
-        areaStyle: { opacity: 0.08 },
-        endLabel: { show: true, formatter: '{c}', color: BLUE, fontWeight: 600 },
-        data: series.signups.map(([, v]) => v),
-      },
-      {
-        name: 'DAU',
-        type: 'line' as const,
-        smooth: true,
-        showSymbol: false,
-        lineStyle: { width: 2 },
-        areaStyle: { opacity: 0.08 },
-        endLabel: { show: true, formatter: '{c}', color: ORANGE, fontWeight: 600 },
-        data: series.dau.map(([, v]) => v),
-      },
-    ],
-  };
-
-  const loginOption = {
-    tooltip: { trigger: 'axis' as const },
-    grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
-    xAxis: {
-      type: 'category' as const,
-      data: days,
-      axisLine: { lineStyle: { color: LINE } },
-      axisTick: { show: false },
-      axisLabel: { color: MUTED },
-    },
-    yAxis: {
-      type: 'value' as const,
-      minInterval: 1,
-      splitLine: { lineStyle: { color: LINE } },
-      axisLabel: { color: MUTED },
-    },
-    series: [
-      {
-        name: '登录次数',
-        type: 'bar' as const,
-        data: series.logins.map(([, v]) => v),
-        itemStyle: { color: BLUE, borderRadius: [4, 4, 0, 0] },
-        barMaxWidth: 20,
-      },
-    ],
-  };
+  const days = series.signups.map(([d]) => d.slice(5));
 
   const retentionData: Array<[string, number]> = [
     ['次日留存', Math.round(retention.d1 * 100)],
@@ -359,13 +254,16 @@ export default function Overview() {
   const today = new Date();
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ height: 'calc(100vh - 56px)', overflowY: 'auto' }}>
+    <div style={{ padding: '20px 24px 32px' }}>
       <div
         style={{
           display: 'flex',
           alignItems: 'flex-end',
           justifyContent: 'space-between',
           marginBottom: 4,
+          gap: 16,
+          flexWrap: 'wrap',
         }}
       >
         <div>
@@ -379,17 +277,68 @@ export default function Overview() {
           icon={<DownloadOutlined />}
           loading={exporting}
           onClick={handleExport}
-          style={{ borderRadius: 8 }}
         >
           导出全库备份
         </Button>
       </div>
 
+      <SectionTitle>本周动态</SectionTitle>
+      <Row gutter={16} wrap={false} style={{ marginBottom: 24 }}>
+        {[
+          {
+            icon: <FireOutlined />,
+            label: '本周活跃',
+            value: totals.weekActive,
+            colors: TILE_COLORS[1],
+          },
+          {
+            icon: <TeamOutlined />,
+            label: '本周注册',
+            value: totals.weekRegistered,
+            colors: TILE_COLORS[0],
+            onClick: () => navigate('/users'),
+          },
+          {
+            icon: <PlusOutlined />,
+            label: '本周创建任务',
+            value: totals.weekCreatedTasks,
+            colors: TILE_COLORS[0],
+            onClick: () => navigate('/tasks'),
+          },
+          {
+            icon: <CheckOutlined />,
+            label: '本周完成任务',
+            value: totals.weekCompletedTasks,
+            colors: TILE_COLORS[4],
+            onClick: () => navigate('/tasks'),
+          },
+          {
+            icon: <TrophyOutlined />,
+            label: '本周完成心愿',
+            value: totals.weekCompletedWishes,
+            colors: TILE_COLORS[3],
+            onClick: () => navigate('/wishes'),
+          },
+        ].map(({ icon, label, value, colors, onClick }) => (
+          <Col key={label} flex="1" style={{ minWidth: 0 }}>
+            <StatTile icon={icon} label={label} value={value} fg={colors.fg} bg={colors.bg} onClick={onClick} />
+          </Col>
+        ))}
+      </Row>
+
       <SectionTitle>核心指标</SectionTitle>
       <Row gutter={[16, 16]}>
-        {statTiles.map(([icon, label, value, colors, warn]) => (
-          <Col key={label} xs={12} sm={8} md={6} lg={24 / 7}>
-            <StatTile icon={icon} label={label} value={value} fg={colors?.fg} bg={colors?.bg} warn={warn} />
+        {statTiles.map(({ icon, label, value, colors, warn, onClick }) => (
+          <Col key={label} xs={12} sm={8} md={6} lg={4}>
+            <StatTile
+              icon={icon}
+              label={label}
+              value={value}
+              fg={colors?.fg}
+              bg={colors?.bg}
+              warn={warn}
+              onClick={onClick}
+            />
           </Col>
         ))}
       </Row>
@@ -397,50 +346,111 @@ export default function Overview() {
       <SectionTitle>本月资源用量</SectionTitle>
       <Card size="small" variant="borderless" style={CARD_STYLE}>
         {!quota ? (
-          <Spin />
+          <Skeleton active paragraph={{ rows: 2 }} />
         ) : !quota.available ? (
           <span style={{ color: MUTED }}>
             未配置腾讯云密钥（TC_SECRET_ID/TC_SECRET_KEY），配置后可看数据库/函数/存储用量
           </span>
         ) : (
-          <Row gutter={[24, 16]}>
-            {Object.entries(quota.metrics ?? {}).map(([key, m]) => {
-              const label = QUOTA_LABELS[key] ?? key;
-              if (m.used == null)
-                return (
-                  <Col key={key} xs={24} sm={12} lg={6}>
-                    <div style={{ color: MUTED, fontSize: 13, marginBottom: 4 }}>{label}</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: INK }}>—</div>
-                  </Col>
-                );
-              // limit 拿得到才画进度条 + 70%/90% 预警；拿不到（目前恒 null）只显示用量和月底预估
-              if (m.limit) {
-                const pct = Math.round((m.used / m.limit) * 100);
-                const status = pct >= 90 ? 'exception' : undefined;
-                const color = pct >= 90 ? undefined : pct >= 70 ? ORANGE : BLUE;
+          <>
+            {quota.summary && (() => {
+              const { limit, used, unit, packageName } = quota.summary;
+              const pct = Math.min(100, Math.round((used / limit) * 100));
+              const forecast = projectQuota(used, limit);
+              const barColor =
+                forecast.status === 'exceeded' || pct >= 90
+                  ? undefined
+                  : pct >= 70
+                    ? CHART_ORANGE
+                    : CHART_BLUE;
+              return (
+                <div
+                  style={{
+                    marginBottom: 20,
+                    paddingBottom: 20,
+                    borderBottom: `1px solid ${LINE}`,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ color: MUTED, fontSize: 13, marginBottom: 4 }}>
+                        本月资源点{packageName ? ` · ${packageName}` : ''}
+                      </div>
+                      <div className="tabular-nums" style={{ fontSize: 22, fontWeight: 700, color: INK }}>
+                        已用 {used.toLocaleString()} / 共 {limit.toLocaleString()} {unit}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="tabular-nums" style={{ fontSize: 20, fontWeight: 700, color: INK }}>
+                        {pct}%
+                      </div>
+                      <div style={{ color: MUTED, fontSize: 12 }}>已消耗</div>
+                    </div>
+                  </div>
+                  <Progress
+                    percent={pct}
+                    status={forecast.status === 'exceeded' || pct >= 90 ? 'exception' : undefined}
+                    strokeColor={barColor}
+                    style={{ margin: '12px 0 8px' }}
+                  />
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color:
+                        forecast.status === 'exceeded' || forecast.status === 'warn'
+                          ? WARN
+                          : MUTED,
+                    }}
+                  >
+                    {forecast.message}
+                  </div>
+                </div>
+              );
+            })()}
+            <Row gutter={[24, 16]}>
+              {Object.entries(quota.metrics ?? {}).map(([key, m]) => {
+                const label = QUOTA_LABELS[key] ?? key;
+                const unit = METRIC_UNITS[key] ?? '';
+                if (m.used == null)
+                  return (
+                    <Col key={key} xs={24} sm={12} lg={6}>
+                      <div style={{ color: MUTED, fontSize: 13, marginBottom: 4 }}>{label}</div>
+                      <div className="tabular-nums" style={{ fontSize: 20, fontWeight: 700, color: INK }}>—</div>
+                    </Col>
+                  );
+                const projected = projectMetricEnd(m.used);
                 return (
                   <Col key={key} xs={24} sm={12} lg={6}>
                     <div style={{ color: MUTED, fontSize: 13, marginBottom: 6 }}>{label}</div>
-                    <Progress percent={pct} status={status} strokeColor={color} />
-                    <div style={{ color: MUTED, fontSize: 12 }}>
-                      {m.used.toLocaleString()} / {m.limit.toLocaleString()}
+                    {m.limit ? (
+                      <>
+                        <Progress
+                          percent={Math.min(100, Math.round((m.used / m.limit) * 100))}
+                          size="small"
+                          strokeColor={CHART_BLUE}
+                        />
+                        <div className="tabular-nums" style={{ color: INK, fontSize: 13, marginTop: 4 }}>
+                          已用 {m.used.toLocaleString()} / 共 {m.limit.toLocaleString()} {unit}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="tabular-nums" style={{ fontSize: 20, fontWeight: 700, color: INK }}>
+                        {m.used.toLocaleString()} {unit}
+                      </div>
+                    )}
+                    {m.points != null && m.points > 0 && (
+                      <div style={{ color: MUTED, fontSize: 12, marginTop: 4 }}>
+                        约合 {m.points.toLocaleString()} 资源点
+                      </div>
+                    )}
+                    <div style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>
+                      按当前速度月末约 {projected.toLocaleString()} {unit}
                     </div>
                   </Col>
                 );
-              }
-              return (
-                <Col key={key} xs={24} sm={12} lg={6}>
-                  <div style={{ color: MUTED, fontSize: 13, marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: INK }}>
-                    {m.used.toLocaleString()}
-                  </div>
-                  <div style={{ color: MUTED, fontSize: 12 }}>
-                    照当前速度本月约 {projectMonthEnd(m.used).toLocaleString()}
-                  </div>
-                </Col>
-              );
-            })}
-          </Row>
+              })}
+            </Row>
+          </>
         )}
       </Card>
 
@@ -448,23 +458,31 @@ export default function Overview() {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={14}>
           <Card title="近 30 天 · 新增用户与 DAU" size="small" variant="borderless" style={CARD_STYLE}>
-            <ReactECharts option={trendOption} style={{ height: 280 }} />
+            <ReactECharts
+              option={trendOption(
+                days,
+                series.signups.map(([, v]) => v),
+                series.dau.map(([, v]) => v),
+              )}
+              style={{ height: 280 }}
+            />
           </Card>
         </Col>
         <Col xs={24} lg={10}>
           <Card title="近 30 天 · 登录趋势" size="small" variant="borderless" style={CARD_STYLE}>
-            <ReactECharts option={loginOption} style={{ height: 280 }} />
+            <ReactECharts
+              option={barOption(days, series.logins.map(([, v]) => v))}
+              style={{ height: 280 }}
+            />
           </Card>
         </Col>
       </Row>
 
       <SectionTitle>热度与分布</SectionTitle>
-      {/* 同一行内每张图统一高度——之前按条目数动态算高度，行内几张图参差不齐，
-          一行三张、一行两张各自固定一个高度，图表内部留白比东拼西凑的卡片高度更耐看 */}
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12} lg={8}>
           <Card title="留存率（%，近 30 天注册用户）" size="small" variant="borderless" style={CARD_STYLE}>
-            <ReactECharts option={hbarOption(retentionData, ORANGE)} style={{ height: ROW_A_HEIGHT }} />
+            <ReactECharts option={hbarOption(retentionData, CHART_ORANGE)} style={{ height: ROW_A_HEIGHT }} />
           </Card>
         </Col>
         <Col xs={24} md={12} lg={8}>
@@ -475,7 +493,7 @@ export default function Overview() {
         <Col xs={24} md={12} lg={8}>
           <Card title="功能热度 Top（近 7 天）" size="small" variant="borderless" style={CARD_STYLE}>
             {topEvents.length === 0 ? (
-              <EmptyChart height={ROW_A_HEIGHT}>暂无埋点数据</EmptyChart>
+              <EmptyState height={ROW_A_HEIGHT}>暂无埋点数据</EmptyState>
             ) : (
               <ReactECharts option={hbarOption(topEvents)} style={{ height: ROW_A_HEIGHT }} />
             )}
@@ -484,7 +502,7 @@ export default function Overview() {
         <Col xs={24} md={12} lg={12}>
           <Card title="心愿热度 Top10" size="small" variant="borderless" style={CARD_STYLE}>
             {topWishes.length === 0 ? (
-              <EmptyChart height={ROW_B_HEIGHT}>暂无数据</EmptyChart>
+              <EmptyState height={ROW_B_HEIGHT}>暂无数据</EmptyState>
             ) : (
               <ReactECharts
                 option={hbarOption(topWishes.map((w) => [w.title, w.count]))}
@@ -496,16 +514,17 @@ export default function Overview() {
         <Col xs={24} md={12} lg={12}>
           <Card title="景点打卡 Top10" size="small" variant="borderless" style={CARD_STYLE}>
             {topPlaces.length === 0 ? (
-              <EmptyChart height={ROW_B_HEIGHT}>暂无数据</EmptyChart>
+              <EmptyState height={ROW_B_HEIGHT}>暂无数据</EmptyState>
             ) : (
               <ReactECharts
-                option={hbarOption(topPlaces.map((p) => [p.place, p.count]), ORANGE)}
+                option={hbarOption(topPlaces.map((p) => [p.place, p.count]), CHART_ORANGE)}
                 style={{ height: ROW_B_HEIGHT }}
               />
             )}
           </Card>
         </Col>
       </Row>
+    </div>
     </div>
   );
 }

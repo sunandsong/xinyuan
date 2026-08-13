@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Layout, Menu, Button, type MenuProps } from 'antd';
+import { Button, Layout, Menu, type MenuProps } from 'antd';
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -42,9 +42,8 @@ import BlockedWords from './pages/BlockedWords';
 import Announcements from './pages/Announcements';
 import DemoUsers from './pages/DemoUsers';
 import AuditLog from './pages/AuditLog';
+import { BG, GRADIENT, INK, LINE, MUTED, PAGE_META } from './theme';
 
-// 用真正的 SubMenu（有 icon，点了会展开/收起）而不是 antd 的 group 类型——
-// group 只是个不可点的分类标签，子项一直平铺显示，压根没有「展开」这回事。
 const menuItems: MenuProps['items'] = [
   { key: '/', icon: <DashboardOutlined />, label: '首页' },
   { key: '/users', icon: <TeamOutlined />, label: '用户' },
@@ -79,7 +78,6 @@ const menuItems: MenuProps['items'] = [
   { key: '/audit-log', icon: <FileSearchOutlined />, label: '操作日志' },
 ];
 
-/** 当前路由在哪个分组下——刷新到子页面时对应分组要展开，不然菜单看着像迷路了 */
 const GROUP_OF: Record<string, string> = {
   '/wishes': 'group-data',
   '/tasks': 'group-data',
@@ -97,40 +95,49 @@ const GROUP_OF: Record<string, string> = {
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  // 默认展开当前路由所在的分组；用户手动折叠/展开后跟手，不强制弹回默认态
   const [openKeys, setOpenKeys] = useState<string[]>(() => {
     const g = GROUP_OF[location.pathname];
     return g ? [g] : [];
   });
 
+  const meta = PAGE_META[location.pathname] ?? { title: '管理端' };
+
   return (
-    // 整页固定 100vh、禁止外层滚动；滚动只发生在右侧 Content 内部，
-    // 侧栏/顶栏永远钉在原地——之前用 minHeight 撑出整页滚动，长表格一多
-    // 侧边菜单和顶部标题都跟着跑没了。
     <Layout style={{ height: '100vh', overflow: 'hidden' }}>
-      <Layout.Sider width={210} style={{ height: '100vh', overflowY: 'auto' }}>
+      <Layout.Sider
+        width={220}
+        theme="light"
+        style={{
+          height: '100vh',
+          overflowY: 'auto',
+          borderRight: `1px solid ${LINE}`,
+          background: '#fff',
+        }}
+      >
+        <div style={{ background: GRADIENT, height: 3 }} />
         <div
           style={{
-            color: '#fff',
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            padding: '18px 0 18px 24px', // 24px 跟 antd Menu 一级项的左内边距对齐
-            fontWeight: 'bold',
-            fontSize: 16,
+            gap: 10,
+            padding: '20px 20px 16px',
           }}
         >
-          <img src="/logo.png" alt="" style={{ width: 24, height: 24 }} />
-          人生清单
+          <img src="/logo.png" alt="" style={{ width: 28, height: 28 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: INK, lineHeight: 1.2 }}>人生清单</div>
+            <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>管理后台</div>
+          </div>
         </div>
         <Menu
-          theme="dark"
+          theme="light"
           mode="inline"
           selectedKeys={[location.pathname]}
           openKeys={openKeys}
           onOpenChange={(keys) => setOpenKeys(keys)}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
+          style={{ borderInlineEnd: 'none' }}
         />
       </Layout.Sider>
       <Layout style={{ height: '100vh' }}>
@@ -142,16 +149,18 @@ function AdminLayout() {
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '0 24px',
+            borderBottom: `1px solid ${LINE}`,
+            height: 56,
           }}
         >
-          <span style={{ fontSize: 18, fontWeight: 'bold' }}>人生清单 · 管理端</span>
+          <div style={{ fontSize: 18, fontWeight: 600, color: INK, lineHeight: 1.3 }}>
+            {meta.title}
+          </div>
           <Button icon={<LogoutOutlined />} onClick={clearKey}>
             退出登录
           </Button>
         </Layout.Header>
-        {/* 淡灰画布跟 App 端 T.bg 对齐——各页面的白色卡片/表格铺在上面才有层次，
-            之前整片纯白背景配白卡片，页面显得很平 */}
-        <Layout.Content style={{ margin: 24, background: '#F2F3F7', overflowY: 'auto', minHeight: 0 }}>
+        <Layout.Content style={{ background: BG, overflow: 'hidden', minHeight: 0 }}>
           <Routes>
             <Route path="/" element={<Overview />} />
             <Route path="/users" element={<Users />} />

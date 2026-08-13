@@ -75,6 +75,10 @@ export interface Db {
   allUsers(): Promise<UserProfile[]>;
   /** 全部未删除心愿（跨用户，用于 stats 汇总 / 用户列表按 uid 聚合 done/total） */
   allWishes(): Promise<Wish[]>;
+  /** 全部未删除任务（跨用户，用于 stats 今日创建/完成统计） */
+  allTasks(): Promise<Task[]>;
+  /** 全部未删除时光胶囊（跨用户，用于用户穿透列表过滤） */
+  allLetters(): Promise<Letter[]>;
   /** 全部登录日志（供 stats 的 dau/留存内存计算，一次拉全量） */
   allLogins(): Promise<Array<{ uid: string; at: number }>>;
   /** 全部行为埋点（供 stats 的 topEvents 内存计算，一次拉全量） */
@@ -478,6 +482,24 @@ class CloudDb implements Db {
   async allWishes(): Promise<Wish[]> {
     const r = await this.db
       .collection(COL.wishes)
+      .where({ deleted: this.cmd.neq(true) })
+      .limit(QUERY_LIMIT)
+      .get();
+    return r.data ?? [];
+  }
+
+  async allTasks(): Promise<Task[]> {
+    const r = await this.db
+      .collection(COL.tasks)
+      .where({ deleted: this.cmd.neq(true) })
+      .limit(QUERY_LIMIT)
+      .get();
+    return r.data ?? [];
+  }
+
+  async allLetters(): Promise<Letter[]> {
+    const r = await this.db
+      .collection(COL.letters)
       .where({ deleted: this.cmd.neq(true) })
       .limit(QUERY_LIMIT)
       .get();

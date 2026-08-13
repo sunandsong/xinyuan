@@ -3,6 +3,7 @@ import { Input, Switch } from 'antd';
 import { useRef } from 'react';
 import { message } from 'antd';
 import { api } from '../api';
+import { spotForm } from '../crudForms';
 import CrudTable from '../components/CrudTable';
 
 interface Spot {
@@ -14,7 +15,7 @@ interface Spot {
   enabled?: boolean;
 }
 
-/** 景点库（spots）：App 定位打卡的 5A 景区坐标表。经纬度用 JSON 编辑弹窗改。 */
+/** 景点库（spots）：App 定位打卡的 5A 景区坐标表。 */
 export default function Attractions() {
   const refresh = useRef<(() => void) | null>(null);
   const [province, setProvince] = useState('');
@@ -32,7 +33,8 @@ export default function Attractions() {
     <CrudTable
       col="spots"
       refreshRef={refresh}
-      pageSize={50}
+      editForm={spotForm}
+      creatable
       where={{ province }}
       filters={
         <Input.Search
@@ -42,7 +44,6 @@ export default function Attractions() {
           onSearch={setProvince}
         />
       }
-      createDefaults={() => ({ name: '', province: '', lat: 0, lng: 0, sort: 999, enabled: true })}
       columns={[
         { title: '景点', dataIndex: 'name' },
         { title: '省份', dataIndex: 'province', width: 100 },

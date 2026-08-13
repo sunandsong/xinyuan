@@ -6,3 +6,4 @@ cloudfunctions/
 .env.*
 
 cloudbaserc.json
+.tmp-sensitive-words/

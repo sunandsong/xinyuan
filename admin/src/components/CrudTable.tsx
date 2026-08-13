@@ -1,90 +1,97 @@
 import { useMemo, useState, type ReactNode, type RefObject } from 'react';
-import { Alert, Button, Input, Modal, Popconfirm, Space, Switch, Table, message } from 'antd';
+import { Alert, Button, Popconfirm, Space, Switch, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '../api';
 import { usePagedList } from '../paged';
+import AdminModal from './AdminModal';
+import AdminTable from './AdminTable';
+import EmptyState from './EmptyState';
+import { ActionBtn, TableActions } from './TableActions';
+import TablePage from './TablePage';
 
-/** 通用内容表 CRUD：分页 + f_ 等值过滤 + 新建/JSON 编辑 + 删除。
- * softDelete（wishes/tasks/letters 三张同步表）：删除是软删（upsert deleted:true），
- * 带「看已删除（可恢复）」开关，开关打开后行操作变「恢复」。
- * 内容配置表（Task 6 的十张）：物理删，无开关。 */
-export default function CrudTable({
+export interface CrudFormContext {
+  where: Record<string, string>;
+}
+
+export interface CrudEditForm<V> {
+  modalTitle: (ctx: { id: string; isNew: boolean }) => string;
+  width?: number;
+  defaults: (ctx: CrudFormContext) => V;
+  fromRow: (row: Record<string, unknown> | null, ctx: CrudFormContext) => V;
+  toDoc: (values: V, row: Record<string, unknown> | null, ctx: CrudFormContext) => Record<string, unknown>;
+  validate?: (values: V) => string | null;
+  Form: (props: { values: V; onChange: (patch: Partial<V>) => void }) => ReactNode;
+}
+
+/** 通用内容表 CRUD：分页 + f_ 等值过滤 + 表单编辑 + 删除。 */
+export default function CrudTable<V = Record<string, unknown>>({
   col,
   columns,
   where = {},
   filters,
-  createDefaults,
+  editForm,
+  creatable = false,
   softDelete = false,
-  pageSize = 20,
   showActions = true,
   refreshRef,
   onData,
+  subtitle,
+  toolbarExtra,
+  extra,
+  embedded = false,
 }: {
   col: string;
   columns: ColumnsType<any>;
-  /** 等值过滤（不带 f_ 前缀，这里统一加） */
   where?: Record<string, string>;
-  /** 额外的筛选控件，渲染在工具栏左侧 */
   filters?: ReactNode;
-  /** 新建时弹窗里的初始文档；不传则不显示新建按钮 */
-  createDefaults?: () => Record<string, unknown>;
+  editForm?: CrudEditForm<V>;
+  creatable?: boolean;
   softDelete?: boolean;
-  pageSize?: number;
-  /** false 时不渲染默认的「编辑/删」操作列（页面自己在业务列里放操作，如荣誉定义只许改文案） */
   showActions?: boolean;
-  /** 页面级写操作（行内开关、上移下移等）完成后调 refreshRef.current() 重拉当前页 */
   refreshRef?: RefObject<(() => void) | null>;
-  /** 每次取到数据回调一份给页面（上移下移要看相邻行的 sort 值） */
   onData?: (items: any[]) => void;
+  subtitle?: string;
+  toolbarExtra?: ReactNode;
+  extra?: ReactNode;
+  embedded?: boolean;
 }) {
   const [showDeleted, setShowDeleted] = useState(false);
+  const formCtx = useMemo<CrudFormContext>(() => ({ where }), [where]);
 
   const query = useMemo(() => {
     const q: Record<string, string> = {};
     for (const [k, v] of Object.entries(where)) if (v !== '') q[`f_${k}`] = v;
-    // 同步表的记录 deleted 字段恒存在（App 端 toJson 总是写），等值过滤没有漏网之鱼
     if (softDelete) q.f_deleted = showDeleted ? 'true' : 'false';
     return q;
   }, [where, softDelete, showDeleted]);
 
-  const { items, total, page, setPage, loading, reload } = usePagedList<any>(
-    `/admin/content/${col}`,
-    pageSize,
-    query,
-  );
+  const { items, pagination, loading, reload } = usePagedList<any>(`/admin/content/${col}`, query);
   if (refreshRef) refreshRef.current = reload;
   onData?.(items);
 
-  // JSON 编辑弹窗：null=关闭；id 为空串=新建
-  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
-  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: string; row: Record<string, unknown> | null } | null>(null);
+  const [values, setValues] = useState<V | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  function openEdit(row?: any) {
-    if (row) {
-      const { _id, ...doc } = row;
-      setEditing({ id: _id, text: JSON.stringify(doc, null, 2) });
-    } else {
-      setEditing({ id: '', text: JSON.stringify(createDefaults?.() ?? {}, null, 2) });
-    }
-    setJsonError(null);
+  function openEdit(row?: Record<string, unknown>) {
+    if (!editForm) return;
+    setEditing({ id: String(row?._id ?? ''), row: row ?? null });
+    setValues(editForm.fromRow(row ?? null, formCtx));
+    setFormError(null);
   }
 
   async function save() {
-    if (!editing) return;
-    let doc: unknown;
-    try {
-      doc = JSON.parse(editing.text);
-    } catch (e: any) {
-      setJsonError(`JSON 不合法：${e.message}`);
-      return;
-    }
-    if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
-      setJsonError('必须是一个 JSON 对象');
+    if (!editing || !editForm || !values) return;
+    const err = editForm.validate?.(values);
+    if (err) {
+      setFormError(err);
       return;
     }
     setSaving(true);
     try {
+      const doc = editForm.toDoc(values, editing.row, formCtx);
+      if (formCtx.where.uid && !doc.uid) doc.uid = formCtx.where.uid;
       await api.post(`/admin/content/${col}`, { id: editing.id || undefined, doc });
       message.success(editing.id ? '已保存' : '已新建');
       setEditing(null);
@@ -116,78 +123,85 @@ export default function CrudTable({
     }
   }
 
-  const actionColumn = {
-    title: '操作',
-    width: 150,
-    render: (_: unknown, row: any) => (
-      <Space>
-        <Button size="small" onClick={() => openEdit(row)}>
-          编辑
-        </Button>
-        {softDelete && showDeleted ? (
-          <Button size="small" onClick={() => restore(row._id)}>
-            恢复
-          </Button>
-        ) : (
-          <Popconfirm title={softDelete ? '软删这条记录？' : '删除这条记录？'} onConfirm={() => remove(row._id)}>
-            <Button size="small" danger>
-              {softDelete ? '软删' : '删'}
-            </Button>
-          </Popconfirm>
-        )}
-      </Space>
-    ),
-  };
+  const actionColumn =
+    showActions && editForm
+      ? {
+          title: '操作',
+          width: softDelete ? 168 : 148,
+          render: (_: unknown, row: any) => (
+            <TableActions>
+              <ActionBtn variant="primary" onClick={() => openEdit(row)}>
+                编辑
+              </ActionBtn>
+              {softDelete && showDeleted ? (
+                <ActionBtn onClick={() => restore(row._id)}>恢复</ActionBtn>
+              ) : (
+                <Popconfirm title={softDelete ? '软删这条记录？' : '删除这条记录？'} onConfirm={() => remove(row._id)}>
+                  <ActionBtn variant="danger">{softDelete ? '软删除' : '删除'}</ActionBtn>
+                </Popconfirm>
+              )}
+            </TableActions>
+          ),
+        }
+      : null;
 
-  return (
-    <div style={{ padding: 24 }}>
-      <Space style={{ marginBottom: 16 }} wrap>
-        {filters}
-        {createDefaults && (
-          <Button type="primary" onClick={() => openEdit()}>
-            新建
-          </Button>
-        )}
-        {softDelete && (
-          <Space>
-            <Switch checked={showDeleted} onChange={setShowDeleted} />
-            <span>看已删除（可恢复）</span>
-          </Space>
-        )}
-      </Space>
-      <Table
+  const toolbar = filters || toolbarExtra || (creatable && editForm) || softDelete ? (
+    <Space wrap>
+      {filters}
+      {toolbarExtra}
+      {creatable && editForm && (
+        <Button type="primary" onClick={() => openEdit()}>
+          新建
+        </Button>
+      )}
+      {softDelete && (
+        <Space>
+          <Switch checked={showDeleted} onChange={setShowDeleted} />
+          <span>看已删除（可恢复）</span>
+        </Space>
+      )}
+    </Space>
+  ) : null;
+
+  const EditForm = editForm?.Form;
+
+  const table = (
+    <>
+      {embedded && toolbar ? <div className="admin-table-page__toolbar">{toolbar}</div> : null}
+      <AdminTable
         rowKey="_id"
         loading={loading}
         dataSource={items}
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: false,
-          showTotal: (t) => `共 ${t} 条`,
-          onChange: setPage,
+        size="middle"
+        locale={{
+          emptyText: <EmptyState height={160}>暂无数据</EmptyState>,
         }}
-        columns={showActions ? [...columns, actionColumn] : columns}
+        paginationBind={pagination}
+        columns={actionColumn ? [...columns, actionColumn] : columns}
       />
-      <Modal
-        title={editing?.id ? `编辑（${editing.id}）` : '新建'}
+      {editForm && EditForm && values && (
+      <AdminModal
+        title={editing ? editForm.modalTitle({ id: editing.id, isNew: !editing.id }) : ''}
         open={editing !== null}
         onCancel={() => setEditing(null)}
         onOk={save}
         confirmLoading={saving}
-        width={640}
+        width={editForm.width ?? 520}
       >
-        {jsonError && <Alert type="error" message={jsonError} style={{ marginBottom: 8 }} />}
-        <Input.TextArea
-          rows={16}
-          style={{ fontFamily: 'monospace', fontSize: 12 }}
-          value={editing?.text ?? ''}
-          onChange={(e) => {
-            setEditing((cur) => (cur ? { ...cur, text: e.target.value } : cur));
-            setJsonError(null);
-          }}
-        />
-      </Modal>
-    </div>
+        {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 16 }} />}
+        <EditForm values={values} onChange={(patch) => setValues((cur) => (cur ? { ...cur, ...patch } : cur))} />
+      </AdminModal>
+      )}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="admin-table-embedded">{table}</div>;
+  }
+
+  return (
+    <TablePage extra={extra} subtitle={subtitle} toolbar={toolbar}>
+      {table}
+    </TablePage>
   );
 }

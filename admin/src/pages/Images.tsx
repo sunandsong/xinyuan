@@ -1,8 +1,12 @@
 import { useRef, useState } from 'react';
-import { Button, Image, Input, Modal, Space, Switch, Tabs, message } from 'antd';
+import { Button, Input, Space, Switch, Tabs, message } from 'antd';
 import { api } from '../api';
+import { FormField, FormSection } from '../components/AdminForm';
+import AdminModal from '../components/AdminModal';
+import CloudImage from '../components/CloudImage';
 import CrudTable from '../components/CrudTable';
-import ImgUpload from '../components/ImgUpload';
+import { ActionBtn, TableActions } from '../components/TableActions';
+import ImgUpload, { CROP_PRESETS } from '../components/ImgUpload';
 
 interface ImgRow {
   _id: string;
@@ -21,6 +25,8 @@ const TABLES = [
 
 /** 单张图片素材表：缩略图 + 标语 + 排序 + 启停 + 换图/上传 */
 function ImgTable({ col }: { col: string }) {
+  const uploadPreset = col === 'hero_images' ? 'hero' : 'poster';
+  const cropHint = CROP_PRESETS[uploadPreset].hint;
   const refresh = useRef<(() => void) | null>(null);
   const [editing, setEditing] = useState<{ id: string; url: string; slogan: string; sort: number } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -62,7 +68,6 @@ function ImgTable({ col }: { col: string }) {
       <CrudTable
         col={col}
         refreshRef={refresh}
-        pageSize={50}
         filters={
           <Button
             type="primary"
@@ -78,9 +83,14 @@ function ImgTable({ col }: { col: string }) {
             width: 90,
             render: (v: string) =>
               v ? (
-                <Image src={v} width={64} height={64} style={{ objectFit: 'cover', borderRadius: 6 }} />
+                <CloudImage
+                  url={v}
+                  width={64}
+                  height={64}
+                  style={{ objectFit: 'cover', borderRadius: 6 }}
+                />
               ) : (
-                <span style={{ color: '#ccc' }}>无图</span>
+                <span style={{ color: '#ccc', fontSize: 12 }}>待上传</span>
               ),
           },
           {
@@ -98,41 +108,46 @@ function ImgTable({ col }: { col: string }) {
             ),
           },
           {
-            title: '素材',
-            width: 90,
+            title: '操作',
+            width: 88,
             render: (_: unknown, row: ImgRow) => (
-              <Button
-                size="small"
-                onClick={() =>
-                  setEditing({
-                    id: row._id,
-                    url: row.url ?? '',
-                    slogan: row.slogan ?? '',
-                    sort: row.sort ?? 0,
-                  })
-                }
-              >
-                编辑素材
-              </Button>
+              <TableActions>
+                <ActionBtn
+                  variant="primary"
+                  onClick={() =>
+                    setEditing({
+                      id: row._id,
+                      url: row.url ?? '',
+                      slogan: row.slogan ?? '',
+                      sort: row.sort ?? 0,
+                    })
+                  }
+                >
+                  编辑
+                </ActionBtn>
+              </TableActions>
             ),
           },
         ]}
       />
-      <Modal
+      <AdminModal
         title={editing?.id ? '编辑素材' : '新建素材'}
         open={editing !== null}
         onCancel={() => setEditing(null)}
         onOk={save}
         confirmLoading={saving}
+        width={560}
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <FormSection title="预览">
           {editing?.url ? (
-            <Image src={editing.url} width={120} height={120} style={{ objectFit: 'cover', borderRadius: 8 }} />
+            <CloudImage url={editing.url} width={120} height={120} style={{ objectFit: 'cover', borderRadius: 10 }} />
           ) : (
-            <span style={{ color: '#999' }}>还没有图片</span>
+            <span style={{ color: '#a2a4ae', fontSize: 13 }}>还没有图片</span>
           )}
-          <Space>
-            <ImgUpload onDone={(url) => setEditing((c) => (c ? { ...c, url } : c))} />
+        </FormSection>
+        <FormSection title="图片" desc={cropHint}>
+          <Space wrap>
+            <ImgUpload preset={uploadPreset} onDone={(url) => setEditing((c) => (c ? { ...c, url } : c))} />
             <Input
               placeholder="或直接粘贴图片 URL"
               style={{ width: 280 }}
@@ -140,21 +155,18 @@ function ImgTable({ col }: { col: string }) {
               onChange={(e) => setEditing((c) => (c ? { ...c, url: e.target.value } : c))}
             />
           </Space>
-          <div>标语（\n 换行）：</div>
+        </FormSection>
+        <FormField label="标语" hint="支持 \\n 换行">
           <Input.TextArea
             rows={3}
             value={editing?.slogan ?? ''}
             onChange={(e) => setEditing((c) => (c ? { ...c, slogan: e.target.value } : c))}
           />
-          <div>排序：</div>
-          <Input
-            type="number"
-            style={{ width: 120 }}
-            value={editing?.sort ?? 0}
-            onChange={(e) => setEditing((c) => (c ? { ...c, sort: Number(e.target.value) || 0 } : c))}
-          />
-        </Space>
-      </Modal>
+        </FormField>
+        <FormField label="排序">
+          <Input type="number" style={{ width: 120 }} value={editing?.sort ?? 0} onChange={(e) => setEditing((c) => (c ? { ...c, sort: Number(e.target.value) || 0 } : c))} />
+        </FormField>
+      </AdminModal>
     </>
   );
 }
@@ -162,7 +174,7 @@ function ImgTable({ col }: { col: string }) {
 export default function Images() {
   return (
     <Tabs
-      style={{ padding: '0 24px' }}
+      className="admin-table-tabs"
       items={TABLES.map((t) => ({ key: t.col, label: t.label, children: <ImgTable col={t.col} /> }))}
     />
   );
