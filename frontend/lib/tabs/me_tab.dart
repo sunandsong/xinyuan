@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/api.dart';
 import '../data.dart';
 import '../pages/login_page.dart';
+import '../pages/notification_settings_page.dart';
 import '../pages/world_page.dart';
 import '../pages/misc_pages.dart';
 import '../pages/tree_page.dart';
@@ -60,6 +61,12 @@ class MeTab extends StatelessWidget {
                       '时光胶囊',
                       '${data.letters.length} 封',
                       () => _push(context, const CapsulePage()),
+                    ),
+                    _row(
+                      context,
+                      '通知提醒',
+                      '',
+                      () => _push(context, const NotificationSettingsPage()),
                     ),
                     _row(
                       context,
