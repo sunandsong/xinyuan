@@ -73,9 +73,10 @@ class _TasksTabState extends State<TasksTab>
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-              color: Color(0x333EA983),
-              blurRadius: 20,
-              offset: Offset(0, 8)),
+            color: Color(0x333EA983),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
         ],
       ),
       child: Column(
@@ -97,33 +98,35 @@ class _TasksTabState extends State<TasksTab>
                 return SizedBox(
                   height: _weekH + (monthH - _weekH) * t,
                   child: ClipRect(
-                    child: Stack(children: [
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: monthH,
-                        child: IgnorePointer(
-                          ignoring: t < .5,
-                          child: Opacity(opacity: t, child: _monthGrid()),
-                        ),
-                      ),
-                      if (t < .999)
+                    child: Stack(
+                      children: [
                         Positioned(
                           top: 0,
                           left: 0,
                           right: 0,
-                          height: _weekH,
+                          height: monthH,
                           child: IgnorePointer(
-                            ignoring: t >= .5,
-                            child: Opacity(
-                              // 周视图先淡出，别和月视图糊在一起
-                              opacity: (1 - t * 2).clamp(0.0, 1.0),
-                              child: _weekStrip(),
-                            ),
+                            ignoring: t < .5,
+                            child: Opacity(opacity: t, child: _monthGrid()),
                           ),
                         ),
-                    ]),
+                        if (t < .999)
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: _weekH,
+                            child: IgnorePointer(
+                              ignoring: t >= .5,
+                              child: Opacity(
+                                // 周视图先淡出，别和月视图糊在一起
+                                opacity: (1 - t * 2).clamp(0.0, 1.0),
+                                child: _weekStrip(),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -164,12 +167,15 @@ class _TasksTabState extends State<TasksTab>
                 onTap: _pickMonth,
                 child: SizedBox(
                   width: 66,
-                  child: Text(title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
               _arrow(Icons.chevron_right_rounded, () => _shiftMonth(1)),
@@ -180,8 +186,10 @@ class _TasksTabState extends State<TasksTab>
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => _MonthReportPage(
-                    month: DateTime(selected.year, selected.month))),
+              builder: (_) => _MonthReportPage(
+                month: DateTime(selected.year, selected.month),
+              ),
+            ),
           ),
           child: Container(
             width: 34,
@@ -190,8 +198,11 @@ class _TasksTabState extends State<TasksTab>
               color: Colors.white.withValues(alpha: .2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.ios_share_rounded,
-                size: 18, color: Colors.white),
+            child: const Icon(
+              Icons.ios_share_rounded,
+              size: 18,
+              color: Colors.white,
+            ),
           ),
         ),
       ],
@@ -212,7 +223,10 @@ class _TasksTabState extends State<TasksTab>
   void _shiftMonth(int delta) {
     setState(() {
       selected = DateTime(
-          selected.year, selected.month + delta, selected.day.clamp(1, 28));
+        selected.year,
+        selected.month + delta,
+        selected.day.clamp(1, 28),
+      );
       anchor = DateTime(selected.year, selected.month, 1);
     });
   }
@@ -225,8 +239,14 @@ class _TasksTabState extends State<TasksTab>
     );
     if (picked != null) {
       setState(() {
-        selected = DateTime(picked.year, picked.month,
-            selected.day.clamp(1, DateUtils.getDaysInMonth(picked.year, picked.month)));
+        selected = DateTime(
+          picked.year,
+          picked.month,
+          selected.day.clamp(
+            1,
+            DateUtils.getDaysInMonth(picked.year, picked.month),
+          ),
+        );
         anchor = DateTime(picked.year, picked.month, 1);
       });
     }
@@ -237,25 +257,33 @@ class _TasksTabState extends State<TasksTab>
     final monthAnchor = DateTime(selected.year, selected.month, 1);
     final lead = monthAnchor.weekday % 7; // 周日起
     final start = monthAnchor.subtract(Duration(days: lead));
-    final rows = ((lead + DateUtils.getDaysInMonth(
-                    monthAnchor.year, monthAnchor.month)) /
-            7)
-        .ceil();
+    final rows =
+        ((lead +
+                    DateUtils.getDaysInMonth(
+                      monthAnchor.year,
+                      monthAnchor.month,
+                    )) /
+                7)
+            .ceil();
     return Column(
       key: const ValueKey('month'),
       children: [
         _weekHeader(),
         const SizedBox(height: _gapH),
         for (var r = 0; r < rows; r++)
-          Row(children: [
-            for (var c = 0; c < 7; c++)
-              Expanded(
-                  child: _calCell(start.add(Duration(days: r * 7 + c)),
-                      inMonth: start
-                              .add(Duration(days: r * 7 + c))
-                              .month ==
-                          selected.month)),
-          ]),
+          Row(
+            children: [
+              for (var c = 0; c < 7; c++)
+                Expanded(
+                  child: _calCell(
+                    start.add(Duration(days: r * 7 + c)),
+                    inMonth:
+                        start.add(Duration(days: r * 7 + c)).month ==
+                        selected.month,
+                  ),
+                ),
+            ],
+          ),
       ],
     );
   }
@@ -264,16 +292,22 @@ class _TasksTabState extends State<TasksTab>
     // 高度固定成 _headerH：跟手展开的像素账要按它算
     return SizedBox(
       height: _headerH,
-      child: Row(children: [
-        for (final w in weekNames)
-          Expanded(
-            child: Center(
-              child: Text(w,
+      child: Row(
+        children: [
+          for (final w in weekNames)
+            Expanded(
+              child: Center(
+                child: Text(
+                  w,
                   style: TextStyle(
-                      fontSize: 13, color: Colors.white.withValues(alpha: .6))),
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: .6),
+                  ),
+                ),
+              ),
             ),
-          ),
-      ]),
+        ],
+      ),
     );
   }
 
@@ -301,29 +335,33 @@ class _TasksTabState extends State<TasksTab>
                 color: isSel
                     ? Colors.white
                     : (isToday
-                        ? Colors.white.withValues(alpha: .22)
-                        : Colors.transparent),
+                          ? Colors.white.withValues(alpha: .22)
+                          : Colors.transparent),
               ),
               child: Text(
                 '${d.day}',
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight:
-                      (isSel || isToday) ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight: (isSel || isToday)
+                      ? FontWeight.w600
+                      : FontWeight.w500,
                   fontFeatures: const [FontFeature.tabularFigures()],
                   color: isSel
                       ? T.accent
                       : inMonth
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: .4),
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: .4),
                 ),
               ),
             ),
             if (hol != null)
-              Text(hol,
-                  style: TextStyle(
-                      fontSize: 9.5,
-                      color: Colors.white.withValues(alpha: inMonth ? .7 : .35)))
+              Text(
+                hol,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  color: Colors.white.withValues(alpha: inMonth ? .7 : .35),
+                ),
+              )
             else if (dot != null && !isSel)
               Padding(
                 padding: const EdgeInsets.only(top: 3),
@@ -350,11 +388,14 @@ class _TasksTabState extends State<TasksTab>
       children: [
         _weekHeader(),
         const SizedBox(height: _gapH), // 和月视图同一个间距，跟手切换时不跳
-        Row(children: [
-          for (var i = 0; i < 7; i++)
-            Expanded(
-                child: _calCell(start.add(Duration(days: i)), inMonth: true)),
-        ]),
+        Row(
+          children: [
+            for (var i = 0; i < 7; i++)
+              Expanded(
+                child: _calCell(start.add(Duration(days: i)), inMonth: true),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -368,59 +409,86 @@ class _TasksTabState extends State<TasksTab>
         final active = all.where((t) => !t.done).toList();
         final done = all.where((t) => t.done).toList();
         final today = sameDay(selected, dOnly(DateTime.now()));
-        final label =
-            today ? '今天' : '${md(selected)} · ${weekLabel(selected)}';
+        final label = today ? '今天' : '${md(selected)} · ${weekLabel(selected)}';
         return SheetCard(
           padding: const EdgeInsets.fromLTRB(0, 14, 0, 6),
-          child: all.isEmpty
-              ? Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(label,
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                    const Expanded(
-                      child: Center(
-                        child: Text('这天还没有安排',
-                            style: TextStyle(fontSize: 15, color: T.faint)),
-                      ),
-                    ),
-                  ],
-                )
-              : ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Text(label,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(height: 6),
-                    for (var k = 0; k < active.length; k++)
-                      StaggerIn(index: k, child: _taskRow(active[k])),
-                    if (done.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(14, 8, 14, 2),
-                        child: Text('已完成',
-                            style: TextStyle(fontSize: 15, color: T.faint)),
-                      ),
-                      for (final t in done) _taskRow(t),
-                    ],
-                    const SizedBox(height: 6),
-                  ],
-                ),
+          child: LayoutBuilder(
+            builder: (context, cons) {
+              // 卡片拉满两侧，平板上比手机宽——字号/图标跟着卡片实际
+              // 宽度按比例放大，不然内容照手机尺寸排，看着又扁又空
+              final s = cardContentScale(context, cons.maxWidth);
+              return all.isEmpty
+                  ? Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 18 * s,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              '这天还没有安排',
+                              style: TextStyle(
+                                fontSize: 15 * s,
+                                color: T.faint,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 18 * s,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        for (var k = 0; k < active.length; k++)
+                          StaggerIn(
+                            index: k,
+                            child: _taskRow(active[k], scale: s),
+                          ),
+                        if (done.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
+                            child: Text(
+                              '已完成',
+                              style: TextStyle(
+                                fontSize: 15 * s,
+                                color: T.faint,
+                              ),
+                            ),
+                          ),
+                          for (final t in done) _taskRow(t, scale: s),
+                        ],
+                        const SizedBox(height: 6),
+                      ],
+                    );
+            },
+          ),
         );
       },
     );
   }
 
-  Widget _taskRow(Task t) {
+  Widget _taskRow(Task t, {double scale = 1}) {
     final color = AppData.I.taskColor(t);
     return Slidable(
       key: ValueKey(t.id),
@@ -434,15 +502,19 @@ class _TasksTabState extends State<TasksTab>
             padding: EdgeInsets.zero,
             borderRadius: BorderRadius.zero,
             child: const Center(
-                child: Icon(Icons.event_rounded, color: Colors.white)),
+              child: Icon(Icons.event_rounded, color: Colors.white),
+            ),
           ),
           CustomSlidableAction(
             onPressed: (_) => _confirmDeleteTask(t),
             backgroundColor: const Color(0xFFE05A5A),
             padding: EdgeInsets.zero,
-            borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+            borderRadius: const BorderRadius.horizontal(
+              right: Radius.circular(12),
+            ),
             child: const Center(
-                child: Icon(Icons.delete_outline_rounded, color: Colors.white)),
+              child: Icon(Icons.delete_outline_rounded, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -450,7 +522,10 @@ class _TasksTabState extends State<TasksTab>
         behavior: HitTestBehavior.opaque,
         onTap: () => showEditTaskPage(context, t),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+          padding: EdgeInsets.symmetric(
+            vertical: 8 * scale,
+            horizontal: 14 * scale,
+          ),
           child: Row(
             children: [
               Cb(
@@ -459,13 +534,13 @@ class _TasksTabState extends State<TasksTab>
                 burstColor: color,
                 onTap: () => AppData.I.toggleTask(t),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8 * scale),
               Expanded(
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 220),
                   style: TextStyle(
                     fontFamily: 'MiSans',
-                    fontSize: 18,
+                    fontSize: 18 * scale,
                     color: t.done ? T.faint : T.ink,
                     decoration: t.done ? TextDecoration.lineThrough : null,
                     decorationColor: T.faint,
@@ -473,7 +548,11 @@ class _TasksTabState extends State<TasksTab>
                   child: Text(t.title),
                 ),
               ),
-              WDot(t.done ? T.greyBar : color, glow: !t.done),
+              WDot(
+                t.done ? T.greyBar : color,
+                size: 9.5 * scale,
+                glow: !t.done,
+              ),
             ],
           ),
         ),
@@ -510,8 +589,11 @@ class _TasksTabState extends State<TasksTab>
     setState(() {
       if (expanded) {
         final delta = v < 0 ? 1 : -1;
-        selected = DateTime(selected.year, selected.month + delta,
-            selected.day.clamp(1, 28));
+        selected = DateTime(
+          selected.year,
+          selected.month + delta,
+          selected.day.clamp(1, 28),
+        );
         anchor = DateTime(selected.year, selected.month, 1);
       } else {
         selected = selected.add(Duration(days: v < 0 ? 7 : -7));
@@ -542,10 +624,10 @@ class _MonthReportPageState extends State<_MonthReportPage> {
   int scope = 0; // 0 = 月度, 1 = 年度, 2 = 总计
 
   String _dayLabel(Task t) => switch (scope) {
-        0 => '${t.day.day}日',
-        1 => md(t.day),
-        _ => ymdDots(t.day),
-      };
+    0 => '${t.day.day}日',
+    1 => md(t.day),
+    _ => ymdDots(t.day),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -558,38 +640,49 @@ class _MonthReportPageState extends State<_MonthReportPage> {
           child: ListenableBuilder(
             listenable: AppData.I,
             builder: (context, _) {
-              final done = AppData.I.tasks
-                  .where((t) =>
-                      t.done &&
-                      (scope == 2 || t.day.year == month.year) &&
-                      (scope != 0 || t.day.month == month.month))
-                  .toList()
-                ..sort((a, b) => a.day.compareTo(b.day));
+              final done =
+                  AppData.I.tasks
+                      .where(
+                        (t) =>
+                            t.done &&
+                            (scope == 2 || t.day.year == month.year) &&
+                            (scope != 0 || t.day.month == month.month),
+                      )
+                      .toList()
+                    ..sort((a, b) => a.day.compareTo(b.day));
               final days = done.map((t) => dOnly(t.day)).toSet().length;
-              final wishCount =
-                  done.map((t) => t.wishId).whereType<String>().toSet().length;
+              final wishCount = done
+                  .map((t) => t.wishId)
+                  .whereType<String>()
+                  .toSet()
+                  .length;
               final period = [
                 '${month.month}月',
                 '${month.year}年',
-                '到现在'
+                '到现在',
               ][scope];
               final bigLabel = [
                 '${month.year}.${month.month}',
                 '${month.year}',
-                '总计'
+                '总计',
               ][scope];
               return Column(
                 children: [
                   Row(
                     children: [
                       PillBtn(
-                          icon: Icons.arrow_back_ios_new_rounded,
-                          onTap: () => Navigator.pop(context)),
+                        icon: Icons.arrow_back_ios_new_rounded,
+                        onTap: () => Navigator.pop(context),
+                      ),
                       const Expanded(
                         child: Center(
-                          child: Text('人生清单',
-                              style: TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.w600)),
+                          child: Text(
+                            '人生清单',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 38),
@@ -599,14 +692,18 @@ class _MonthReportPageState extends State<_MonthReportPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      for (final (i, label)
-                          in const [(0, '月度'), (1, '年度'), (2, '总计')])
+                      for (final (i, label) in const [
+                        (0, '月度'),
+                        (1, '年度'),
+                        (2, '总计'),
+                      ])
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: SelChip(
-                              label: label,
-                              selected: scope == i,
-                              onTap: () => setState(() => scope = i)),
+                            label: label,
+                            selected: scope == i,
+                            onTap: () => setState(() => scope = i),
+                          ),
                         ),
                     ],
                   ),
@@ -616,26 +713,36 @@ class _MonthReportPageState extends State<_MonthReportPage> {
                       padding: const EdgeInsets.all(18),
                       child: done.isEmpty
                           ? Center(
-                              child: Text('$period还没有完成的任务',
-                                  style: const TextStyle(
-                                      fontSize: 15, color: T.faint)),
+                              child: Text(
+                                '$period还没有完成的任务',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  color: T.faint,
+                                ),
+                              ),
                             )
                           : ListView(
                               padding: EdgeInsets.zero,
                               children: [
-                                Text(bigLabel,
-                                    style: const TextStyle(
-                                        fontSize: 36,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -1,
-                                        color: T.accent,
-                                        height: 1)),
+                                Text(
+                                  bigLabel,
+                                  style: const TextStyle(
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -1,
+                                    color: T.accent,
+                                    height: 1,
+                                  ),
+                                ),
                                 const SizedBox(height: 10),
-                                Text('$period你${scope == 2 ? '一共' : ''}完成了\n${done.length} 个任务',
-                                    style: const TextStyle(
-                                        fontSize: 19,
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.5)),
+                                Text(
+                                  '$period你${scope == 2 ? '一共' : ''}完成了\n${done.length} 个任务',
+                                  style: const TextStyle(
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.5,
+                                  ),
+                                ),
                                 const SizedBox(height: 14),
                                 _stat('打卡天数', '$days 天'),
                                 if (wishCount > 0)
@@ -644,26 +751,35 @@ class _MonthReportPageState extends State<_MonthReportPage> {
                                 for (final t in done)
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 6),
+                                      vertical: 6,
+                                    ),
                                     child: Row(
                                       children: [
-                                        WDot(AppData.I.taskColor(t),
-                                            glow: false),
+                                        WDot(
+                                          AppData.I.taskColor(t),
+                                          glow: false,
+                                        ),
                                         const SizedBox(width: 8),
                                         Expanded(
-                                          child: Text(t.title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                  fontSize: 16)),
-                                        ),
-                                        Text(_dayLabel(t),
+                                          child: Text(
+                                            t.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
-                                                fontSize: 13,
-                                                color: T.faint,
-                                                fontFeatures: [
-                                                  FontFeature.tabularFigures()
-                                                ])),
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          _dayLabel(t),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: T.faint,
+                                            fontFeatures: [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -672,9 +788,10 @@ class _MonthReportPageState extends State<_MonthReportPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  BigBtn('分享',
-                      onTap: () =>
-                          _showPoster(done, days, wishCount, period)),
+                  BigBtn(
+                    '分享',
+                    onTap: () => _showPoster(done, days, wishCount, period),
+                  ),
                 ],
               );
             },
@@ -684,12 +801,11 @@ class _MonthReportPageState extends State<_MonthReportPage> {
     );
   }
 
-  void _showPoster(
-      List<Task> done, int days, int wishCount, String period) {
+  void _showPoster(List<Task> done, int days, int wishCount, String period) {
     final bigLabel = [
       '${widget.month.year}.${widget.month.month}',
       '${widget.month.year}',
-      '总计'
+      '总计',
     ][scope];
     showPosterShare(
       context,
@@ -706,22 +822,27 @@ class _MonthReportPageState extends State<_MonthReportPage> {
   Widget _stat(String k, String v) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration:
-          const BoxDecoration(border: Border(top: BorderSide(color: T.field))),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: T.field)),
+      ),
       child: Row(
         children: [
           Text(k, style: const TextStyle(fontSize: 15, color: T.muted)),
           const Spacer(),
-          Text(v,
-              style: const TextStyle(
-                  fontSize: 15.5,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: [FontFeature.tabularFigures()])),
+          Text(
+            v,
+            style: const TextStyle(
+              fontSize: 15.5,
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
   }
 }
+
 /// 年月选择器（底部弹层）
 class _MonthPicker extends StatefulWidget {
   const _MonthPicker({required this.initial});
@@ -765,24 +886,34 @@ class _MonthPickerState extends State<_MonthPicker> {
                 onTap: () => setState(() => year--),
                 child: const Padding(
                   padding: EdgeInsets.all(6),
-                  child: Icon(Icons.chevron_left_rounded,
-                      size: 26, color: T.muted),
+                  child: Icon(
+                    Icons.chevron_left_rounded,
+                    size: 26,
+                    color: T.muted,
+                  ),
                 ),
               ),
               SizedBox(
                 width: 96,
-                child: Text('$year 年',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w600)),
+                child: Text(
+                  '$year 年',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => setState(() => year++),
                 child: const Padding(
                   padding: EdgeInsets.all(6),
-                  child: Icon(Icons.chevron_right_rounded,
-                      size: 26, color: T.muted),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 26,
+                    color: T.muted,
+                  ),
                 ),
               ),
             ],
@@ -798,10 +929,12 @@ class _MonthPickerState extends State<_MonthPicker> {
             crossAxisSpacing: 8,
             children: [
               for (var m = 1; m <= 12; m++)
-                _monthCell(m,
-                    isSel: year == widget.initial.year &&
-                        m == widget.initial.month,
-                    isCurrent: year == now.year && m == now.month),
+                _monthCell(
+                  m,
+                  isSel:
+                      year == widget.initial.year && m == widget.initial.month,
+                  isCurrent: year == now.year && m == now.month,
+                ),
             ],
           ),
         ],
@@ -818,15 +951,16 @@ class _MonthPickerState extends State<_MonthPicker> {
           borderRadius: BorderRadius.circular(11),
         ),
         alignment: Alignment.center,
-        child: Text('$m 月',
-            style: TextStyle(
-              fontSize: 15.5,
-              fontWeight:
-                  (isSel || isCurrent) ? FontWeight.w600 : FontWeight.w400,
-              color: isSel
-                  ? Colors.white
-                  : (isCurrent ? T.accent : T.ink),
-            )),
+        child: Text(
+          '$m 月',
+          style: TextStyle(
+            fontSize: 15.5,
+            fontWeight: (isSel || isCurrent)
+                ? FontWeight.w600
+                : FontWeight.w400,
+            color: isSel ? Colors.white : (isCurrent ? T.accent : T.ink),
+          ),
+        ),
       ),
     );
   }

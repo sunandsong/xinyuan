@@ -16,12 +16,13 @@ class StaggerIn extends StatefulWidget {
 class _StaggerInState extends State<StaggerIn>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 420));
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
   @override
   void initState() {
     super.initState();
-    Future.delayed(
-        Duration(milliseconds: 40 + widget.index * 45), () {
+    Future.delayed(Duration(milliseconds: 40 + widget.index * 45), () {
       if (mounted) _c.forward();
     });
   }
@@ -39,8 +40,9 @@ class _StaggerInState extends State<StaggerIn>
       opacity: curve,
       child: SlideTransition(
         position: Tween<Offset>(
-                begin: const Offset(0, .08), end: Offset.zero)
-            .animate(curve),
+          begin: const Offset(0, .08),
+          end: Offset.zero,
+        ).animate(curve),
         child: widget.child,
       ),
     );
@@ -52,18 +54,18 @@ void burstAt(BuildContext context, Offset globalPos, Color color) {
   final overlay = Overlay.of(context);
   late OverlayEntry entry;
   entry = OverlayEntry(
-    builder: (_) => _Burst(
-      position: globalPos,
-      color: color,
-      onDone: () => entry.remove(),
-    ),
+    builder: (_) =>
+        _Burst(position: globalPos, color: color, onDone: () => entry.remove()),
   );
   overlay.insert(entry);
 }
 
 class _Burst extends StatefulWidget {
-  const _Burst(
-      {required this.position, required this.color, required this.onDone});
+  const _Burst({
+    required this.position,
+    required this.color,
+    required this.onDone,
+  });
   final Offset position;
   final Color color;
   final VoidCallback onDone;
@@ -73,12 +75,17 @@ class _Burst extends StatefulWidget {
 
 class _BurstState extends State<_Burst> with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 750))
-    ..forward().whenComplete(widget.onDone);
-  late final List<double> _ang =
-      List.generate(12, (i) => i * math.pi / 6 + math.pi / 12);
-  late final List<double> _spin =
-      List.generate(12, (i) => (i.isEven ? 1 : -1) * (2.2 + (i % 4) * 1.1));
+    vsync: this,
+    duration: const Duration(milliseconds: 750),
+  )..forward().whenComplete(widget.onDone);
+  late final List<double> _ang = List.generate(
+    12,
+    (i) => i * math.pi / 6 + math.pi / 12,
+  );
+  late final List<double> _spin = List.generate(
+    12,
+    (i) => (i.isEven ? 1 : -1) * (2.2 + (i % 4) * 1.1),
+  );
   late final List<Color> _colors = _confettiColors(widget.color);
 
   static List<Color> _confettiColors(Color base) {
@@ -107,9 +114,7 @@ class _BurstState extends State<_Burst> with SingleTickerProviderStateMixin {
           animation: _c,
           builder: (context, _) {
             final t = Curves.easeOut.transform(_c.value);
-            return CustomPaint(
-              painter: _BurstPainter(t, _ang, _spin, _colors),
-            );
+            return CustomPaint(painter: _BurstPainter(t, _ang, _spin, _colors));
           },
         ),
       ),
@@ -133,14 +138,18 @@ class _BurstPainter extends CustomPainter {
     final alpha = t < .75 ? 1.0 : (1 - (t - .75) / .25).clamp(0.0, 1.0);
     for (var i = 0; i < ang.length; i++) {
       final o = Offset(
-          math.cos(ang[i]) * dist, math.sin(ang[i]) * dist - t * 12);
-      final paint = Paint()..color = colors[i % colors.length].withValues(alpha: alpha);
+        math.cos(ang[i]) * dist,
+        math.sin(ang[i]) * dist - t * 12,
+      );
+      final paint = Paint()
+        ..color = colors[i % colors.length].withValues(alpha: alpha);
       canvas.save();
       canvas.translate(o.dx, o.dy);
       canvas.rotate(spin[i] * t * math.pi);
       canvas.drawRect(
-          Rect.fromCenter(center: Offset.zero, width: side, height: side * .55),
-          paint);
+        Rect.fromCenter(center: Offset.zero, width: side, height: side * .55),
+        paint,
+      );
       canvas.restore();
     }
   }
@@ -153,48 +162,58 @@ class _BurstPainter extends CustomPainter {
 void snack(BuildContext context, String msg) {
   ScaffoldMessenger.of(context)
     ..clearSnackBars()
-    ..showSnackBar(SnackBar(
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      padding: EdgeInsets.zero,
-      duration: const Duration(milliseconds: 1800),
-      content: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 320),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: T.card,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: T.shadowDock,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: const BoxDecoration(
-                      color: T.accentSoft, shape: BoxShape.circle),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.check_rounded,
-                      size: 13, color: T.accent),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(msg,
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        padding: EdgeInsets.zero,
+        duration: const Duration(milliseconds: 1800),
+        content: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: T.card,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: T.shadowDock,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: const BoxDecoration(
+                      color: T.accentSoft,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.check_rounded,
+                      size: 13,
+                      color: T.accent,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      msg,
                       style: const TextStyle(
-                          fontSize: 15,
-                          color: T.ink,
-                          fontWeight: FontWeight.w500)),
-                ),
-              ],
+                        fontSize: 15,
+                        color: T.ink,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
 }
 
 /// 白色胶囊按钮（顶栏）
@@ -259,7 +278,10 @@ class PlusBtn extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [
             BoxShadow(
-                color: Color(0x803EA983), blurRadius: 10, offset: Offset(0, 4)),
+              color: Color(0x803EA983),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
           ],
         ),
         child: const Icon(Icons.add, size: 22, color: Colors.white),
@@ -286,12 +308,15 @@ class SheetCard extends StatelessWidget {
             color: Colors.white.withValues(alpha: .55),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-                color: Colors.white.withValues(alpha: .65), width: 1),
+              color: Colors.white.withValues(alpha: .65),
+              width: 1,
+            ),
             boxShadow: const [
               BoxShadow(
-                  color: Color(0x14243A66),
-                  blurRadius: 20,
-                  offset: Offset(0, 10)),
+                color: Color(0x14243A66),
+                blurRadius: 20,
+                offset: Offset(0, 10),
+              ),
             ],
           ),
           child: child,
@@ -303,12 +328,13 @@ class SheetCard extends StatelessWidget {
 
 /// 勾选框 —— 对号弹入 + 背景过渡
 class Cb extends StatelessWidget {
-  const Cb(
-      {super.key,
-      required this.done,
-      this.onTap,
-      this.greyWhenDone = false,
-      this.burstColor});
+  const Cb({
+    super.key,
+    required this.done,
+    this.onTap,
+    this.greyWhenDone = false,
+    this.burstColor,
+  });
   final bool done;
   final VoidCallback? onTap;
   final bool greyWhenDone;
@@ -334,14 +360,19 @@ class Cb extends StatelessWidget {
           decoration: BoxDecoration(
             color: fill,
             borderRadius: BorderRadius.circular(6.5),
-            border:
-                done ? null : Border.all(color: const Color(0xFFCACCD6), width: 1.5),
+            border: done
+                ? null
+                : Border.all(color: const Color(0xFFCACCD6), width: 1.5),
           ),
           child: AnimatedScale(
             scale: done ? 1 : 0,
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOutBack,
-            child: const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+            child: const Icon(
+              Icons.check_rounded,
+              size: 14,
+              color: Colors.white,
+            ),
           ),
         ),
       ),
@@ -357,21 +388,22 @@ class WDot extends StatelessWidget {
   final bool glow;
   @override
   Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          boxShadow: glow
-              ? [
-                  BoxShadow(
-                      color: color.withValues(alpha: .45),
-                      blurRadius: 5,
-                      spreadRadius: -.5),
-                ]
-              : null,
-        ),
-      );
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: color,
+      shape: BoxShape.circle,
+      boxShadow: glow
+          ? [
+              BoxShadow(
+                color: color.withValues(alpha: .45),
+                blurRadius: 5,
+                spreadRadius: -.5,
+              ),
+            ]
+          : null,
+    ),
+  );
 }
 
 /// 列表行按压反馈 —— 按下柔和背景高亮
@@ -409,8 +441,14 @@ class _TapRowState extends State<TapRow> {
 
 /// 大按钮
 class BigBtn extends StatelessWidget {
-  const BigBtn(this.text,
-      {super.key, this.onTap, this.gradient, this.bg, this.fg});
+  const BigBtn(
+    this.text, {
+    super.key,
+    this.onTap,
+    this.gradient,
+    this.bg,
+    this.fg,
+  });
   final String text;
   final VoidCallback? onTap;
   final Gradient? gradient;
@@ -429,11 +467,14 @@ class BigBtn extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         alignment: Alignment.center,
-        child: Text(text,
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: fg ?? Colors.white)),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: fg ?? Colors.white,
+          ),
+        ),
       ),
     );
   }
@@ -447,7 +488,9 @@ Future<void> showAppSheet(BuildContext context, Widget child) {
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x571C1C21),
     builder: (context) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
@@ -488,36 +531,47 @@ Future<void> showBlurDialog(BuildContext context, Widget child) {
     transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (context, _, __) => Material(
       type: MaterialType.transparency,
-      child: Builder(builder: (context) {
-        return AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
-                decoration: BoxDecoration(
-                  color: T.card,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: T.shadowCard,
+      child: Builder(
+        builder: (context) {
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 24,
                 ),
-                child: child,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+                  decoration: BoxDecoration(
+                    color: T.card,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: T.shadowCard,
+                  ),
+                  child: child,
+                ),
               ),
             ),
-          ),
-        );
-      }),
+          );
+        },
+      ),
     ),
     transitionBuilder: (context, anim, __, dialogChild) => BackdropFilter(
       filter: ImageFilter.blur(
-          sigmaX: 18 * anim.value, sigmaY: 18 * anim.value),
+        sigmaX: 18 * anim.value,
+        sigmaY: 18 * anim.value,
+      ),
       child: FadeTransition(
         opacity: anim,
         child: ScaleTransition(
-          scale: Tween(begin: .94, end: 1.0).animate(
-              CurvedAnimation(parent: anim, curve: Curves.easeOutBack)),
+          scale: Tween(
+            begin: .94,
+            end: 1.0,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutBack)),
           child: dialogChild,
         ),
       ),
@@ -532,8 +586,10 @@ Widget toolIconBtn(IconData icon, VoidCallback onTap) {
     child: Container(
       width: 34,
       height: 34,
-      decoration:
-          BoxDecoration(color: T.field, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+        color: T.field,
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Icon(icon, size: 19, color: T.muted),
     ),
   );
@@ -541,17 +597,17 @@ Widget toolIconBtn(IconData icon, VoidCallback onTap) {
 
 /// 输入框样式
 InputDecoration fieldDeco(String hint) => InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: T.faint, fontSize: 18),
-      filled: true,
-      fillColor: T.field,
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(11),
-        borderSide: BorderSide.none,
-      ),
-    );
+  hintText: hint,
+  hintStyle: const TextStyle(color: T.faint, fontSize: 18),
+  filled: true,
+  fillColor: T.field,
+  isDense: true,
+  contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(11),
+    borderSide: BorderSide.none,
+  ),
+);
 
 /// 选择 chip
 class SelChip extends StatelessWidget {
@@ -579,23 +635,21 @@ class SelChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (dot != null) ...[
-              WDot(dot!, size: 8),
-              const SizedBox(width: 6),
-            ],
-            Text(label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? T.accent : const Color(0xFF3A3A42),
-                )),
+            if (dot != null) ...[WDot(dot!, size: 8), const SizedBox(width: 6)],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected ? T.accent : const Color(0xFF3A3A42),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
-
 
 // ══════════════ 统一弹窗：大图 + 右上角叉号，不用大按钮 ══════════════
 
@@ -607,22 +661,22 @@ const _dialogScrim = LinearGradient(
 );
 
 Widget _dialogClose(BuildContext ctx) => Positioned(
-      top: 12,
-      right: 12,
-      child: GestureDetector(
-        onTap: () => Navigator.pop(ctx),
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: .35),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: .25)),
-          ),
-          child: const Icon(Icons.close_rounded, size: 17, color: Colors.white),
-        ),
+  top: 12,
+  right: 12,
+  child: GestureDetector(
+    onTap: () => Navigator.pop(ctx),
+    child: Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .35),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: .25)),
       ),
-    );
+      child: const Icon(Icons.close_rounded, size: 17, color: Colors.white),
+    ),
+  ),
+);
 
 Future<void> _showImageDialog(BuildContext context, Widget card) {
   return showGeneralDialog<void>(
@@ -641,12 +695,17 @@ Future<void> _showImageDialog(BuildContext context, Widget card) {
       ),
     ),
     transitionBuilder: (ctx, anim, __, child) => BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 16 * anim.value, sigmaY: 16 * anim.value),
+      filter: ImageFilter.blur(
+        sigmaX: 16 * anim.value,
+        sigmaY: 16 * anim.value,
+      ),
       child: FadeTransition(
         opacity: anim,
         child: ScaleTransition(
-          scale: Tween(begin: .9, end: 1.0).animate(
-              CurvedAnimation(parent: anim, curve: Curves.easeOutBack)),
+          scale: Tween(
+            begin: .9,
+            end: 1.0,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutBack)),
           child: child,
         ),
       ),
@@ -667,66 +726,77 @@ Future<void> showPosterDialog(
 }) {
   return _showImageDialog(
     context,
-    Builder(builder: (ctx) {
-      return AspectRatio(
-        aspectRatio: 3 / 4,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              image ?? Image.asset(asset, fit: BoxFit.cover),
-              const DecoratedBox(
-                  decoration: BoxDecoration(gradient: _dialogScrim)),
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 20,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
+    Builder(
+      builder: (ctx) {
+        return AspectRatio(
+          aspectRatio: 3 / 4,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                image ?? Image.asset(asset, fit: BoxFit.cover),
+                const DecoratedBox(
+                  decoration: BoxDecoration(gradient: _dialogScrim),
+                ),
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: 20,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
                         style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
                           height: 1.25,
                           color: Colors.white,
                           shadows: [
-                            Shadow(color: Color(0x66000000), blurRadius: 10)
+                            Shadow(color: Color(0x66000000), blurRadius: 10),
                           ],
-                        )),
-                    const SizedBox(height: 8),
-                    Text(body,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        body,
                         style: TextStyle(
-                            fontSize: 14,
-                            height: 1.6,
-                            color: Colors.white.withValues(alpha: .85))),
-                    const SizedBox(height: 16),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        onAction?.call();
-                      },
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Text(action,
+                          fontSize: 14,
+                          height: 1.6,
+                          color: Colors.white.withValues(alpha: .85),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          onAction?.call();
+                        },
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Text(
+                            action,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white)),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              _dialogClose(ctx),
-            ],
+                _dialogClose(ctx),
+              ],
+            ),
           ),
-        ),
-      );
-    }),
+        );
+      },
+    ),
   );
 }
 
@@ -743,117 +813,137 @@ Future<void> showConfirmDialog(
 }) {
   return _showImageDialog(
     context,
-    Builder(builder: (ctx) {
-      return AspectRatio(
-        aspectRatio: 4 / 5,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(asset, fit: BoxFit.cover),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: [0, .35, 1],
-                    colors: [
-                      Color(0x59000000),
-                      Color(0x33000000),
-                      Color(0xF20B1120),
+    Builder(
+      builder: (ctx) {
+        return AspectRatio(
+          aspectRatio: 4 / 5,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(asset, fit: BoxFit.cover),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0, .35, 1],
+                      colors: [
+                        Color(0x59000000),
+                        Color(0x33000000),
+                        Color(0xF20B1120),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 46,
+                  child: Center(
+                    child: Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: .16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: .75),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .35),
+                            blurRadius: 20,
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(emoji, style: const TextStyle(fontSize: 44)),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: 20,
+                  child: Column(
+                    children: [
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        body,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.6,
+                          color: Colors.white.withValues(alpha: .82),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => Navigator.pop(ctx),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                cancelText,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white.withValues(alpha: .7),
+                                ),
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              onConfirm();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                confirmText,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFFF8A8A),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 46,
-                child: Center(
-                  child: Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: .16),
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: .75), width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withValues(alpha: .35),
-                            blurRadius: 20),
-                      ],
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(emoji, style: const TextStyle(fontSize: 44)),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 20,
-                child: Column(
-                  children: [
-                    Text(title,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white)),
-                    const SizedBox(height: 8),
-                    Text(body,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 14,
-                            height: 1.6,
-                            color: Colors.white.withValues(alpha: .82))),
-                    const SizedBox(height: 18),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => Navigator.pop(ctx),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            child: Text(cancelText,
-                                style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                    color:
-                                        Colors.white.withValues(alpha: .7))),
-                          ),
-                        ),
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            onConfirm();
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            child: Text(confirmText,
-                                style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFFFF8A8A))),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              _dialogClose(ctx),
-            ],
+                _dialogClose(ctx),
+              ],
+            ),
           ),
-        ),
-      );
-    }),
+        );
+      },
+    ),
   );
 }
 
@@ -861,7 +951,11 @@ Future<void> showConfirmDialog(
 /// 覆盖层只认 onTap，滑动手势会在竞技场里输给下面的列表，所以不影响滚动浏览。
 /// 已登录时原样返回 child，一层多余的 Widget 都不加。
 class PreviewShield extends StatelessWidget {
-  const PreviewShield({super.key, required this.child, required this.onBlocked});
+  const PreviewShield({
+    super.key,
+    required this.child,
+    required this.onBlocked,
+  });
 
   final Widget child;
   final VoidCallback onBlocked;
@@ -926,4 +1020,21 @@ Widget tabletTextScale(BuildContext context, Widget? child) {
       ),
     ),
   );
+}
+
+/// 平板上卡片还是拉满两侧（不缩窄不居中），但字号/图标/内边距按卡片
+/// 实际宽度相对手机宽度等比放大——不然内容还是按手机尺寸排版，
+/// 标题和右侧箭头之间会空出一大截，卡片显得又扁又空。
+/// baseWidth 取手机上这张卡片的典型宽度（屏宽 375 减两侧 13pt 页边距）。
+/// 跟 tabletTextScale 用同一条 shortestSide 判断线，只在真平板上生效——
+/// 不能只看卡片实际宽度，测试环境默认窗口 800×600，宽约束跟平板一样宽，
+/// 会被误判成平板（真出过这个回归，把登录按钮挤到测试视口外导致点不到）。
+double cardContentScale(
+  BuildContext context,
+  double cardWidth, {
+  double baseWidth = 349,
+  double maxScale = 1.6,
+}) {
+  if (MediaQuery.sizeOf(context).shortestSide <= 600) return 1.0;
+  return (cardWidth / baseWidth).clamp(1.0, maxScale);
 }

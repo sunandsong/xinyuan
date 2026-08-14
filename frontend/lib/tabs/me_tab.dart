@@ -1,4 +1,5 @@
-import 'package:flutter/cupertino.dart' show CupertinoDatePicker, CupertinoDatePickerMode;
+import 'package:flutter/cupertino.dart'
+    show CupertinoDatePicker, CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
 import '../api/api.dart';
 import '../data.dart';
@@ -36,66 +37,82 @@ class MeTab extends StatelessWidget {
                   horizontal: 14,
                   vertical: 4,
                 ),
-                child: Column(
-                  children: [
-                    _row(
-                      context,
-                      '人生清单编辑',
-                      '$active 个在清单里',
-                      () => _push(context, const WishEditPage()),
-                    ),
-                    _row(
-                      context,
-                      '荣誉陈列馆',
-                      '$done 枚勋章',
-                      () => _push(context, const TreePage()),
-                    ),
-                    _row(
-                      context,
-                      '点亮世界',
-                      '${litPlaceCount()} 处',
-                      () => _push(context, const WorldPage()),
-                    ),
-                    _row(
-                      context,
-                      '时光胶囊',
-                      '${data.letters.length} 封',
-                      () => _push(context, const CapsulePage()),
-                    ),
-                    _row(
-                      context,
-                      '通知提醒',
-                      '',
-                      () => _push(context, const NotificationSettingsPage()),
-                    ),
-                    _row(
-                      context,
-                      '意见反馈',
-                      '',
-                      () => data.signedIn
-                          ? _openFeedback(context)
-                          : _showLogin(context),
-                    ),
-                    // 版本号：跟其它设置项同一张卡、同一种排版，不能点，所以没有 chevron。
-                    // 手动跟 pubspec.yaml 的 version 保持一致就行，改动不频繁，
-                    // 没必要为这一行字多引一个 package_info 插件
-                    _infoRow('版本', kAppVersion),
-                    data.signedIn
-                        ? _action(
-                            context,
-                            '退出登录',
-                            T.ink,
-                            () => _confirmSignOut(context),
-                            last: true,
-                          )
-                        : _action(
-                            context,
-                            '登录 / 注册',
-                            T.accent,
-                            () => _showLogin(context),
-                            last: true,
-                          ),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, cons) {
+                    // 卡片拉满两侧，平板上比手机宽——字号/图标跟着卡片实际
+                    // 宽度按比例放大，不然内容照手机尺寸排，右侧箭头前面空一大截
+                    final s = cardContentScale(context, cons.maxWidth);
+                    return Column(
+                      children: [
+                        _row(
+                          context,
+                          '人生清单编辑',
+                          '$active 个在清单里',
+                          () => _push(context, const WishEditPage()),
+                          scale: s,
+                        ),
+                        _row(
+                          context,
+                          '荣誉陈列馆',
+                          '$done 枚勋章',
+                          () => _push(context, const TreePage()),
+                          scale: s,
+                        ),
+                        _row(
+                          context,
+                          '点亮世界',
+                          '${litPlaceCount()} 处',
+                          () => _push(context, const WorldPage()),
+                          scale: s,
+                        ),
+                        _row(
+                          context,
+                          '时光胶囊',
+                          '${data.letters.length} 封',
+                          () => _push(context, const CapsulePage()),
+                          scale: s,
+                        ),
+                        _row(
+                          context,
+                          '通知提醒',
+                          '',
+                          () =>
+                              _push(context, const NotificationSettingsPage()),
+                          scale: s,
+                        ),
+                        _row(
+                          context,
+                          '意见反馈',
+                          '',
+                          () => data.signedIn
+                              ? _openFeedback(context)
+                              : _showLogin(context),
+                          scale: s,
+                        ),
+                        // 版本号：跟其它设置项同一张卡、同一种排版，不能点，所以没有 chevron。
+                        // 手动跟 pubspec.yaml 的 version 保持一致就行，改动不频繁，
+                        // 没必要为这一行字多引一个 package_info 插件
+                        _infoRow('版本', kAppVersion, scale: s),
+                        data.signedIn
+                            ? _action(
+                                context,
+                                '退出登录',
+                                T.ink,
+                                () => _confirmSignOut(context),
+                                last: true,
+                                scale: s,
+                              )
+                            : _action(
+                                context,
+                                '登录 / 注册',
+                                T.accent,
+                                () => _showLogin(context),
+                                last: true,
+                                scale: s,
+                              ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -346,11 +363,12 @@ class MeTab extends StatelessWidget {
     String sub,
     VoidCallback onTap, {
     bool last = false,
+    double scale = 1,
   }) {
     return TapRow(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        padding: EdgeInsets.symmetric(vertical: 13 * scale),
         decoration: last
             ? null
             : const BoxDecoration(
@@ -359,12 +377,15 @@ class MeTab extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Text(title, style: const TextStyle(fontSize: 16.5)),
+              child: Text(title, style: TextStyle(fontSize: 16.5 * scale)),
             ),
             if (sub.isNotEmpty)
-              Text(sub, style: const TextStyle(fontSize: 15, color: T.faint)),
-            const SizedBox(width: 3),
-            const Icon(Icons.chevron_right, size: 17, color: T.faint),
+              Text(
+                sub,
+                style: TextStyle(fontSize: 15 * scale, color: T.faint),
+              ),
+            SizedBox(width: 3 * scale),
+            Icon(Icons.chevron_right, size: 17 * scale, color: T.faint),
           ],
         ),
       ),
@@ -378,11 +399,12 @@ class MeTab extends StatelessWidget {
     Color color,
     VoidCallback onTap, {
     bool last = false,
+    double scale = 1,
   }) {
     return TapRow(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        padding: EdgeInsets.symmetric(vertical: 13 * scale),
         decoration: last
             ? null
             : const BoxDecoration(
@@ -390,7 +412,10 @@ class MeTab extends StatelessWidget {
               ),
         child: Row(
           children: [
-            Text(title, style: TextStyle(fontSize: 16.5, color: color)),
+            Text(
+              title,
+              style: TextStyle(fontSize: 16.5 * scale, color: color),
+            ),
           ],
         ),
       ),
@@ -398,9 +423,14 @@ class MeTab extends StatelessWidget {
   }
 
   /// 跟 _row 同一种排版的静态信息行——不能点，所以没有 TapRow 和 chevron
-  Widget _infoRow(String title, String value, {bool last = false}) {
+  Widget _infoRow(
+    String title,
+    String value, {
+    bool last = false,
+    double scale = 1,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13),
+      padding: EdgeInsets.symmetric(vertical: 13 * scale),
       decoration: last
           ? null
           : const BoxDecoration(
@@ -409,9 +439,12 @@ class MeTab extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(title, style: const TextStyle(fontSize: 16.5)),
+            child: Text(title, style: TextStyle(fontSize: 16.5 * scale)),
           ),
-          Text(value, style: const TextStyle(fontSize: 15, color: T.faint)),
+          Text(
+            value,
+            style: TextStyle(fontSize: 15 * scale, color: T.faint),
+          ),
         ],
       ),
     );
@@ -441,22 +474,31 @@ class MeTab extends StatelessWidget {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(sheetCtx),
-                      child: const Text('取消',
-                          style: TextStyle(color: T.muted, fontSize: 15)),
+                      child: const Text(
+                        '取消',
+                        style: TextStyle(color: T.muted, fontSize: 15),
+                      ),
                     ),
                     const Expanded(
-                      child: Text('选择生日',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        '选择生日',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(sheetCtx, picked),
-                      child: const Text('确定',
-                          style: TextStyle(
-                              color: T.accent,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700)),
+                      child: const Text(
+                        '确定',
+                        style: TextStyle(
+                          color: T.accent,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -569,11 +611,17 @@ class MeTab extends StatelessWidget {
                                 data.avatarUrl!,
                                 width: 76,
                                 height: 76,
-                                fallback: const Icon(Icons.person_rounded,
-                                    size: 40, color: Color(0xFFB9C3E8)),
+                                fallback: const Icon(
+                                  Icons.person_rounded,
+                                  size: 40,
+                                  color: Color(0xFFB9C3E8),
+                                ),
                               )
-                            : const Icon(Icons.person_rounded,
-                                size: 40, color: Color(0xFFB9C3E8)),
+                            : const Icon(
+                                Icons.person_rounded,
+                                size: 40,
+                                color: Color(0xFFB9C3E8),
+                              ),
                       ),
                       Positioned(
                         right: 0,
@@ -586,8 +634,11 @@ class MeTab extends StatelessWidget {
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
                           ),
-                          child: const Icon(Icons.photo_camera,
-                              size: 12, color: Colors.white),
+                          child: const Icon(
+                            Icons.photo_camera,
+                            size: 12,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],
@@ -695,8 +746,11 @@ class MeTab extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 2),
-                    Icon(Icons.chevron_right_rounded,
-                        size: 18, color: T.muted.withValues(alpha: .7)),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: T.muted.withValues(alpha: .7),
+                    ),
                   ],
                 ),
               ),
@@ -789,10 +843,7 @@ class MeTab extends StatelessWidget {
                 style: const TextStyle(fontSize: 15),
               ),
               const SizedBox(height: 6),
-              BigBtn(
-                loading ? '提交中…' : '提交',
-                onTap: loading ? () {} : submit,
-              ),
+              BigBtn(loading ? '提交中…' : '提交', onTap: loading ? () {} : submit),
               const SizedBox(height: 6),
             ],
           );

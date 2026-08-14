@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data.dart';
 import '../notification_scheduler.dart';
 import '../theme.dart';
+import '../ui.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -60,59 +61,76 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         elevation: 0,
         title: const Text('通知提醒'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SwitchListTile(
-            title: const Text('接收通知'),
-            value: _enabled,
-            onChanged: (v) {
-              setState(() => _enabled = v);
-              _set('notif_enabled', v);
-            },
-          ),
-          const Divider(),
-          SwitchListTile(
-            title: const Text('任务到期提醒'),
-            value: _tasks,
-            onChanged: _enabled
-                ? (v) {
-                    setState(() => _tasks = v);
-                    _set('notif_tasks', v);
-                  }
-                : null,
-          ),
-          SwitchListTile(
-            title: const Text('心愿期限提醒'),
-            value: _wishes,
-            onChanged: _enabled
-                ? (v) {
-                    setState(() => _wishes = v);
-                    _set('notif_wishes', v);
-                  }
-                : null,
-          ),
-          SwitchListTile(
-            title: const Text('时光胶囊开启提醒'),
-            value: _letters,
-            onChanged: _enabled
-                ? (v) {
-                    setState(() => _letters = v);
-                    _set('notif_letters', v);
-                  }
-                : null,
-          ),
-          SwitchListTile(
-            title: const Text('好久没来提醒'),
-            value: _dormant,
-            onChanged: _enabled
-                ? (v) {
-                    setState(() => _dormant = v);
-                    _set('notif_dormant', v);
-                  }
-                : null,
-          ),
-        ],
+      body: LayoutBuilder(
+        builder: (context, cons) {
+          // 内容拉满两侧，平板上比手机宽——字号跟着实际宽度按比例放大，
+          // 不然标题和开关之间空一大截
+          final s = cardContentScale(context, cons.maxWidth);
+          Widget row({
+            required String title,
+            required bool value,
+            required ValueChanged<bool>? onChanged,
+          }) => SwitchListTile(
+            title: Text(title, style: TextStyle(fontSize: 16 * s)),
+            contentPadding: EdgeInsets.symmetric(vertical: 4 * s),
+            value: value,
+            onChanged: onChanged,
+          );
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              row(
+                title: '接收通知',
+                value: _enabled,
+                onChanged: (v) {
+                  setState(() => _enabled = v);
+                  _set('notif_enabled', v);
+                },
+              ),
+              const Divider(),
+              row(
+                title: '任务到期提醒',
+                value: _tasks,
+                onChanged: _enabled
+                    ? (v) {
+                        setState(() => _tasks = v);
+                        _set('notif_tasks', v);
+                      }
+                    : null,
+              ),
+              row(
+                title: '心愿期限提醒',
+                value: _wishes,
+                onChanged: _enabled
+                    ? (v) {
+                        setState(() => _wishes = v);
+                        _set('notif_wishes', v);
+                      }
+                    : null,
+              ),
+              row(
+                title: '时光胶囊开启提醒',
+                value: _letters,
+                onChanged: _enabled
+                    ? (v) {
+                        setState(() => _letters = v);
+                        _set('notif_letters', v);
+                      }
+                    : null,
+              ),
+              row(
+                title: '好久没来提醒',
+                value: _dormant,
+                onChanged: _enabled
+                    ? (v) {
+                        setState(() => _dormant = v);
+                        _set('notif_dormant', v);
+                      }
+                    : null,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

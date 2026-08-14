@@ -8,6 +8,7 @@ import 'hero_variants.dart';
 import '../pages/wish_pages.dart';
 import '../share_poster.dart';
 import '../theme.dart';
+import '../ui.dart';
 
 class WishesTab extends StatelessWidget {
   const WishesTab({super.key});
@@ -29,58 +30,62 @@ class WishesTab extends StatelessWidget {
             return Stack(
               children: [
                 CustomScrollView(
-              slivers: [
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _HeroHeader(
-                    // 点统计区进"已实现"列表（那里还能把心愿变回进行中）
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const DoneListPage()),
-                      ),
-                      child: _hero(done, treeH, barH),
-                    ),
-                    maxH: treeH,
-                    minH: barH,
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(13, 16, 13, 10),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate((context, i) {
-                      if (i == 0) {
-                        return const Padding(
-                          padding: EdgeInsets.only(
-                            left: 4,
-                            right: 8,
-                            bottom: 8,
-                          ),
-                          child: Text(
-                            '不留遗憾，活成自己想要的样子',
-                            style: TextStyle(
-                              fontSize: 15,
-                              height: 1.3,
-                              fontWeight: FontWeight.w600,
-                              color: T.muted,
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _HeroHeader(
+                        // 点统计区进"已实现"列表（那里还能把心愿变回进行中）
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const DoneListPage(),
                             ),
                           ),
-                        );
-                      }
-                      final idx = i - 1;
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: idx == active.length - 1 ? 0 : 10,
+                          child: _hero(done, treeH, barH),
                         ),
-                        child: _activeCard(context, active[idx]),
-                      );
-                    }, childCount: active.length + 1),
-                  ),
-                ),
-                // 底部留白：略大于折叠幅度，保证能滚动到头部收成摘要条
-                SliverToBoxAdapter(child: SizedBox(height: treeH - barH + 40)),
-              ],
+                        maxH: treeH,
+                        minH: barH,
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(13, 16, 13, 10),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, i) {
+                          if (i == 0) {
+                            return const Padding(
+                              padding: EdgeInsets.only(
+                                left: 4,
+                                right: 8,
+                                bottom: 8,
+                              ),
+                              child: Text(
+                                '不留遗憾，活成自己想要的样子',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  height: 1.3,
+                                  fontWeight: FontWeight.w600,
+                                  color: T.muted,
+                                ),
+                              ),
+                            );
+                          }
+                          final idx = i - 1;
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              bottom: idx == active.length - 1 ? 0 : 10,
+                            ),
+                            child: _activeCard(context, active[idx]),
+                          );
+                        }, childCount: active.length + 1),
+                      ),
+                    ),
+                    // 底部留白：略大于折叠幅度，保证能滚动到头部收成摘要条
+                    SliverToBoxAdapter(
+                      child: SizedBox(height: treeH - barH + 40),
+                    ),
+                  ],
                 ),
                 // 右上角第二个：排行榜
                 Positioned(
@@ -95,8 +100,11 @@ class WishesTab extends StatelessWidget {
                         color: Colors.white.withValues(alpha: .2),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.leaderboard_rounded,
-                          size: 18, color: Colors.white),
+                      child: const Icon(
+                        Icons.leaderboard_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -129,8 +137,11 @@ class WishesTab extends StatelessWidget {
                         color: Colors.white.withValues(alpha: .2),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.ios_share_rounded,
-                          size: 18, color: Colors.white),
+                      child: const Icon(
+                        Icons.ios_share_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -153,73 +164,80 @@ class WishesTab extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (_) => WishDetailPage(wish: w)),
       ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-        decoration: BoxDecoration(
-          color: T.card,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: T.shadowCard,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 5,
-              height: 24,
-              decoration: BoxDecoration(
-                color: w.color,
-                borderRadius: BorderRadius.circular(3),
-              ),
+      child: LayoutBuilder(
+        builder: (context, cons) {
+          // 卡片拉满两侧，平板上会比手机宽不少——字号/图标跟着卡片实际
+          // 宽度按比例放大，不然内容照手机尺寸排，标题和箭头之间空一大截
+          final s = cardContentScale(context, cons.maxWidth);
+          return Container(
+            padding: EdgeInsets.fromLTRB(16 * s, 18 * s, 16 * s, 18 * s),
+            decoration: BoxDecoration(
+              color: T.card,
+              borderRadius: BorderRadius.circular(16 * s),
+              boxShadow: T.shadowCard,
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    w.title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: T.ink,
-                    ),
+            child: Row(
+              children: [
+                Container(
+                  width: 5 * s,
+                  height: 24 * s,
+                  decoration: BoxDecoration(
+                    color: w.color,
+                    borderRadius: BorderRadius.circular(3 * s),
                   ),
-                  // 有里程碑时，卡片上直接看得到进度
-                  if (w.steps.isNotEmpty) ...[
-                    const SizedBox(height: 7),
-                    _cardMeta(w),
-                  ],
-                ],
-              ),
+                ),
+                SizedBox(width: 14 * s),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        w.title,
+                        style: TextStyle(
+                          fontSize: 17 * s,
+                          fontWeight: FontWeight.w600,
+                          color: T.ink,
+                        ),
+                      ),
+                      // 有里程碑时，卡片上直接看得到进度
+                      if (w.steps.isNotEmpty) ...[
+                        SizedBox(height: 7 * s),
+                        _cardMeta(w, scale: s),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(width: 8 * s),
+                Icon(Icons.chevron_right, size: 20 * s, color: T.faint),
+              ],
             ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, size: 20, color: T.faint),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
 
 /// 卡片副行：里程碑进度条
-Widget _cardMeta(Wish w) {
+Widget _cardMeta(Wish w, {double scale = 1}) {
   return Row(
     children: [
       SizedBox(
-        width: 54,
+        width: 54 * scale,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(999),
           child: LinearProgressIndicator(
             value: w.stepProgress,
-            minHeight: 4,
+            minHeight: 4 * scale,
             backgroundColor: T.field,
             valueColor: AlwaysStoppedAnimation(w.color),
           ),
         ),
       ),
-      const SizedBox(width: 7),
+      SizedBox(width: 7 * scale),
       Text(
         '${w.doneStepCount}/${w.steps.length}',
-        style: const TextStyle(fontSize: 12, color: T.muted),
+        style: TextStyle(fontSize: 12 * scale, color: T.muted),
       ),
     ],
   );
@@ -247,9 +265,6 @@ class _HeroHeader extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(_HeroHeader old) =>
       old.maxH != maxH || old.minH != minH || old.child != child;
 }
-
-
-
 
 /// 浅色星辰 —— 柔彩玻璃卡上的渐变星星连成星座
 class _LightStars extends StatefulWidget {
@@ -431,9 +446,6 @@ class _LightPainter extends CustomPainter {
   @override
   bool shouldRepaint(_LightPainter old) => old.t != t || old.n != n;
 }
-
-
-
 
 /// 荣誉大卡 —— 每个完成的心愿都珍贵、酷炫、大气地展示
 class _TrophyCards extends StatefulWidget {
@@ -689,7 +701,6 @@ class _TrophyCardsState extends State<_TrophyCards>
   }
 }
 
-
 /// 相册主图 + 胶片条 —— 大图聚焦 + 下方缩略切换
 class _Gallery extends StatefulWidget {
   const _Gallery({required this.done});
@@ -894,7 +905,6 @@ class _GalleryState extends State<_Gallery> {
     );
   }
 }
-
 
 /// 全息收藏卡 —— 彩虹全息膜 + 流动反光，像球星卡
 class _HoloCards extends StatefulWidget {
@@ -1847,7 +1857,6 @@ class _TreePainter extends CustomPainter {
   @override
   bool shouldRepaint(_TreePainter old) => old.t != t;
 }
-
 
 /// 闯关地图 —— 心愿是关卡，已完成点亮、未完成待挑战
 class _LevelMap extends StatefulWidget {
