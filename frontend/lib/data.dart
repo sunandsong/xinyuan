@@ -7,6 +7,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'analytics.dart';
 import 'api/api.dart';
+import 'notification_scheduler.dart';
 import 'pages/tree_page.dart' show achvSlugByName;
 import 'pages/world_page.dart' show litPlaceCount;
 import 'presets.dart';
@@ -339,9 +340,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   final Set<Task> _dirtyTasks = {};
   final Set<Letter> _dirtyLetters = {};
   Timer? _pushTimer;
+  Timer? _notifTimer;
 
   void _touchWish(Wish w) {
     w.updatedAt = DateTime.now();
+    _scheduleNotifRefresh();
     if (!signedIn) return;
     _dirtyWishes.add(w);
     _scheduleFlush();
@@ -349,6 +352,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   void _touchTask(Task t) {
     t.updatedAt = DateTime.now();
+    _scheduleNotifRefresh();
     if (!signedIn) return;
     _dirtyTasks.add(t);
     _scheduleFlush();
@@ -356,6 +360,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   void _touchLetter(Letter l) {
     l.updatedAt = DateTime.now();
+    _scheduleNotifRefresh();
     if (!signedIn) return;
     _dirtyLetters.add(l);
     _scheduleFlush();
@@ -366,6 +371,19 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     // 300ms 够合并批量导入这类连续调用了，同时把"改完立刻被杀掉"的风险窗口缩到最小
     _pushTimer = Timer(const Duration(milliseconds: 300), () {
       unawaited(_flushPush());
+    });
+  }
+
+  /// 通知重排跟云推送是两回事：未登录的本地预览模式也该有通知，
+  /// 不能借用只在 signedIn 时才启动的 _pushTimer。
+  void _scheduleNotifRefresh() {
+    _notifTimer?.cancel();
+    _notifTimer = Timer(const Duration(milliseconds: 300), () {
+      unawaited(NotificationScheduler.I.rescheduleAll(
+        tasks: tasks,
+        wishes: wishes,
+        letters: letters,
+      ));
     });
   }
 
@@ -1144,6 +1162,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       // 云端是唯一数据源：拉不到就亮横幅 + 空列表，不拿本地数据顶替
       if (!await _pullFromCloud()) _markPullFailed();
     }
+    unawaited(NotificationScheduler.I.rescheduleAll(
+      tasks: tasks,
+      wishes: wishes,
+      letters: letters,
+    ));
     notifyListeners();
   }
 
