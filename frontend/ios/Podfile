@@ -30,6 +30,11 @@ flutter_ios_podfile_setup
 target 'Runner' do
   use_frameworks!
 
+  # 原生崩溃采集：Dart 层的 crash_reporter 抓不到进程级崩溃（EXC_BAD_ACCESS、
+  # OOM 被杀、watchdog），KSCrash 装 Mach 异常端口 + 信号处理器把现场写盘，
+  # 下次启动由 MainActivity/AppDelegate 的 channel 捞给 Dart 层统一上报。
+  pod 'KSCrash', '~> 2.6'
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths

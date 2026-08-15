@@ -127,9 +127,11 @@ export interface PullResult {
 
 /** 崩溃上报一条记录（客户端 crash_reporter 采集，服务端按指纹聚合） */
 export interface CrashInfo {
-  /** dart_error = Dart 层未捕获异常（有堆栈）；abnormal_exit = 上次异常退出（无堆栈，
-   * 靠「启动写标记、正常退出清除」推断出来的，多半是原生崩溃或被系统杀） */
-  kind: 'dart_error' | 'abnormal_exit';
+  /** dart_error = Dart 层未捕获异常（有可读堆栈）；
+   * native_crash = xCrash/KSCrash 抓到的原生崩溃（有堆栈但未符号化，是原始地址）；
+   * abnormal_exit = 上面两者都没抓到、但靠「启动写标记、正常退出清除」推断出
+   * 上次非正常结束（无堆栈，多半是被系统直接回收） */
+  kind: 'dart_error' | 'native_crash' | 'abnormal_exit';
   /** 异常类型名，如 _TypeError；abnormal_exit 固定为 AbnormalExit */
   type: string;
   message: string;

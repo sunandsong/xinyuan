@@ -1,8 +1,36 @@
 PODS:
   - Flutter (1.0.0)
+  - KSCrash (2.6.0):
+    - KSCrash/Installations (= 2.6.0)
+  - KSCrash/Core (2.6.0)
+  - KSCrash/DemangleFilter (2.6.0):
+    - KSCrash/Recording
+  - KSCrash/Filters (2.6.0):
+    - KSCrash/Recording
+    - KSCrash/RecordingCore
+    - KSCrash/ReportingCore
+  - KSCrash/Installations (2.6.0):
+    - KSCrash/DemangleFilter
+    - KSCrash/Filters
+    - KSCrash/Recording
+    - KSCrash/Sinks
+  - KSCrash/Recording (2.6.0):
+    - KSCrash/RecordingCore
+  - KSCrash/RecordingCore (2.6.0):
+    - KSCrash/Core
+  - KSCrash/ReportingCore (2.6.0):
+    - KSCrash/Core
+  - KSCrash/Sinks (2.6.0):
+    - KSCrash/Filters
+    - KSCrash/Recording
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
+  - KSCrash (~> 2.6)
+
+SPEC REPOS:
+  trunk:
+    - KSCrash
 
 EXTERNAL SOURCES:
   Flutter:
@@ -10,7 +38,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  KSCrash: 8515730b020ffc714bb10406a3bd289b28a81c6f
 
-PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e
+PODFILE CHECKSUM: c90e0216cbce12eed3cb5067e4c8cb2e00e36453
 
 COCOAPODS: 1.16.2

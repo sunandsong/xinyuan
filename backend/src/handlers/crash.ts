@@ -9,6 +9,9 @@ import { CrashInfo } from '../types';
 const MAX_BATCH = 20;
 const MAX_STACK = 8000;
 
+/** 认得的崩溃种类；客户端加新种类时这里也得加，否则会被兜底成 dart_error（踩过一次） */
+const KINDS = new Set(['dart_error', 'native_crash', 'abnormal_exit']);
+
 /** 指纹：异常类型 + 堆栈前几帧。同一个 bug 崩一万次要归成一条，不然没法看。
  * 去掉行内的十六进制地址和纯数字，避免同一处崩溃因为地址不同被拆成多条。 */
 export function fingerprint(type: string, stack: string): string {
@@ -40,7 +43,7 @@ export async function report(req: Req) {
     if (!type) continue;
 
     const info: CrashInfo = {
-      kind: c.kind === 'abnormal_exit' ? 'abnormal_exit' : 'dart_error',
+      kind: KINDS.has(c.kind) ? c.kind : 'dart_error',
       type,
       message: clean(c.message, 1000),
       stack: clean(c.stack, MAX_STACK),

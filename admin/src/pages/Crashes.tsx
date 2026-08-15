@@ -8,7 +8,7 @@ import { fmtTime, usePagedList } from '../paged';
 
 interface CrashRow {
   _id: string;
-  kind: 'dart_error' | 'abnormal_exit';
+  kind: 'dart_error' | 'native_crash' | 'abnormal_exit';
   type: string;
   message: string;
   stack: string;
@@ -37,7 +37,8 @@ export default function Crashes() {
             onChange={setKind}
             options={[
               { value: '', label: '全部类型' },
-              { value: 'dart_error', label: 'Dart 异常（有堆栈）' },
+              { value: 'dart_error', label: 'Dart 异常（可读堆栈）' },
+              { value: 'native_crash', label: '原生崩溃（未符号化）' },
               { value: 'abnormal_exit', label: '异常退出（无堆栈）' },
             ]}
           />
@@ -81,7 +82,8 @@ export default function Crashes() {
                   whiteSpace: 'pre-wrap',
                 }}
               >
-                {r.stack || '（异常退出没有堆栈：进程已经没了，抓不到现场。想要原生崩溃堆栈需要接 xCrash/KSCrash 那类 native 方案）'}
+                {r.stack ||
+                  '（异常退出没有堆栈：native 层也没抓到现场，多半是被系统直接回收）'}
               </pre>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                 首次 {fmtTime(r.firstAt)}（{r.firstVersion}） · 末次 {fmtTime(r.lastAt)}（{r.lastVersion}）
@@ -102,7 +104,13 @@ export default function Crashes() {
             dataIndex: 'kind',
             width: 110,
             render: (v: string) =>
-              v === 'abnormal_exit' ? <Tag color="orange">异常退出</Tag> : <Tag color="red">Dart 异常</Tag>,
+              v === 'abnormal_exit' ? (
+                <Tag color="orange">异常退出</Tag>
+              ) : v === 'native_crash' ? (
+                <Tag color="volcano">原生崩溃</Tag>
+              ) : (
+                <Tag color="red">Dart 异常</Tag>
+              ),
           },
           {
             title: '异常',
