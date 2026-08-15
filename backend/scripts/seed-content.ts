@@ -126,6 +126,15 @@ const WISH_SLOGANS: string[] = [
   "微光会聚成\n星海",
 ];
 
+/** 心愿达成海报文案（配 content/posters/done1-4.jpg，四张达成主题图：
+ * 登顶云海 / 抵达海边 / 晨光窗边 / 星空草地） */
+const DONE_SLOGANS: string[] = [
+  "这一天\n终于到了",
+  "想去的地方\n我到了",
+  "等了很久\n就是今天",
+  "又点亮了\n一个心愿",
+];
+
 /** 成就定义（frontend/lib/pages/tree_page.dart 的 achievements() 函数体，slug/name/desc） */
 const ACHV_DEFS: Array<{ slug: string; name: string; desc: string }> = [
   { slug: "first_task", name: "初试身手", desc: "完成第 1 个任务" },
@@ -566,9 +575,12 @@ async function main() {
     WISH_SLOGANS.map((slogan, i) => ({ url: '', slogan, sort: i + 1, enabled: true })),
   );
 
-  await seedCollection(db, 'poster_done', 'slogan', [
-    { url: '', slogan: '这一天 终于到了', sort: 1, enabled: true },
-  ]);
+  await seedCollection(
+    db,
+    'poster_done',
+    'slogan',
+    DONE_SLOGANS.map((slogan, i) => ({ url: '', slogan, sort: i + 1, enabled: true })),
+  );
 
   await seedCollection(
     db,

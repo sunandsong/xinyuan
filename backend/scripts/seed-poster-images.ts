@@ -91,7 +91,12 @@ async function main() {
   ]);
 
   console.log('poster_done …');
-  await patchCollection(app, db, 'poster_done', ['wish3.jpg']);
+  await patchCollection(app, db, 'poster_done', [
+    'done1.jpg',
+    'done2.jpg',
+    'done3.jpg',
+    'done4.jpg',
+  ]);
 
   console.log('done');
 }
