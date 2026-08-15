@@ -16,13 +16,11 @@ export const JWT_SECRET = (() => {
   return s;
 })();
 
-// 高德逆地理编码 key（可选）：完成心愿定位时，系统自带的反地理编码在没有
-// Google 服务的安卓机上用不了，用它兜底查地名。没配就直接跳过这条兜底，
-// 不影响其它功能。
-export const AMAP_KEY = process.env.AMAP_KEY || '';
-
-/** 高德 JS API 安全密钥（Web 端地图必填，跟 AMAP_KEY 配在同一控制台应用里） */
-export const AMAP_JS_CODE = process.env.AMAP_JS_CODE || '';
+// 腾讯位置服务 key（可选）：完成心愿定位时，系统自带的反地理编码在没有
+// Google 服务的安卓机上用不了，用它兜底查地名；管理端选点地图也用同一个 key。
+// 没配就直接跳过，不影响其它功能。
+// 腾讯这边 WebService API 和 JS API GL 共用一个 key，不像高德还要额外配安全密钥。
+export const TMAP_KEY = process.env.TMAP_KEY || '';
 
 // 管理端鉴权 key（可选，但没配就整个 /admin/* 直接 403，宁可不可用也不裸奔）
 export const ADMIN_KEY = process.env.ADMIN_KEY || '';

@@ -104,7 +104,7 @@ export const spotForm: CrudEditForm<SpotForm> = {
           <Input value={values.province} onChange={(e) => onChange({ province: e.target.value })} placeholder="如：北京" />
         </FormField>
       </FormSection>
-      <FormSection title="地图定位" desc="搜索景点或在地图上点击、拖动标记">
+      <FormSection title="地图定位" desc="搜索景点或在地图上点击选点">
         <MapPicker
           lat={values.lat}
           lng={values.lng}

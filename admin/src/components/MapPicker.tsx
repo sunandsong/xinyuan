@@ -1,8 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AutoComplete, Button, InputNumber, Space, Typography, message } from 'antd';
 import { AimOutlined, EnvironmentOutlined } from '@ant-design/icons';
-import AMapLoader from '@amap/amap-jsapi-loader';
 import { api } from '../api';
+
+/** 腾讯地图 JS API GL 没有官方 npm 加载器，官方推荐做法就是动态插入 script
+ * 标签 + callback，等 window.TMap 就绪。同一个 key 全局只挂一次脚本。 */
+let tmapLoading: Promise<any> | null = null;
+function loadTMap(key: string): Promise<any> {
+  if ((window as any).TMap) return Promise.resolve((window as any).TMap);
+  if (tmapLoading) return tmapLoading;
+  tmapLoading = new Promise((resolve, reject) => {
+    const cbName = `__tmapCb${Date.now()}`;
+    (window as any)[cbName] = () => {
+      delete (window as any)[cbName];
+      resolve((window as any).TMap);
+    };
+    const script = document.createElement('script');
+    script.src = `https://map.qq.com/api/gljs?v=1.exp&key=${key}&callback=${cbName}`;
+    script.onerror = () => reject(new Error('腾讯地图脚本加载失败'));
+    document.head.appendChild(script);
+  });
+  return tmapLoading;
+}
 
 interface PlaceHit {
   name: string;
@@ -18,7 +37,7 @@ function hasCoords(lat: number, lng: number) {
   return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
 }
 
-/** 高德地图选点：搜索景点、点击/拖动标记、自动回填省份 */
+/** 腾讯地图选点：搜索景点、点击地图重新放标记、自动回填省份 */
 export default function MapPicker({
   lat,
   lng,
@@ -31,13 +50,14 @@ export default function MapPicker({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInst = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  const amapRef = useRef<any>(null);
+  const tmapRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [options, setOptions] = useState<Array<{ value: string; label: string; hit: PlaceHit }>>([]);
   const [keyword, setKeyword] = useState('');
 
@@ -50,27 +70,25 @@ export default function MapPicker({
     }
   }, []);
 
+  // MultiMarker 官方文档没有拖拽标记的支持（跟高德 Marker 的 draggable 不一样），
+  // 所以选点只靠「点地图重新放标记」+ 下面手填经纬度兜底，不做拖拽调整
   const placeMarker = useCallback(
     (la: number, ln: number, moveMap = true) => {
-      const AMap = amapRef.current;
+      const TMap = tmapRef.current;
       const map = mapInst.current;
-      if (!AMap || !map) return;
+      if (!TMap || !map) return;
+      const position = new TMap.LatLng(la, ln);
       if (!markerRef.current) {
-        markerRef.current = new AMap.Marker({
-          position: [ln, la],
-          draggable: true,
+        markerRef.current = new TMap.MultiMarker({
+          map,
+          geometries: [{ id: 'picked', position }],
         });
-        markerRef.current.on('dragend', (e: any) => {
-          const pos = e.target.getPosition();
-          reverseGeocode(pos.getLat(), pos.getLng());
-        });
-        map.add(markerRef.current);
       } else {
-        markerRef.current.setPosition([ln, la]);
+        markerRef.current.updateGeometries([{ id: 'picked', position }]);
       }
-      if (moveMap) map.setZoomAndCenter(14, [ln, la]);
+      if (moveMap) map.setCenter(position);
     },
-    [reverseGeocode],
+    [],
   );
 
   useEffect(() => {
@@ -79,28 +97,22 @@ export default function MapPicker({
       try {
         const cfg = await api.get('/admin/map-config');
         if (!cfg.available) {
-          setMapError('未配置高德地图 Key（AMAP_KEY），请手动填写经纬度');
+          setMapError('未配置腾讯地图 Key（TMAP_KEY），请手动填写经纬度');
           return;
         }
-        if (cfg.securityCode) {
-          (window as any)._AMapSecurityConfig = { securityJsCode: cfg.securityCode };
-        }
-        const AMap = await AMapLoader.load({
-          key: cfg.key,
-          version: '2.0',
-          plugins: [],
-        });
+        const TMap = await loadTMap(cfg.key);
         if (cancelled || !mapRef.current) return;
-        amapRef.current = AMap;
-        const center = hasCoords(lat, lng) ? [lng, lat] : [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat];
-        const map = new AMap.Map(mapRef.current, {
+        tmapRef.current = TMap;
+        const center = hasCoords(lat, lng)
+          ? new TMap.LatLng(lat, lng)
+          : new TMap.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng);
+        const map = new TMap.Map(mapRef.current, {
           zoom: hasCoords(lat, lng) ? 14 : 5,
           center,
-          viewMode: '2D',
         });
         map.on('click', (e: any) => {
-          const la = e.lnglat.getLat();
-          const ln = e.lnglat.getLng();
+          const la = e.latLng.getLat();
+          const ln = e.latLng.getLng();
           placeMarker(la, ln, false);
           reverseGeocode(la, ln);
         });
@@ -132,9 +144,12 @@ export default function MapPicker({
       return;
     }
     setSearching(true);
+    setSearchError(null);
     try {
       const r = await api.get(`/admin/geocode/search?keyword=${encodeURIComponent(q.trim())}`);
       const items: PlaceHit[] = r.items ?? [];
+      // 后端把上游真实错误（额度超限等）透过来了就明说，别让用户以为是「没搜到」
+      if (r.error) setSearchError(r.error);
       setOptions(
         items.map((hit) => ({
           value: `${hit.name}@${hit.lng},${hit.lat}`,
@@ -144,6 +159,7 @@ export default function MapPicker({
       );
     } catch {
       setOptions([]);
+      setSearchError('搜索请求失败');
     } finally {
       setSearching(false);
     }
@@ -186,12 +202,20 @@ export default function MapPicker({
               onSearch={onSearch}
               onSelect={(_, opt) => pickPlace((opt as any).hit)}
               placeholder="搜索景点或地址"
-              notFoundContent={searching ? '搜索中…' : '无结果'}
+              notFoundContent={searching ? '搜索中…' : (searchError ?? '无结果')}
             />
             <Button icon={<AimOutlined />} onClick={useMyLocation}>
               当前位置
             </Button>
           </Space>
+          {searchError && (
+            <Alert
+              type="warning"
+              showIcon
+              message={searchError}
+              style={{ marginBottom: 8 }}
+            />
+          )}
           <div
             ref={mapRef}
             style={{
@@ -203,7 +227,7 @@ export default function MapPicker({
             }}
           />
           <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
-            <EnvironmentOutlined /> 点击地图或拖动标记选点，省份会自动识别
+            <EnvironmentOutlined /> 点击地图选点（不支持拖动标记，微调用下面的经纬度输入框），省份会自动识别
           </Typography.Text>
         </>
       )}
