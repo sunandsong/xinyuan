@@ -14,13 +14,15 @@ import 'version.dart';
 ///
 /// 1. **Dart 层未捕获异常**（null 错误、类型错误、async 异常……）：进程没死，
 ///    有完整可读堆栈，抓得最全。这类占 Flutter App 问题的绝大多数。
-/// 2. **原生崩溃 / ANR**（SIGSEGV、EXC_BAD_ACCESS、OOM 被杀、watchdog）：进程瞬间
-///    就没了，Dart 层抓不到。靠 native 库装信号处理器把现场写盘（Android=xCrash 写
-///    filesDir/tombstones，iOS=KSCrash 写自己的 reportStore），下次启动经
-///    `xinyuan/native_crash` channel 捞出来一起上报。
-///    ⚠️ 拿到的是**未符号化**的原始地址堆栈，看得出崩在哪个 so/frame、崩了多少次、
-///    什么机型版本，但读不出具体哪一行——要那个得建符号化流水线（按版本归档
-///    mapping.txt / .so / dSYM，服务端跑 addr2line / atos）。
+/// 2. **原生崩溃**（EXC_BAD_ACCESS、SIGSEGV、OOM 被杀）：进程瞬间就没了，Dart 层
+///    抓不到。**只有 iOS 有**——KSCrash 装 Mach 异常端口 + 信号处理器把现场写盘，
+///    下次启动经 `xinyuan/native_crash` channel 捞出来一起上报。
+///    Android 侧曾用 xCrash，因为它的 .so 是 4KB 页对齐、过不了 Google Play 的
+///    16KB 页要求，2026-08-15 摘掉了（详见 android/app/build.gradle.kts 注释）；
+///    Android 上这个 channel 没有实现，调用会走 catch 分支静默跳过。
+///    ⚠️ 拿到的是**未符号化**的地址堆栈，看得出崩在哪个库、崩了多少次、什么机型
+///    版本，但读不出具体哪一行——要那个得建符号化流水线（按版本归档 dSYM，
+///    服务端跑 atos）。
 /// 3. **异常退出兜底**：启动写 alive 标记、正常退到后台清除。下次启动发现标记还在
 ///    就记一条——上面两层都没抓到、但进程确实非正常结束的情况（比如被系统直接回收）。
 ///

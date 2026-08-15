@@ -46,9 +46,11 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    // 原生崩溃/ANR 采集：Dart 层的 crash_reporter 抓不到进程级崩溃（SIGSEGV、OOM 被杀），
-    // 只能靠这类装信号处理器的 native 库把现场写盘，下次启动再捞出来上报。
-    // ⚠️ xCrash 官方只声明支持到 API 30、且 2025-06 后没再更新，本项目 targetSdk 更高——
-    // 目前实测可用，将来 Android 大版本升级后要重新验证，失效了就把这块摘掉（Dart 层照常工作）。
-    implementation("com.iqiyi.xcrash:xcrash-android-lib:3.0.0")
+    // ⚠️ 这里曾接过 xCrash 抓原生崩溃，2026-08-15 摘掉了，别再加回来：
+    // 它的 libxcrash.so / libxcrash_dumper.so 是 4KB 页对齐（实测 align=0x1000），
+    // 而 Google Play 要求 targetSdk>=35 的应用必须支持 16KB 内存页
+    // （2025-11-01 起，已延期到 2026-05-31）——上架会被拦，16KB 页真机上也加载不了。
+    // 根因是它停更在 NDK r28（r28 起才默认 16KB 对齐）之前。
+    // 当时用 4KB 页的模拟器测试全过，是典型的模拟器骗人案例。
+    // Android 侧现在只保留 Dart 层异常 + 「异常退出」计数；iOS 侧 KSCrash 维护活跃，照常用。
 }
