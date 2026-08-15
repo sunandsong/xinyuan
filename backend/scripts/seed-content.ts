@@ -8,7 +8,8 @@
 //   - frontend/lib/pages/tree_page.dart 的 achievements() → ACHV_DEFS（14 枚 slug/name/desc）
 //
 // 幂等：每个集合先查已有文档，按 keyField（title/slug/name）去重，已存在的跳过，可以放心重跑。
-// hero_images 不灌（按简报要求留空表）。
+// hero_images 灌 5 张场景图（日出/海浪/山峦/星空/极光），跟 wish_pages.dart 的
+// _defaultHeroes 一一对应。最初按简报留空，2026-08-15 图片全部上云后补上。
 //
 // 跑法：cd backend && npx ts-node scripts/seed-content.ts
 // 凭证：本地脚本拿不到云函数运行时角色注入的凭证。脚本自己执行 `tcb secrets get --json`
@@ -125,6 +126,10 @@ const WISH_SLOGANS: string[] = [
   "奔赴热爱\n不负此生",
   "微光会聚成\n星海",
 ];
+
+/** 心愿兜底头图（frontend/lib/pages/wish_pages.dart 的 _defaultHeroes，顺序要一致）
+ * 对应 content/hero/ 下的 sunrise/ocean/mountains/stars/aurora.jpg */
+const HERO_IMAGES: string[] = ["日出", "海浪", "山峦", "星空", "极光"];
 
 /** 心愿达成海报文案（配 content/posters/done1-4.jpg，四张达成主题图：
  * 登顶云海 / 抵达海边 / 晨光窗边 / 星空草地） */
@@ -580,6 +585,13 @@ async function main() {
     'poster_done',
     'slogan',
     DONE_SLOGANS.map((slogan, i) => ({ url: '', slogan, sort: i + 1, enabled: true })),
+  );
+
+  await seedCollection(
+    db,
+    'hero_images',
+    'name',
+    HERO_IMAGES.map((name, i) => ({ url: '', name, sort: i + 1, enabled: true })),
   );
 
   await seedCollection(

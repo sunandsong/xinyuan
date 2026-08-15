@@ -1,4 +1,5 @@
-// 把 App 内置海报图上传到云存储 content/posters/，并回填 poster_* 表里空的 url 字段。
+// 把 App 内置图片上传到云存储（海报 → content/posters/，心愿兜底头图 → content/hero/），
+// 并回填对应表里空的 url 字段。
 // 跑法：cd backend && npx ts-node scripts/seed-poster-images.ts
 // 幂等：固定 cloudPath，可重复跑；只更新 url 为空的行。
 
@@ -8,6 +9,7 @@ import * as path from 'path';
 
 const ENV_ID = 'renshengqingdan-d8feva5q55d12bab';
 const POSTER_DIR = path.join(__dirname, '../../frontend/assets/posters');
+const HERO_DIR = path.join(__dirname, '../../frontend/assets/img/hero');
 
 function initApp() {
   const raw = execSync('tcb secrets get --json', { encoding: 'utf8' });
@@ -41,12 +43,14 @@ async function patchCollection(
   db: any,
   col: string,
   files: string[],
+  localDir: string = POSTER_DIR,
+  cloudDir: string = 'content/posters',
 ) {
   const urls: string[] = [];
   for (const file of files) {
-    const local = path.join(POSTER_DIR, file);
+    const local = path.join(localDir, file);
     if (!fs.existsSync(local)) throw new Error(`missing ${local}`);
-    const cloudPath = `content/posters/${file}`;
+    const cloudPath = `${cloudDir}/${file}`;
     const stable = await uploadContentFile(app, local, cloudPath);
     urls.push(stable);
     console.log(`  ↑ ${file}`);
@@ -97,6 +101,18 @@ async function main() {
     'done3.jpg',
     'done4.jpg',
   ]);
+
+  // 心愿兜底头图：顺序必须跟 seed-content.ts 的 HERO_IMAGES 和 App 的
+  // wish_pages.dart _defaultHeroes 一致，否则名字和图会对不上
+  console.log('hero_images …');
+  await patchCollection(
+    app,
+    db,
+    'hero_images',
+    ['sunrise.jpg', 'ocean.jpg', 'mountains.jpg', 'stars.jpg', 'aurora.jpg'],
+    HERO_DIR,
+    'content/hero',
+  );
 
   console.log('done');
 }
