@@ -6,6 +6,7 @@ import {
   MessageOutlined,
   LoginOutlined,
   ThunderboltOutlined,
+  BugOutlined,
   DatabaseOutlined,
   StarOutlined,
   CheckSquareOutlined,
@@ -43,6 +44,7 @@ import BlockedWords from './pages/BlockedWords';
 import Announcements from './pages/Announcements';
 import DemoUsers from './pages/DemoUsers';
 import AuditLog from './pages/AuditLog';
+import Crashes from './pages/Crashes';
 import { BG, GRADIENT, INK, LINE, MUTED, PAGE_META } from './theme';
 
 const menuItems: MenuProps['items'] = [
@@ -51,6 +53,7 @@ const menuItems: MenuProps['items'] = [
   { key: '/feedback', icon: <MessageOutlined />, label: '反馈' },
   { key: '/login-logs', icon: <LoginOutlined />, label: '登录日志' },
   { key: '/events', icon: <ThunderboltOutlined />, label: '行为事件' },
+  { key: '/crashes', icon: <BugOutlined />, label: '崩溃' },
   {
     key: 'group-data',
     icon: <DatabaseOutlined />,
@@ -179,6 +182,7 @@ function AdminLayout() {
             <Route path="/blocked-words" element={<BlockedWords />} />
             <Route path="/announcements" element={<Announcements />} />
             <Route path="/demo-users" element={<DemoUsers />} />
+            <Route path="/crashes" element={<Crashes />} />
             <Route path="/audit-log" element={<AuditLog />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

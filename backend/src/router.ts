@@ -12,6 +12,7 @@ import { adminPhotoUrls, adminUpload } from './handlers/admin/upload';
 import * as adminGeocode from './handlers/admin/geocode';
 import * as adminUsers from './handlers/admin/users';
 import { getConfig } from './handlers/config';
+import * as crash from './handlers/crash';
 import { track } from './handlers/events';
 import { submitFeedback } from './handlers/feedback';
 import * as geocode from './handlers/geocode';
@@ -38,6 +39,8 @@ const publicRoutes = [
   route('POST', '/auth/login', (r) => auth.login(r)),
   route('GET', '/share/:code', (req, p) => share.getShare(req, p.code)),
   route('GET', '/releases', () => releasesPage()),
+  // 崩溃上报不要求登录：崩在登录之前的那批才是最该看到的
+  route('POST', '/crash', (r) => crash.report(r)),
 ];
 
 // 管理端路由：都在 requireAdmin 校验通过之后才走到这里，见 handle()。
@@ -52,6 +55,7 @@ const adminRoutes = [
   route('GET', '/admin/feedback', (r) => queries.feedbackList(r)),
   route('GET', '/admin/logins', (r) => queries.loginList(r)),
   route('GET', '/admin/events', (r) => queries.eventList(r)),
+  route('GET', '/admin/crashes', (r) => queries.crashList(r)),
   route('GET', '/admin/audit', (r) => adminAudit.list(r)),
   route('GET', '/admin/export', (r) => exportAll(r)),
   route('GET', '/admin/quota', (r) => quota(r)),

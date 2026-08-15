@@ -2,7 +2,7 @@
 // 同步统一用 Last-Write-Wins（updatedAt 大者胜），软删除用 deleted 传播。
 
 import { COL, ENV_ID } from './config';
-import { Feedback, Letter, PullResult, Share, Task, UserProfile, Wish } from './types';
+import { CrashInfo, Feedback, Letter, PullResult, Share, Task, UserProfile, Wish } from './types';
 
 export interface Db {
   getUserByAccount(account: string): Promise<UserProfile | null>;
@@ -69,6 +69,10 @@ export interface Db {
   /** 集合不存在就建（已存在时 createCollection 报错，吞掉）——hero_images 这类
    * 种子脚本没灌过数据的空表，第一次 list/写入前得有表 */
   ensureCollection(col: string): Promise<void>;
+
+  /** 崩溃上报：按指纹聚合。同指纹的崩溃只累加 count 并刷新末次信息，
+   * 不会一条崩溃存一条记录（否则同一个 bug 崩一万次就是一万条，没法看）。 */
+  recordCrash(fp: string, info: CrashInfo): Promise<void>;
 
   // ---- 管理端查询聚合（Task 4）----
   /** 全部未注销用户（含 isDemo，是否排除由调用方决定） */
@@ -465,6 +469,50 @@ class CloudDb implements Db {
     } catch {
       // 已存在时报错，忽略
     }
+  }
+
+  async recordCrash(fp: string, info: CrashInfo): Promise<void> {
+    const col = COL.crashes;
+    // ponytail: 先读后写有并发竞争（两条同指纹崩溃同时到达可能少记一次 count）。
+    // 崩溃量级下差一两次不影响判断，真要精确再换 CloudBase 的原子 upsert。
+    let exists = false;
+    try {
+      const r = await this.db.collection(col).doc(fp).get();
+      exists = Boolean(r?.data?.length);
+    } catch {
+      exists = false; // 集合/文档不存在，走新建分支
+    }
+
+    if (exists) {
+      await this.db.collection(col).doc(fp).update({
+        count: this.cmd.inc(1),
+        lastAt: info.at,
+        lastVersion: info.appVersion,
+        lastPlatform: info.platform,
+        lastOsVersion: info.osVersion,
+        // 堆栈每次覆盖成最新的：同指纹堆栈本来就一样，留最新的便于对最近版本排查
+        stack: info.stack,
+        message: info.message,
+      });
+      return;
+    }
+
+    await this.ensureCollection(col);
+    await this.db.collection(col).doc(fp).set({
+      kind: info.kind,
+      type: info.type,
+      message: info.message,
+      stack: info.stack,
+      count: 1,
+      firstAt: info.at,
+      lastAt: info.at,
+      firstVersion: info.appVersion,
+      lastVersion: info.appVersion,
+      lastPlatform: info.platform,
+      lastOsVersion: info.osVersion,
+      account: info.account,
+      resolved: false,
+    });
   }
 
   // ---- 管理端查询聚合（Task 4）----

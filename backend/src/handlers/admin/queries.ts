@@ -288,3 +288,26 @@ export async function eventList(req: Req) {
   });
   return ok({ items, total });
 }
+
+/** GET /admin/crashes?kind=&days=&skip= —— 按发生次数倒序（最闹心的排最前），
+ * 集合可能还没建过（一次崩溃都没上报过），按空表返回别 500。 */
+export async function crashList(req: Req) {
+  const q = req.query ?? {};
+  const skip = Math.max(0, Number(q.skip) || 0);
+  const where: Record<string, unknown> = {};
+  if (q.kind) where.kind = q.kind;
+  const days = Number(q.days) || 0;
+  try {
+    const { items, total } = await getDb().listDocs(COL.crashes, {
+      skip,
+      limit: pageLimit(q),
+      where,
+      orderBy: 'count',
+      orderDir: 'desc',
+      since: days > 0 ? { field: 'lastAt', ms: days * DAY } : undefined,
+    });
+    return ok({ items, total });
+  } catch {
+    return ok({ items: [], total: 0 });
+  }
+}

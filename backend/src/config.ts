@@ -39,4 +39,5 @@ export const COL = {
   feedback: 'feedback',
   logins: 'logins',
   events: 'events',
+  crashes: 'crashes',
 } as const;

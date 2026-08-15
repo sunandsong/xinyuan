@@ -7,6 +7,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'analytics.dart';
 import 'api/api.dart';
+import 'crash_reporter.dart';
 import 'notification_scheduler.dart';
 import 'pages/tree_page.dart' show achvSlugByName;
 import 'pages/world_page.dart' show litPlaceCount;
@@ -317,6 +318,10 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       _pushTimer?.cancel();
       unawaited(_flushPush());
       unawaited(Analytics.I.flush());
+      // 正常退到后台要清掉「运行中」标记，否则下次启动会误判成上次崩溃了
+      unawaited(CrashReporter.I.markCleanExit());
+    } else if (state == AppLifecycleState.resumed) {
+      unawaited(CrashReporter.I.markResumed());
     }
   }
 
@@ -325,6 +330,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   final letters = <Letter>[];
   int _idSeq = 0;
   final _rand = Random();
+
   /// 序号每次启动从 0 重来，只靠「毫秒 + 序号」的话，同一账号两台设备
   /// 都刚启动、同一毫秒建记录就会撞出同一个 id，服务端按 LWW 只留一条，
   /// 另一条无声消失。补一段随机量把这条路堵死。
@@ -379,11 +385,13 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   void _scheduleNotifRefresh() {
     _notifTimer?.cancel();
     _notifTimer = Timer(const Duration(milliseconds: 300), () {
-      unawaited(NotificationScheduler.I.rescheduleAll(
-        tasks: tasks,
-        wishes: wishes,
-        letters: letters,
-      ));
+      unawaited(
+        NotificationScheduler.I.rescheduleAll(
+          tasks: tasks,
+          wishes: wishes,
+          letters: letters,
+        ),
+      );
     });
   }
 
@@ -475,11 +483,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
 
   /// 排行榜用的 4 个计数。跟着同步推送一起上传，不额外发请求。
   Map<String, dynamic> rankCounters() => {
-        'doneCount': wishes.where((w) => w.done).length,
-        'taskCount': tasks.where((t) => t.done).length,
-        'achvCount': achvUnlocked.length,
-        'placeCount': litPlaceCount(),
-      };
+    'doneCount': wishes.where((w) => w.done).length,
+    'taskCount': tasks.where((t) => t.done).length,
+    'achvCount': achvUnlocked.length,
+    'placeCount': litPlaceCount(),
+  };
 
   /// 把一批云端记录合进本地：同 id 就地替换，带 deleted 标记的删掉，新的追加。
   /// 就地替换是为了不打乱列表顺序（先删后加会让改过的心愿跳到末尾）。
@@ -539,10 +547,12 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         final bd = profile['birthday'] as String?;
         if (bd != null && bd.isNotEmpty) birthday = _dayParse(bd);
         accountCreatedAt = _fromMs(profile['createdAt'] as num?);
-        final cloudAchv = ((profile['achievements'] as Map?) ?? const {})
-            .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
-        final localOnly =
-            achvUnlocked.keys.any((k) => !cloudAchv.containsKey(k));
+        final cloudAchv = ((profile['achievements'] as Map?) ?? const {}).map(
+          (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+        );
+        final localOnly = achvUnlocked.keys.any(
+          (k) => !cloudAchv.containsKey(k),
+        );
         achvUnlocked = {...achvUnlocked, ...cloudAchv};
         _migrateAchvKeys(); // 云端可能还是老的中文名 key
         _saveAchvLocal();
@@ -550,8 +560,9 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           unawaited(_pushProfile(achievements: achvUnlocked));
         }
         // 景区打卡同成就：本地和云端取并集，同一处保留更早的首次时间
-        final cloudCk = ((profile['checkins'] as Map?) ?? const {})
-            .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+        final cloudCk = ((profile['checkins'] as Map?) ?? const {}).map(
+          (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+        );
         final ckLocalOnly = checkins.entries.any(
           (e) => (cloudCk[e.key] ?? (e.value + 1)) > e.value,
         );
@@ -605,7 +616,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> retrySync() async {
     if (!signedIn) return;
     await _flushPush();
-    final dirtyLeft = _dirtyWishes.isNotEmpty ||
+    final dirtyLeft =
+        _dirtyWishes.isNotEmpty ||
         _dirtyTasks.isNotEmpty ||
         _dirtyLetters.isNotEmpty;
     if (!dirtyLeft && _needPull) {
@@ -944,11 +956,13 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     if (birthday != null) this.birthday = birthday;
     notifyListeners();
     if (signedIn) {
-      unawaited(_pushProfile(
-        nickname: nickname,
-        gender: gender,
-        birthday: birthday == null ? null : _dayStr(birthday),
-      ));
+      unawaited(
+        _pushProfile(
+          nickname: nickname,
+          gender: gender,
+          birthday: birthday == null ? null : _dayStr(birthday),
+        ),
+      );
     }
   }
 
@@ -971,11 +985,14 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     achvUnlocked.forEach((k, v) {
       final slug = achvSlugByName[k];
       if (slug == null) {
-        bySlug[k] = bySlug.containsKey(k) ? (bySlug[k]! < v ? bySlug[k]! : v) : v;
+        bySlug[k] = bySlug.containsKey(k)
+            ? (bySlug[k]! < v ? bySlug[k]! : v)
+            : v;
       } else {
         changed = true;
-        bySlug[slug] =
-            bySlug.containsKey(slug) && bySlug[slug]! < v ? bySlug[slug]! : v;
+        bySlug[slug] = bySlug.containsKey(slug) && bySlug[slug]! < v
+            ? bySlug[slug]!
+            : v;
       }
     });
     if (changed) {
@@ -990,21 +1007,26 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       final p = await SharedPreferences.getInstance();
       final raw = p.getString(_achvKey);
       if (raw != null) {
-        achvUnlocked = (jsonDecode(raw) as Map)
-            .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+        achvUnlocked = (jsonDecode(raw) as Map).map(
+          (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+        );
         _migrateAchvKeys();
       }
       final rawCk = p.getString(_checkinKey);
       if (rawCk != null) {
-        checkins = (jsonDecode(rawCk) as Map)
-            .map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+        checkins = (jsonDecode(rawCk) as Map).map(
+          (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+        );
       }
     } catch (_) {}
   }
 
   void _saveAchvLocal() {
-    unawaited(SharedPreferences.getInstance()
-        .then((p) => p.setString(_achvKey, jsonEncode(achvUnlocked))));
+    unawaited(
+      SharedPreferences.getInstance().then(
+        (p) => p.setString(_achvKey, jsonEncode(achvUnlocked)),
+      ),
+    );
   }
 
   // ---------- 景区打卡 ----------
@@ -1013,8 +1035,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   static const _checkinKey = 'spot_checkins';
 
   void _saveCheckinsLocal() {
-    unawaited(SharedPreferences.getInstance()
-        .then((p) => p.setString(_checkinKey, jsonEncode(checkins))));
+    unawaited(
+      SharedPreferences.getInstance().then(
+        (p) => p.setString(_checkinKey, jsonEncode(checkins)),
+      ),
+    );
   }
 
   /// 定位打卡点亮一个景区（幂等，保留首次时间）
@@ -1026,9 +1051,9 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
     if (signedIn) {
       // 打卡和足迹计数一起推，排行榜立刻是新的，不用等下次同步
-      unawaited(SyncApi.push(
-        profile: {...rankCounters(), 'checkins': checkins},
-      ));
+      unawaited(
+        SyncApi.push(profile: {...rankCounters(), 'checkins': checkins}),
+      );
     }
   }
 
@@ -1064,11 +1089,13 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   /// 云函数冷启动慢或网络一抖，头像就"消失"了（心愿有缓存兜底，头像也得有）
   static const _avatarKey = 'avatar_url';
   void _saveAvatarLocal() {
-    unawaited(SharedPreferences.getInstance().then(
-      (p) => avatarUrl == null
-          ? p.remove(_avatarKey)
-          : p.setString(_avatarKey, avatarUrl!),
-    ));
+    unawaited(
+      SharedPreferences.getInstance().then(
+        (p) => avatarUrl == null
+            ? p.remove(_avatarKey)
+            : p.setString(_avatarKey, avatarUrl!),
+      ),
+    );
   }
 
   Future<void> _pushProfile({
@@ -1135,9 +1162,17 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           },
       ];
       minVersion = r['minVersion']?.toString() ?? '';
-      unawaited(SharedPreferences.getInstance().then((p) => p.setString(
-          _configKey,
-          jsonEncode({'announcements': announcements, 'minVersion': minVersion}))));
+      unawaited(
+        SharedPreferences.getInstance().then(
+          (p) => p.setString(
+            _configKey,
+            jsonEncode({
+              'announcements': announcements,
+              'minVersion': minVersion,
+            }),
+          ),
+        ),
+      );
       notifyListeners();
     } catch (_) {}
   }
@@ -1152,6 +1187,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     final nick = await Session.nick();
     if (nick != null && nick.isNotEmpty) nickname = nick;
     Analytics.I.enabled = signedIn;
+    CrashReporter.I.account = signedIn ? (account ?? '') : '';
     if (signedIn) Analytics.I.track('app_open');
     if (signedIn) {
       // 先装本地存的头像，云端拉取成功后会覆盖；拉取失败也不至于头像消失
@@ -1162,11 +1198,13 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       // 云端是唯一数据源：拉不到就亮横幅 + 空列表，不拿本地数据顶替
       if (!await _pullFromCloud()) _markPullFailed();
     }
-    unawaited(NotificationScheduler.I.rescheduleAll(
-      tasks: tasks,
-      wishes: wishes,
-      letters: letters,
-    ));
+    unawaited(
+      NotificationScheduler.I.rescheduleAll(
+        tasks: tasks,
+        wishes: wishes,
+        letters: letters,
+      ),
+    );
     notifyListeners();
   }
 
@@ -1197,6 +1235,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     if (nick != null && nick.isNotEmpty) nickname = nick;
     signedIn = true;
     Analytics.I.enabled = true;
+    CrashReporter.I.account = account;
     unawaited(_fetchConfig());
     final pulled = await _pullFromCloud(); // 可能是换账号，必须整体替换
     if (!pulled) _markPullFailed();
@@ -1209,6 +1248,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> logout() async {
     await Session.clear();
     Analytics.I.enabled = false;
+    CrashReporter.I.account = '';
     signedIn = false;
     account = null;
     accountCreatedAt = null;

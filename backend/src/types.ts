@@ -124,3 +124,22 @@ export interface PullResult {
   letters: Letter[];
   profile: UserProfile | null;
 }
+
+/** 崩溃上报一条记录（客户端 crash_reporter 采集，服务端按指纹聚合） */
+export interface CrashInfo {
+  /** dart_error = Dart 层未捕获异常（有堆栈）；abnormal_exit = 上次异常退出（无堆栈，
+   * 靠「启动写标记、正常退出清除」推断出来的，多半是原生崩溃或被系统杀） */
+  kind: 'dart_error' | 'abnormal_exit';
+  /** 异常类型名，如 _TypeError；abnormal_exit 固定为 AbnormalExit */
+  type: string;
+  message: string;
+  /** Dart 堆栈原文；abnormal_exit 没有 */
+  stack: string;
+  appVersion: string;
+  platform: string;
+  osVersion: string;
+  /** 崩溃发生时间（客户端时钟），不是上报时间 */
+  at: number;
+  /** 登录账号，未登录时为空串（/crash 是公开路由，不解 JWT，拿不到 uid） */
+  account: string;
+}

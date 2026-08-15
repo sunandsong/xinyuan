@@ -16,6 +16,8 @@ export const CONTENT_COLS = new Set([
   'spots',
   'blockwords',
   'announcements',
+  // 崩溃记录：管理端全权维护，修完 bug 后可以直接删掉那条，物理删无所谓
+  'crashes',
 ]);
 
 /** 三张用户数据同步表：管理端数据表页也要能查看/改，但删除必须走软删——

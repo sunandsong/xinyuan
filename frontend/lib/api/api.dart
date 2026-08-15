@@ -259,6 +259,12 @@ class EventsApi {
       ApiClient.I.post('/events', {'events': events});
 }
 
+/// 崩溃上报：不需要登录态（崩在登录之前的那批才最该看到），后端按指纹聚合
+class CrashApi {
+  static Future<void> report(List<Map<String, dynamic>> crashes) =>
+      ApiClient.I.post('/crash', {'crashes': crashes});
+}
+
 /// 意见反馈：存进后端 feedback 表，人工看，不用额外接客服系统
 class FeedbackApi {
   static Future<void> submit(String content) =>

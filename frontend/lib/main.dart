@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'crash_reporter.dart';
 import 'data.dart';
 import 'pages/splash_page.dart';
 import 'theme.dart';
@@ -9,6 +10,8 @@ import 'ui.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 崩溃钩子要尽早挂：initSession 里要是崩了，也得记下来
+  await CrashReporter.I.init();
   await AppData.I.initSession();
   _installFrameWatchdog();
   runApp(const XinyuanApp());
