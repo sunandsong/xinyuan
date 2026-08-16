@@ -11,6 +11,7 @@ import 'crash_reporter.dart';
 import 'notification_scheduler.dart';
 import 'pages/tree_page.dart' show achvSlugByName;
 import 'pages/world_page.dart' show litPlaceCount;
+import 'photos.dart' show cachedImageFile;
 import 'presets.dart';
 import 'session.dart';
 import 'theme.dart';
@@ -1162,6 +1163,14 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// 配置一拉到就把这些图悄悄下到本地，用户真点开时已经有了，不用等下载。
+  /// 数量很少（几张封面/海报）且只在首次或换图后真的走网络，之后全是本地命中。
+  void _warmImageCache() {
+    for (final u in [...donePosters, ...declareCovers, ...doneCovers]) {
+      unawaited(cachedImageFile(u));
+    }
+  }
+
   /// /config 的 posters.done 是 [{url, slogan}]，这里只要 url；顺手滤掉空的
   static List<String> _posterUrls(dynamic raw) => [
     for (final p in (raw as List? ?? const []))
@@ -1187,6 +1196,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       donePosters = _posterUrls((r['posters'] as Map?)?['done']);
       declareCovers = _posterUrls(r['coverDeclare']);
       doneCovers = _posterUrls(r['coverDone']);
+      _warmImageCache();
       unawaited(
         SharedPreferences.getInstance().then(
           (p) => p.setString(

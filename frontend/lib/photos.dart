@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io' show Directory, File;
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -14,6 +17,64 @@ final _picker = ImagePicker();
 
 final _freshUrl = <String, String>{}; // 稳定链接 → 当前有效的临时链接
 final _fetching = <String, Future<String?>>{}; // 进行中的请求去重
+
+// ---------- 图片磁盘缓存 ----------
+// 为什么要自己做：Image.network 只有内存缓存，冷启动必然重新下载；而且临时链接
+// 每次带的签名都不一样（?sign=..&t=..），URL 字符串一变，内存缓存也命中不了，
+// 于是每次进页面都要重下一遍 → 先显示兜底图再跳成真图，就是那一下闪。
+// 这里按「去掉签名的稳定链接」缓存到磁盘，命中就直接读文件，不发任何网络请求。
+//
+// ponytail: 用系统临时目录，不引 path_provider/cached_network_image。
+// 代价是系统存储紧张时可能被清掉——那就重新下一次，不影响正确性。
+Directory? _cacheDir;
+final _cachedFile = <String, File>{}; // 稳定链接 → 本地文件（内存索引，省 stat）
+final _downloading = <String, Future<File?>>{}; // 同一张图并发请求去重
+
+/// 稳定链接 → 确定性的文件名。不能用 String.hashCode：Dart 没保证它跨进程稳定，
+/// 缓存会白失效。直接把路径里的非字母数字换成下划线，我们这些图路径本身就唯一。
+String _cacheName(String stableUrl) {
+  final path = Uri.tryParse(stableUrl)?.path ?? stableUrl;
+  return path.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+}
+
+Future<Directory> _ensureCacheDir() async {
+  final d = _cacheDir ??= Directory('${Directory.systemTemp.path}/xy_img');
+  if (!await d.exists()) await d.create(recursive: true);
+  return d;
+}
+
+/// 本地已缓存就返回文件，否则下载后返回；失败返回 null（调用方回落到网络/兜底图）
+Future<File?> cachedImageFile(String stored) {
+  final key = stored.split('?').first;
+  final hit = _cachedFile[key];
+  if (hit != null) return Future.value(hit);
+  return _downloading[key] ??= () async {
+    try {
+      final dir = await _ensureCacheDir();
+      final f = File('${dir.path}/${_cacheName(key)}');
+      if (await f.exists() && await f.length() > 0) {
+        _cachedFile[key] = f;
+        return f;
+      }
+      final url = await freshPhotoUrl(key);
+      if (url == null) return null;
+      final r = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 20));
+      if (r.statusCode != 200 || r.bodyBytes.isEmpty) return null;
+      // 先写临时文件再改名：中途失败不会留下半张图，下次还能重下
+      final tmp = File('${f.path}.part');
+      await tmp.writeAsBytes(r.bodyBytes);
+      await tmp.rename(f.path);
+      _cachedFile[key] = f;
+      return f;
+    } catch (_) {
+      return null; // 缓存是加速手段，失败不该影响功能
+    } finally {
+      _downloading.remove(key);
+    }
+  }();
+}
 
 /// 把存的照片链接换成当前可访问的临时链接（带缓存；旧数据带的过期签名会被剥掉）
 Future<String?> freshPhotoUrl(String stored) {
@@ -59,6 +120,35 @@ class WishPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 走磁盘缓存：命中就直接读本地文件，一次网络都不发，也就没有「先兜底图
+    // 再跳真图」的闪烁。没命中才下载（下载完同样落盘，下次就不闪了）。
+    return FutureBuilder<File?>(
+      future: cachedImageFile(stored),
+      builder: (context, snap) {
+        final file = snap.data;
+        if (file != null) {
+          return Image.file(
+            file,
+            width: width,
+            height: height,
+            fit: fit,
+            // 文件被系统清了/内容坏了：删掉索引让下次重下，这次先显示兜底
+            errorBuilder: (_, __, ___) {
+              _cachedFile.remove(stored.split('?').first);
+              return fallback;
+            },
+          );
+        }
+        if (snap.connectionState != ConnectionState.done) {
+          return loading ?? fallback;
+        }
+        // 缓存拿不到（没网/下载失败）：退回原来的在线加载，别直接放弃
+        return _networkFallback();
+      },
+    );
+  }
+
+  Widget _networkFallback() {
     return FutureBuilder<String?>(
       future: freshPhotoUrl(stored),
       builder: (context, snap) {
@@ -176,8 +266,7 @@ Future<String?> pickAndUploadWishPhoto(
 
 /// 选一张图当头像：小尺寸压缩上传，成功后立即生效并同步云端
 Future<String?> pickAndUploadAvatar(BuildContext context) async {
-  final stored =
-      await pickAndUploadPhoto(context, maxSide: 512, quality: 80);
+  final stored = await pickAndUploadPhoto(context, maxSide: 512, quality: 80);
   if (stored != null) {
     AppData.I.setAvatarPhoto(stored);
     if (context.mounted) snack(context, '头像已更新');
