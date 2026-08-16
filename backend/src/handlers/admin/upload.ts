@@ -19,6 +19,10 @@ export async function adminUpload(req: Req) {
   const ext = EXT[mime];
   if (!ext) return bad('unsupported_type');
 
+  // ⚠️ 路径必须每次都是新的，别改成「按用途固定文件名然后覆盖」。
+  // App 端按「去掉签名的稳定链接」做磁盘缓存（frontend/lib/photos.dart），
+  // 覆盖同名文件的话 URL 不变 → 缓存永远命中旧图，用户重装 App 才能看到新图。
+  // 现在每次生成随机路径，换图必然换 URL，缓存自然失效，这是有意为之。
   const cloudPath = `content/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires

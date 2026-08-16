@@ -323,7 +323,23 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(CrashReporter.I.markCleanExit());
     } else if (state == AppLifecycleState.resumed) {
       unawaited(CrashReporter.I.markResumed());
+      // 切回前台顺手重拉一次配置：运营在管理端换了图/发了公告，用户切个后台
+      // 再回来就能看到，不用杀进程重开。带节流，别切一下拉一次。
+      if (signedIn) unawaited(_fetchConfigThrottled());
     }
+  }
+
+  DateTime? _lastConfigFetch;
+
+  /// 距上次成功拉取不到 5 分钟就跳过——配置变化频率很低（运营偶尔换图/发公告），
+  /// 频繁切前后台不该每次都打一次请求。
+  Future<void> _fetchConfigThrottled() async {
+    final last = _lastConfigFetch;
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(minutes: 5)) {
+      return;
+    }
+    await _fetchConfig();
   }
 
   final wishes = <Wish>[];
@@ -1196,6 +1212,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       donePosters = _posterUrls((r['posters'] as Map?)?['done']);
       declareCovers = _posterUrls(r['coverDeclare']);
       doneCovers = _posterUrls(r['coverDone']);
+      _lastConfigFetch = DateTime.now(); // 只在成功后记，失败下次切前台还能重试
       _warmImageCache();
       unawaited(
         SharedPreferences.getInstance().then(
