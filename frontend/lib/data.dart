@@ -1124,11 +1124,16 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   bool signedIn = false;
   String? account;
 
-  // ---------- 管理端下发的配置（公告 / 最低版本） ----------
+  // ---------- 管理端下发的配置（公告 / 最低版本 / 达成海报） ----------
   /// 生效中的公告 [{title, body}]；强更最低版本号（空 = 不强更）。
   /// /config 挂在登录态路由下，未登录拿不到——启动先装上次缓存，登录后拉新。
   List<Map<String, String>> announcements = [];
   String minVersion = '';
+
+  /// 「心愿达成」弹窗的背景图 URL（管理端 poster_done 表下发，运营换图不用发版）。
+  /// 空 = 还没拉到 / 拉失败 / 未登录，调用方回退到内置的 assets/posters/done*.jpg。
+  List<String> donePosters = [];
+
   static const _configKey = 'app_config_v1';
 
   Future<void> _loadConfigCache() async {
@@ -1144,13 +1149,23 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           },
       ];
       minVersion = j['minVersion']?.toString() ?? '';
+      donePosters = _posterUrls(j['donePosters']);
     } catch (_) {
       // 缓存坏了当没有
     }
   }
 
-  /// 拉配置：只消费公告和最低版本（内容表数据 App 有内置兜底，暂不接）。
-  /// 失败静默——公告/强更晚一次启动看到没关系，不值得打扰用户。
+  /// /config 的 posters.done 是 [{url, slogan}]，这里只要 url；顺手滤掉空的
+  static List<String> _posterUrls(dynamic raw) => [
+    for (final p in (raw as List? ?? const []))
+      if (p is Map && (p['url']?.toString() ?? '').isNotEmpty)
+        p['url'].toString()
+      else if (p is String && p.isNotEmpty)
+        p,
+  ];
+
+  /// 拉配置：公告、最低版本、达成海报。其余内容表 App 仍用内置兜底。
+  /// 失败静默——晚一次启动看到没关系，不值得打扰用户。
   Future<void> _fetchConfig() async {
     try {
       final r = await ConfigApi.fetch();
@@ -1162,6 +1177,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           },
       ];
       minVersion = r['minVersion']?.toString() ?? '';
+      donePosters = _posterUrls((r['posters'] as Map?)?['done']);
       unawaited(
         SharedPreferences.getInstance().then(
           (p) => p.setString(
@@ -1169,6 +1185,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
             jsonEncode({
               'announcements': announcements,
               'minVersion': minVersion,
+              // 只缓存 url 列表，下次启动没网也能用上次的图（图本身走图片缓存）
+              'donePosters': donePosters,
             }),
           ),
         ),

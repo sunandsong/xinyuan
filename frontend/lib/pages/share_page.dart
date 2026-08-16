@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:gal/gal.dart';
 import '../data.dart';
 import '../photos.dart';
+import '../share_poster.dart' show donePosterAssets;
 import '../theme.dart';
 import '../ui.dart';
 
@@ -112,19 +113,36 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
   void _showCongrats() {
     final w = widget.wish;
     final no = AppData.I.doneNumberOf(w);
+    // 达成海报：优先管理端下发的（运营换图不用发版），没有就用内置的四张。
+    // 按心愿 id 稳定取一张——同一条心愿每次看到的都一样，不同心愿配不同的图。
+    final builtin =
+        donePosterAssets[w.id.hashCode.abs() % donePosterAssets.length];
+    final remote = AppData.I.donePosters;
+    final remoteUrl = remote.isEmpty
+        ? null
+        : remote[w.id.hashCode.abs() % remote.length];
+
     showPosterDialog(
       context,
       title: '心愿达成',
       body: '「${w.title}」\n你点亮的第 $no 个心愿',
       action: '收下这一刻',
-      // 有自己拍的照片就用它当底图，没有才用兜底封面
-      image: w.photos.isEmpty
-          ? null
-          : WishPhoto(
+      asset: builtin,
+      // 有自己拍的照片就用它当底图；否则用下发的达成海报；
+      // 两者都取不到时 showPosterDialog 会回落到 asset（内置图）
+      image: w.photos.isNotEmpty
+          ? WishPhoto(
               w.photos.last,
               fit: BoxFit.cover,
-              fallback:
-                  Image.asset('assets/posters/wish3.jpg', fit: BoxFit.cover),
+              fallback: Image.asset(builtin, fit: BoxFit.cover),
+            )
+          : remoteUrl == null
+          ? null
+          : WishPhoto(
+              remoteUrl,
+              fit: BoxFit.cover,
+              fallback: Image.asset(builtin, fit: BoxFit.cover),
+              loading: Image.asset(builtin, fit: BoxFit.cover),
             ),
     );
   }
@@ -219,11 +237,13 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                                 duration: const Duration(milliseconds: 180),
                                 width: _coverPage == i ? 14 : 5,
                                 height: 5,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 3),
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.white.withValues(
-                                      alpha: _coverPage == i ? .9 : .35),
+                                    alpha: _coverPage == i ? .9 : .35,
+                                  ),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                               ),
@@ -484,8 +504,7 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                                 .95,
                                 // 左边标题+宣言两行，「必达」印章对着两行的垂直中线
                                 child: Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Expanded(
                                       child: Column(
@@ -494,8 +513,7 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                                         children: [
                                           ShaderMask(
                                             shaderCallback: (r) =>
-                                                _flameTextGrad
-                                                    .createShader(r),
+                                                _flameTextGrad.createShader(r),
                                             child: Text(
                                               w.title,
                                               style: const TextStyle(
@@ -522,15 +540,19 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                                       angle: -.16,
                                       child: Container(
                                         padding: const EdgeInsets.fromLTRB(
-                                            10, 5, 6, 5),
+                                          10,
+                                          5,
+                                          6,
+                                          5,
+                                        ),
                                         decoration: BoxDecoration(
                                           border: Border.all(
-                                            color: _flame.withValues(
-                                                alpha: .9),
+                                            color: _flame.withValues(alpha: .9),
                                             width: 2,
                                           ),
-                                          borderRadius:
-                                              BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                         ),
                                         child: const Text(
                                           '必达',
