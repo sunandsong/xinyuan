@@ -27,7 +27,8 @@ const _flameTextGrad = LinearGradient(
 );
 const _flame = Color(0xFFFF5A3C);
 
-/// 宣告卡默认封面：登山 / 火炬 / 冲刺，可左右滑切换
+/// 宣告卡默认封面：登山 / 火炬 / 冲刺，可左右滑切换。
+/// 这是内置兜底，管理端 cover_declare 表下发的图优先（运营换图不用发版）。
 const _declareCovers = [
   'assets/img/hero/declare_cover.jpg',
   'assets/img/hero/declare_cover2.jpg',
@@ -72,10 +73,14 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 预热三张默认封面的解码，滑动切换不掉帧
-    if (!_precached && widget.declare) {
+    // 预热内置封面的解码：宣告卡三张要滑动切换不掉帧；凭证卡那张是远程图
+    // 换链接期间的占位，不预热的话首帧会空一下（远程图和本地图同时在解码）
+    if (!_precached) {
       _precached = true;
-      for (final a in _declareCovers) {
+      for (final a
+          in widget.declare
+              ? _declareCovers
+              : const ['assets/img/hero/default_cover.jpg']) {
         precacheImage(AssetImage(a), context);
       }
     }
@@ -232,7 +237,7 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            for (var i = 0; i < _declareCovers.length; i++)
+                            for (var i = 0; i < _coverCount; i++)
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 180),
                                 width: _coverPage == i ? 14 : 5,
@@ -295,15 +300,64 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
     }
   }
 
-  /// 没有真实照片时的默认封面：宣告卡用破晓登山（热血橙红），凭证卡用暗夜星空
-  Widget _coverGradient(Wish w) => Image.asset(
-    widget.declare
-        ? 'assets/img/hero/declare_cover.jpg'
-        : 'assets/img/hero/default_cover.jpg',
-    height: 210,
-    width: double.infinity,
-    fit: BoxFit.cover,
-  );
+  /// 没有真实照片时的默认封面：宣告卡用破晓登山（热血橙红），凭证卡用暗夜星空。
+  /// 管理端下发了就用远程的，拉不到/换链接期间回落到内置图。
+  Widget _coverGradient(Wish w) {
+    final builtin = widget.declare
+        ? _declareCovers.first
+        : 'assets/img/hero/default_cover.jpg';
+    final remote = widget.declare
+        ? AppData.I.declareCovers
+        : AppData.I.doneCovers;
+    final fallback = Image.asset(
+      builtin,
+      height: 210,
+      width: double.infinity,
+      fit: BoxFit.cover,
+    );
+    if (remote.isEmpty) return fallback;
+    return SizedBox(
+      height: 210,
+      width: double.infinity,
+      child: WishPhoto(
+        remote.first,
+        fit: BoxFit.cover,
+        fallback: fallback,
+        loading: fallback,
+      ),
+    );
+  }
+
+  /// 宣告卡可滑动的封面组：远程下发的优先，空了用内置三张
+  List<Widget> _declareCoverPages() {
+    final remote = AppData.I.declareCovers;
+    if (remote.isEmpty) {
+      return [
+        for (final a in _declareCovers) Image.asset(a, fit: BoxFit.cover),
+      ];
+    }
+    return [
+      for (var i = 0; i < remote.length; i++)
+        WishPhoto(
+          remote[i],
+          fit: BoxFit.cover,
+          // 兜底按位置对应内置图，数量对不上就用第一张
+          fallback: Image.asset(
+            _declareCovers[i % _declareCovers.length],
+            fit: BoxFit.cover,
+          ),
+          loading: Image.asset(
+            _declareCovers[i % _declareCovers.length],
+            fit: BoxFit.cover,
+          ),
+        ),
+    ];
+  }
+
+  /// 封面指示点的个数：跟实际渲染的页数一致
+  int get _coverCount => AppData.I.declareCovers.isEmpty
+      ? _declareCovers.length
+      : AppData.I.declareCovers.length;
 
   Widget _card(Wish w, int no, int total, int days) {
     final hot = widget.declare; // 宣告卡 = 熔岩橙红；凭证卡 = 金箔
@@ -359,10 +413,7 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
                           child: PageView(
                             onPageChanged: (i) =>
                                 setState(() => _coverPage = i),
-                            children: [
-                              for (final a in _declareCovers)
-                                Image.asset(a, fit: BoxFit.cover),
-                            ],
+                            children: _declareCoverPages(),
                           ),
                         )
                       else

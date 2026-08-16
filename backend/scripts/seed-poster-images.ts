@@ -114,6 +114,16 @@ async function main() {
     'content/hero',
   );
 
+  console.log('cover_declare / cover_done …');
+  await patchCollection(
+    app, db, 'cover_declare',
+    ['declare_cover.jpg', 'declare_cover2.jpg', 'declare_cover3.jpg'],
+    HERO_DIR, 'content/hero',
+  );
+  await patchCollection(
+    app, db, 'cover_done', ['default_cover.jpg'], HERO_DIR, 'content/hero',
+  );
+
   console.log('done');
 }
 

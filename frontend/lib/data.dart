@@ -1134,6 +1134,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   /// 空 = 还没拉到 / 拉失败 / 未登录，调用方回退到内置的 assets/posters/done*.jpg。
   List<String> donePosters = [];
 
+  /// 分享卡封面：宣告卡（此愿必达，可左右滑）/ 凭证卡（已点亮）。
+  /// 同样空了就回退内置图，见 share_page 的 _declareCovers / _doneCoverAsset。
+  List<String> declareCovers = [];
+  List<String> doneCovers = [];
+
   static const _configKey = 'app_config_v1';
 
   Future<void> _loadConfigCache() async {
@@ -1150,6 +1155,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       ];
       minVersion = j['minVersion']?.toString() ?? '';
       donePosters = _posterUrls(j['donePosters']);
+      declareCovers = _posterUrls(j['declareCovers']);
+      doneCovers = _posterUrls(j['doneCovers']);
     } catch (_) {
       // 缓存坏了当没有
     }
@@ -1178,6 +1185,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       ];
       minVersion = r['minVersion']?.toString() ?? '';
       donePosters = _posterUrls((r['posters'] as Map?)?['done']);
+      declareCovers = _posterUrls(r['coverDeclare']);
+      doneCovers = _posterUrls(r['coverDone']);
       unawaited(
         SharedPreferences.getInstance().then(
           (p) => p.setString(
@@ -1187,6 +1196,8 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
               'minVersion': minVersion,
               // 只缓存 url 列表，下次启动没网也能用上次的图（图本身走图片缓存）
               'donePosters': donePosters,
+              'declareCovers': declareCovers,
+              'doneCovers': doneCovers,
             }),
           ),
         ),

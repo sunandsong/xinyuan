@@ -45,6 +45,8 @@ export async function getConfig(_req: Req) {
     posterWish,
     posterDone,
     heroImages,
+    coverDeclare,
+    coverDone,
     achvDefs,
     spots,
     announcements,
@@ -56,6 +58,8 @@ export async function getConfig(_req: Req) {
     listActive('poster_wish'),
     listActive('poster_done'),
     listActive('hero_images'),
+    listActive('cover_declare'),
+    listActive('cover_done'),
     listActive('achv_defs'),
     listActive('spots'),
     listActive('announcements'),
@@ -75,6 +79,9 @@ export async function getConfig(_req: Req) {
       done: posterDone.map(toPoster),
     },
     heroImages: heroImages.map((d) => String(d.url ?? '')),
+    // 分享卡封面：宣告卡（此愿必达，可左右滑）/ 凭证卡（已点亮）
+    coverDeclare: coverDeclare.map((d) => String(d.url ?? '')),
+    coverDone: coverDone.map((d) => String(d.url ?? '')),
     achvDefs: achvDefs.map((d) => ({
       slug: String(d.slug ?? ''),
       name: String(d.name ?? ''),

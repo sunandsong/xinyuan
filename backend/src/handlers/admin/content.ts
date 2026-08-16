@@ -12,6 +12,8 @@ export const CONTENT_COLS = new Set([
   'poster_wish',
   'poster_done',
   'hero_images',
+  'cover_declare',
+  'cover_done',
   'achv_defs',
   'spots',
   'blockwords',

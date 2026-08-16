@@ -129,6 +129,10 @@ const WISH_SLOGANS: string[] = [
 
 /** 心愿兜底头图（frontend/lib/pages/wish_pages.dart 的 _defaultHeroes，顺序要一致）
  * 对应 content/hero/ 下的 sunrise/ocean/mountains/stars/aurora.jpg */
+/** 分享卡封面（frontend/lib/pages/share_page.dart）：
+ * 宣告卡三张可左右滑 = _declareCovers，顺序要一致；凭证卡一张 = default_cover */
+const DECLARE_COVERS: string[] = ["破晓登山", "火炬", "冲刺"];
+
 const HERO_IMAGES: string[] = ["日出", "海浪", "山峦", "星空", "极光"];
 
 /** 心愿达成海报文案（配 content/posters/done1-4.jpg，四张达成主题图：
@@ -586,6 +590,17 @@ async function main() {
     'slogan',
     DONE_SLOGANS.map((slogan, i) => ({ url: '', slogan, sort: i + 1, enabled: true })),
   );
+
+  await seedCollection(
+    db,
+    'cover_declare',
+    'name',
+    DECLARE_COVERS.map((name, i) => ({ url: '', name, sort: i + 1, enabled: true })),
+  );
+
+  await seedCollection(db, 'cover_done', 'name', [
+    { url: '', name: '暗夜星空', sort: 1, enabled: true },
+  ]);
 
   await seedCollection(
     db,

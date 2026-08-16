@@ -21,11 +21,13 @@ const TABLES = [
   { col: 'poster_wish', label: '心愿海报' },
   { col: 'poster_done', label: '实现海报' },
   { col: 'hero_images', label: '首页大图' },
+  { col: 'cover_declare', label: '宣告卡封面' },
+  { col: 'cover_done', label: '凭证卡封面' },
 ];
 
 /** 单张图片素材表：缩略图 + 标语 + 排序 + 启停 + 换图/上传 */
 function ImgTable({ col }: { col: string }) {
-  const uploadPreset = col === 'hero_images' ? 'hero' : 'poster';
+  const uploadPreset = col === 'hero_images' || col.startsWith('cover_') ? 'hero' : 'poster';
   const cropHint = CROP_PRESETS[uploadPreset].hint;
   const refresh = useRef<(() => void) | null>(null);
   const [editing, setEditing] = useState<{ id: string; url: string; slogan: string; sort: number } | null>(null);
