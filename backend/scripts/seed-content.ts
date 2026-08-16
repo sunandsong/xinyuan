@@ -132,6 +132,8 @@ const WISH_SLOGANS: string[] = [
 /** 分享卡封面（frontend/lib/pages/share_page.dart）：
  * 宣告卡三张可左右滑 = _declareCovers，顺序要一致；凭证卡一张 = default_cover */
 const DECLARE_COVERS: string[] = ["破晓登山", "火炬", "冲刺"];
+/** 凭证卡（已点亮）封面四张，按心愿 id 稳定分配 */
+const DONE_COVERS: string[] = ["暗夜星空", "晨曦山谷", "静海月夜", "极光雪原"];
 
 const HERO_IMAGES: string[] = ["日出", "海浪", "山峦", "星空", "极光"];
 
@@ -598,9 +600,12 @@ async function main() {
     DECLARE_COVERS.map((name, i) => ({ url: '', name, sort: i + 1, enabled: true })),
   );
 
-  await seedCollection(db, 'cover_done', 'name', [
-    { url: '', name: '暗夜星空', sort: 1, enabled: true },
-  ]);
+  await seedCollection(
+    db,
+    'cover_done',
+    'name',
+    DONE_COVERS.map((name, i) => ({ url: '', name, sort: i + 1, enabled: true })),
+  );
 
   await seedCollection(
     db,

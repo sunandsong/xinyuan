@@ -316,11 +316,13 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
       fit: BoxFit.cover,
     );
     if (remote.isEmpty) return fallback;
+    // 按心愿 id 稳定取一张：同一条心愿每次看到的都一样，不同心愿配不同的图。
+    // 不能写死 remote.first——那样管理端加再多张也只会显示第一张。
     return SizedBox(
       height: 210,
       width: double.infinity,
       child: WishPhoto(
-        remote.first,
+        remote[w.id.hashCode.abs() % remote.length],
         fit: BoxFit.cover,
         fallback: fallback,
         loading: fallback,

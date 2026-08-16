@@ -121,7 +121,9 @@ async function main() {
     HERO_DIR, 'content/hero',
   );
   await patchCollection(
-    app, db, 'cover_done', ['default_cover.jpg'], HERO_DIR, 'content/hero',
+    app, db, 'cover_done',
+    ['default_cover.jpg', 'done_cover2.jpg', 'done_cover3.jpg', 'done_cover4.jpg'],
+    HERO_DIR, 'content/hero',
   );
 
   console.log('done');
