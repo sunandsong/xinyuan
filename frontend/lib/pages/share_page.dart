@@ -110,6 +110,15 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
     }
   }
 
+  /// 按「第几个点亮的心愿」轮流分配图片：第 1 个用第 1 张、第 2 个用第 2 张……
+  /// 循环回来。比按 id 哈希取模分得均匀（哈希不保证均匀落桶，11 条心愿分 4 张
+  /// 实测是 4/4/2/1），而且跟卡片上显示的「第 N 个心愿」是同一个序号，自洽。
+  ///
+  /// ponytail: 代价是删掉一条已完成心愿后，后面的图会整体挪一格。可接受——
+  /// 卡片上那个「第 N 个」本来也会跟着变，用户预期里它们本就是一体的。
+  int _rotateIndex(Wish w, int len) =>
+      len <= 1 ? 0 : (AppData.I.doneNumberOf(w) - 1) % len;
+
   void _removeFx() {
     _fxEntry?.remove();
     _fxEntry = null;
@@ -118,14 +127,12 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
   void _showCongrats() {
     final w = widget.wish;
     final no = AppData.I.doneNumberOf(w);
-    // 达成海报：优先管理端下发的（运营换图不用发版），没有就用内置的四张。
-    // 按心愿 id 稳定取一张——同一条心愿每次看到的都一样，不同心愿配不同的图。
-    final builtin =
-        donePosterAssets[w.id.hashCode.abs() % donePosterAssets.length];
+    // 达成海报：优先管理端下发的（运营换图不用发版），没有就用内置的四张
+    final builtin = donePosterAssets[_rotateIndex(w, donePosterAssets.length)];
     final remote = AppData.I.donePosters;
     final remoteUrl = remote.isEmpty
         ? null
-        : remote[w.id.hashCode.abs() % remote.length];
+        : remote[_rotateIndex(w, remote.length)];
 
     showPosterDialog(
       context,
@@ -316,13 +323,11 @@ class _SharePageState extends State<SharePage> with TickerProviderStateMixin {
       fit: BoxFit.cover,
     );
     if (remote.isEmpty) return fallback;
-    // 按心愿 id 稳定取一张：同一条心愿每次看到的都一样，不同心愿配不同的图。
-    // 不能写死 remote.first——那样管理端加再多张也只会显示第一张。
     return SizedBox(
       height: 210,
       width: double.infinity,
       child: WishPhoto(
-        remote[w.id.hashCode.abs() % remote.length],
+        remote[_rotateIndex(w, remote.length)],
         fit: BoxFit.cover,
         fallback: fallback,
         loading: fallback,
