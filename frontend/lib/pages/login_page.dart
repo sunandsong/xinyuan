@@ -1,8 +1,16 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api/api.dart';
 import '../data.dart';
 import '../theme.dart';
 import '../ui.dart';
+
+/// 打开隐私政策/用户协议页面（后端静态 HTML，登录页和「我的」设置页共用）
+void openLegalPage(String path) => launchUrl(
+      Uri.parse('${ApiConfig.base}$path'),
+      mode: LaunchMode.externalApplication,
+    );
 
 /// 账号密码登录 / 注册表单：既用作弹层（我的页“登录/注册”），也用作 [LoginPage] 整页强制登录
 class LoginForm extends StatefulWidget {
@@ -19,6 +27,8 @@ class _LoginFormState extends State<LoginForm> {
   final _account = TextEditingController();
   final _pwd = TextEditingController();
   final _pwd2 = TextEditingController();
+  final _termsTap = TapGestureRecognizer()..onTap = () => openLegalPage('/terms');
+  final _privacyTap = TapGestureRecognizer()..onTap = () => openLegalPage('/privacy');
   bool _register = false;
   bool _loading = false;
   String? _error;
@@ -28,6 +38,8 @@ class _LoginFormState extends State<LoginForm> {
     _account.dispose();
     _pwd.dispose();
     _pwd2.dispose();
+    _termsTap.dispose();
+    _privacyTap.dispose();
     super.dispose();
   }
 
@@ -104,6 +116,30 @@ class _LoginFormState extends State<LoginForm> {
                 textAlign: TextAlign.center),
           ),
         const SizedBox(height: 16),
+        if (_register) ...[
+          const SizedBox(height: 12),
+          Text.rich(
+            TextSpan(
+              style: const TextStyle(fontSize: 12, color: T.faint, height: 1.5),
+              children: [
+                const TextSpan(text: '注册即代表同意'),
+                TextSpan(
+                  text: '《用户协议》',
+                  style: const TextStyle(color: T.accent),
+                  recognizer: _termsTap,
+                ),
+                const TextSpan(text: '和'),
+                TextSpan(
+                  text: '《隐私政策》',
+                  style: const TextStyle(color: T.accent),
+                  recognizer: _privacyTap,
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+        const SizedBox(height: 14),
         BigBtn(_loading ? '请稍候…' : (_register ? '注册并登录' : '登录'),
             onTap: _loading ? () {} : _submit),
         const SizedBox(height: 10),

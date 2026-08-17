@@ -89,6 +89,20 @@ class MeTab extends StatelessWidget {
                               : _showLogin(context),
                           scale: s,
                         ),
+                        _row(
+                          context,
+                          '用户协议',
+                          '',
+                          () => openLegalPage('/terms'),
+                          scale: s,
+                        ),
+                        _row(
+                          context,
+                          '隐私政策',
+                          '',
+                          () => openLegalPage('/privacy'),
+                          scale: s,
+                        ),
                         // 版本号：跟其它设置项同一张卡、同一种排版，不能点，所以没有 chevron。
                         // 手动跟 pubspec.yaml 的 version 保持一致就行，改动不频繁，
                         // 没必要为这一行字多引一个 package_info 插件

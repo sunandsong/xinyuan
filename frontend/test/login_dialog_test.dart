@@ -61,6 +61,14 @@ void main() {
   });
 
   testWidgets('真实主壳环境：登录成功（拉回已完成心愿触发奖杯）后弹层也要关', (tester) async {
+    // 「我的」设置项一多，默认 800×600 的测试视口滚动定位就容易边缘失手
+    // （见 git history：曾因固定步长 dragUntilVisible 在视口边缘判定不准）。
+    // 给够高度让整页不用滚动就能测，不用跟设置项数量死磕滚动精度。
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     SharedPreferences.setMockInitialValues({'achv_seeded': true});
     AppData.I.signedIn = false;
     AppData.I.wishes.clear();
@@ -105,9 +113,6 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: HomeShell(initialIndex: 2)));
     await tester.pump(const Duration(milliseconds: 300));
 
-    // 「我的」页里滚到「登录 / 注册」并点开
-    await tester.dragUntilVisible(find.text('登录 / 注册'),
-        find.byType(ListView).first, const Offset(0, -120));
     await tester.tap(find.text('登录 / 注册'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(LoginForm), findsOneWidget);
