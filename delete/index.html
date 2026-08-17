@@ -797,7 +797,7 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <h1 data-i18n="sideTitle">Delete your account</h1>
-            <p data-i18n="sideDesc">Submit a request to permanently delete your account and all associated data.</p>
+            <p data-i18n="sideDesc">Delete your account and all associated data. Verify your password and it takes effect immediately.</p>
 
             <div class="steps-vertical">
                 <div class="vstep active" id="vs-1">
@@ -806,7 +806,7 @@
                         <div class="vstep-line"></div>
                     </div>
                     <div class="vstep-info">
-                        <div class="vstep-label" data-i18n="step1">Fill in details</div>
+                        <div class="vstep-label" data-i18n="step1">Verify identity</div>
                     </div>
                 </div>
                 <div class="vstep" id="vs-2">
@@ -823,7 +823,7 @@
                         <div class="vstep-dot">&#10003;</div>
                     </div>
                     <div class="vstep-info">
-                        <div class="vstep-label" data-i18n="step3">Submitted</div>
+                        <div class="vstep-label" data-i18n="step3">Deleted</div>
                     </div>
                 </div>
             </div>
@@ -838,17 +838,17 @@
                 <div class="alert">
                     <div class="alert-title" data-i18n="alertTitle">Before you proceed</div>
                     <ul>
-                        <li data-i18n="alert1">Your profile, wishes, tasks, time capsule letters and uploaded photos will be permanently deleted</li>
+                        <li data-i18n="alert1">Your profile, wishes, tasks, time capsule letters and uploaded photos will be deleted</li>
                         <li data-i18n="alert2">Your nickname and avatar will stop appearing on leaderboards, place check-ins and your public profile</li>
-                        <li data-i18n="alert3">This action cannot be undone once processed</li>
-                        <li data-i18n="alert4">Deletion will be completed within 60 days</li>
+                        <li data-i18n="alert3">This action takes effect immediately and cannot be undone</li>
+                        <li data-i18n="alert4">Login logs, crash records and feedback are kept for a while for security and troubleshooting, then removed — see our Privacy Policy</li>
                     </ul>
                 </div>
 
                 <div class="card">
                     <div class="card-head">
                         <span class="dot dot-brand"></span>
-                        <span data-i18n="formTitle">Account information</span>
+                        <span data-i18n="formTitle">Verify your identity</span>
                     </div>
                     <div class="card-body">
                         <div class="field">
@@ -866,31 +866,15 @@
 
                         <div class="field">
                             <label class="field-label">
-                                <span data-i18n="emailLabel">Contact email</span>
+                                <span data-i18n="pwdLabel">Password</span>
                                 <span class="required">*</span>
                             </label>
-                            <input type="email" class="input" id="emailInput"
-                                   data-i18n-placeholder="emailPlaceholder"
-                                   placeholder="you@example.com"
-                                   autocomplete="email">
-                            <div class="field-error" id="emailError" data-i18n="emailError">Please enter a valid email address</div>
-                            <div class="field-hint" data-i18n="emailHint">We will send a verification email to this address. You must confirm via the link before deletion begins.</div>
-                        </div>
-
-                        <div class="field">
-                            <label class="field-label">
-                                <span data-i18n="reasonLabel">Reason</span>
-                                <span class="optional" data-i18n="optionalTag">optional</span>
-                            </label>
-                            <select class="select" id="reasonSelect">
-                                <option value="" data-i18n="reasonDefault">Select a reason</option>
-                                <option value="no_longer_use" data-i18n="reason1">I no longer use this app</option>
-                                <option value="privacy" data-i18n="reason2">Privacy concerns</option>
-                                <option value="notifications" data-i18n="reason3">Too many notifications</option>
-                                <option value="alternative" data-i18n="reason4">Switched to another app</option>
-                                <option value="experience" data-i18n="reason5">Poor experience</option>
-                                <option value="other" data-i18n="reason6">Other</option>
-                            </select>
+                            <input type="password" class="input" id="pwdInput"
+                                   data-i18n-placeholder="pwdPlaceholder"
+                                   placeholder="Your password"
+                                   autocomplete="current-password">
+                            <div class="field-error" id="pwdError" data-i18n="pwdError">Please enter your password</div>
+                            <div class="field-hint" data-i18n="pwdHint">Used only to confirm it is really you. We never store what you type here.</div>
                         </div>
 
                         <label class="check-label">
@@ -899,7 +883,7 @@
                                 <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
                             </span>
                             <span class="check-text" data-i18n="agreeText">
-                                I understand this action is <strong>permanent and irreversible</strong>. All my data, including my wishes, tasks, time capsule letters and photos, will be permanently erased.
+                                I understand this action is <strong>immediate and irreversible</strong>. My account will no longer be able to sign in, and my wishes, tasks, time capsule letters and photos will be deleted.
                             </span>
                         </label>
                     </div>
@@ -927,21 +911,13 @@
                                 <td id="sumAccount">—</td>
                             </tr>
                             <tr>
-                                <td data-i18n="reviewEmail">Contact email</td>
-                                <td id="sumEmail">—</td>
-                            </tr>
-                            <tr>
-                                <td data-i18n="reviewReason">Reason</td>
-                                <td id="sumReason">—</td>
-                            </tr>
-                            <tr>
-                                <td data-i18n="reviewTimeline">Timeline</td>
-                                <td data-i18n="reviewTimelineVal">Up to 60 days</td>
+                                <td data-i18n="reviewTimeline">Takes effect</td>
+                                <td data-i18n="reviewTimelineVal">Immediately</td>
                             </tr>
                         </table>
                     </div>
                     <div class="review-note" data-i18n="reviewNote">
-                        After you submit, we will send a verification email to your contact address. Your account will only be deleted after you confirm through the link in that email.
+                        Once you confirm, the account is deleted right away. There is no undo and no waiting period.
                     </div>
                 </div>
 
@@ -951,7 +927,7 @@
                         <span data-i18n="btnBack">Back</span>
                     </button>
                     <button class="btn btn-red btn-fill" id="btnDelete" onclick="submitDeletion()">
-                        <span data-i18n="btnDelete">Submit request</span>
+                        <span data-i18n="btnDelete">Delete my account</span>
                     </button>
                 </div>
             </div>
@@ -960,16 +936,15 @@
             <div class="view" id="view-success">
                 <div class="card">
                     <div class="success-content">
-                        <div class="success-check" style="background: #EEF2FF;">
-                            <svg viewBox="0 0 24 24" style="stroke: var(--brand);">
-                                <rect x="2" y="4" width="20" height="16" rx="2" fill="none" stroke-width="2"/>
-                                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" fill="none" stroke-width="2"/>
+                        <div class="success-check">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12" fill="none" stroke-width="2.5"
+                                          stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                         </div>
-                        <h2 data-i18n="successTitle">Verification email sent</h2>
-                        <p data-i18n="successDesc">We have sent a verification email to your contact address. Please click the confirmation link in the email to proceed with account deletion. The link will expire in 24 hours.</p>
-                        <div class="ref-tag" id="successEmail" style="margin-bottom: 10px;"></div>
-                        <div class="ref-tag" id="refNum">REF-0000000000</div>
+                        <h2 data-i18n="successTitle">Account deleted</h2>
+                        <p data-i18n="successDesc">This account can no longer sign in, and its wishes, tasks, time capsule letters and photos have been deleted.</p>
+                        <div class="ref-tag" id="successAccount"></div>
                     </div>
                 </div>
             </div>
@@ -993,23 +968,27 @@
     //  API — replace mock with real endpoint
     // ═══════════════════════════════════════════════════
     const API = {
-        baseUrl: '',
-        endpoint: '/api/account/cancel',
+        baseUrl: 'https://renshengqingdan-d8feva5q55d12bab-1258070735.ap-shanghai.app.tcloudbase.com/api',
+        endpoint: '/account-deletion',
     };
 
     /**
      * POST {baseUrl}{endpoint}
-     * Body: { account, contactEmail, reason? }
-     * Response: { code: 0, message: 'success', data: { refId } }
+     * Body: { account, password }
+     * Response: 200 { deleted: true } / 401 { error: 'invalid_credentials' }
+     *           / 400 { error: 'missing_fields' }
+     * 校验通过就当场注销了，没有「申请」这一步——Google Play 要求这个链接
+     * 真的能删账号，App Store 审核也会照着走一遍。
      */
-    async function requestDeletion(account, contactEmail, reason) {
+    async function deleteAccount(account, password) {
         const res = await fetch(`${API.baseUrl}${API.endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ account, contactEmail, reason: reason || undefined }),
+            body: JSON.stringify({ account, password }),
         });
-        if (!res.ok && res.status !== 400) throw new Error(`HTTP ${res.status}`);
-        return res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok && res.status !== 400 && res.status !== 401) throw new Error(`HTTP ${res.status}`);
+        return data;
     }
     // ═══════════════════════════════════════════════════
 
@@ -1018,74 +997,62 @@
         en: {
             headerPage:'Account Deletion',
             sideTitle:'Delete your account',
-            sideDesc:'Submit a request to permanently delete your {brand} account and all associated data.',
-            step1:'Fill in details', step2:'Review & confirm', step3:'Submitted',
+            sideDesc:'Delete your {brand} account and all associated data. Verify your password and it takes effect immediately.',
+            step1:'Verify identity', step2:'Review & confirm', step3:'Deleted',
             alertTitle:'Before you proceed',
-            alert1:'Your profile, wishes, tasks, time capsule letters and uploaded photos will be permanently deleted',
+            alert1:'Your profile, wishes, tasks, time capsule letters and uploaded photos will be deleted',
             alert2:'Your nickname and avatar will stop appearing on leaderboards, place check-ins and your public profile',
-            alert3:'This action cannot be undone once processed',
-            alert4:'Deletion will be completed within 60 days',
-            formTitle:'Account information',
+            alert3:'This action takes effect immediately and cannot be undone',
+            alert4:'Login logs, crash records and feedback are kept for a while for security and troubleshooting, then removed — see our Privacy Policy',
+            formTitle:'Verify your identity',
             accountLabel:'Account name', accountPlaceholder:'The username you sign in with',
             accountError:'This field is required',
             accountHint:'The username you chose when registering your {brand} account — 3-20 letters, digits or underscores. Not your nickname.',
-            emailLabel:'Contact email', emailPlaceholder:'you@example.com',
-            emailError:'Please enter a valid email address',
-            emailHint:'We will send a verification email to this address. You must confirm via the link before deletion begins.',
-            reasonLabel:'Reason', optionalTag:'optional',
-            reasonDefault:'Select a reason',
-            reason1:'I no longer use this app', reason2:'Privacy concerns',
-            reason3:'Too many notifications', reason4:'Switched to another app',
-            reason5:'Poor experience', reason6:'Other',
-            agreeText:'I understand this action is <strong>permanent and irreversible</strong>. All my data, including my wishes, tasks, time capsule letters and photos, will be permanently erased.',
+            pwdLabel:'Password', pwdPlaceholder:'Your {brand} password',
+            pwdError:'Please enter your password',
+            pwdHint:'Used only to confirm it is really you. We never store what you type here.',
+            agreeText:'I understand this action is <strong>immediate and irreversible</strong>. My account will no longer be able to sign in, and my wishes, tasks, time capsule letters and photos will be deleted.',
             btnNext:'Continue',
+            deleteFail:'Wrong account name or password',
             reviewTitle:'Review your request',
-            reviewAccount:'Account', reviewEmail:'Contact email',
-            reviewReason:'Reason', reviewTimeline:'Timeline',
-            reviewTimelineVal:'Up to 60 days',
-            reviewNote:'After you submit, we will send a verification email to your contact address. Your account will only be deleted after you confirm through the link in that email.',
-            btnBack:'Back', btnDelete:'Submit request',
-            successTitle:'Verification email sent',
-            successDesc:'We have sent a verification email to your contact address. Please click the confirmation link in the email to proceed with account deletion. The link will expire in 24 hours.',
+            reviewAccount:'Account', reviewTimeline:'Takes effect',
+            reviewTimelineVal:'Immediately',
+            reviewNote:'Once you confirm, the account is deleted right away. There is no undo and no waiting period.',
+            btnBack:'Back', btnDelete:'Delete my account',
+            successTitle:'Account deleted',
+            successDesc:'This account can no longer sign in, and its wishes, tasks, time capsule letters and photos have been deleted. If you reinstall the app you will need to register a new account.',
             fPrivacy:'Privacy Policy', fTerms:'Terms of Service', fContact:'Contact',
             submitting:'Processing\u2026', errorGeneric:'Something went wrong. Please try again.',
-            reasonNone:'Not specified',
         },
         'zh-CN': {
             headerPage:'注销账号',
             sideTitle:'注销您的账号',
-            sideDesc:'提交申请，永久删除您的 {brand} 账号及所有相关数据。',
-            step1:'填写信息', step2:'核对并确认', step3:'已提交',
+            sideDesc:'注销您的 {brand} 账号并删除相关数据。验证密码后立即生效。',
+            step1:'验证身份', step2:'核对并确认', step3:'已注销',
             alertTitle:'继续之前请注意',
-            alert1:'您的个人资料、心愿、任务、时光胶囊信件和上传的照片将被永久删除',
+            alert1:'您的个人资料、心愿、任务、时光胶囊信件和上传的照片将被删除',
             alert2:'您的昵称和头像不再出现在排行榜、地点打卡和个人主页上',
-            alert3:'一经处理，此操作无法撤销',
-            alert4:'删除将在 60 天内完成',
-            formTitle:'账号信息',
+            alert3:'此操作立即生效，且无法撤销',
+            alert4:'登录日志、崩溃记录和意见反馈出于安全和排查需要会保留一段时间后清理，详见《隐私政策》',
+            formTitle:'验证身份',
             accountLabel:'账号名', accountPlaceholder:'您登录时使用的账号名',
             accountError:'此项为必填',
             accountHint:'您注册 {brand} 账号时设置的登录名，3-20 位字母、数字或下划线，不是昵称',
-            emailLabel:'联系邮箱', emailPlaceholder:'you@example.com',
-            emailError:'请输入有效的邮箱地址',
-            emailHint:'我们会向该地址发送验证邮件。您需通过邮件中的链接确认后，删除流程才会开始。',
-            reasonLabel:'原因', optionalTag:'选填',
-            reasonDefault:'请选择原因',
-            reason1:'我不再使用该应用', reason2:'隐私顾虑',
-            reason3:'通知太多', reason4:'已改用其他应用',
-            reason5:'使用体验不佳', reason6:'其他',
-            agreeText:'我已了解此操作<strong>永久且不可撤销</strong>。我的全部数据，包括心愿、任务、时光胶囊和照片，都将被永久清除。',
+            pwdLabel:'密码', pwdPlaceholder:'您的 {brand} 登录密码',
+            pwdError:'请输入密码',
+            pwdHint:'仅用于确认是本人操作，我们不会保存您在这里输入的内容。',
+            agreeText:'我已了解此操作<strong>立即生效且不可撤销</strong>。注销后我将无法再用该账号登录，我的心愿、任务、时光胶囊和照片会被删除。',
             btnNext:'继续',
+            deleteFail:'账号名或密码不对',
             reviewTitle:'核对您的申请',
-            reviewAccount:'账号', reviewEmail:'联系邮箱',
-            reviewReason:'原因', reviewTimeline:'处理时限',
-            reviewTimelineVal:'最长 60 天',
-            reviewNote:'提交后，我们会向您的联系邮箱发送验证邮件。只有在您通过邮件中的链接确认后，账号才会被删除。',
-            btnBack:'返回', btnDelete:'提交申请',
-            successTitle:'验证邮件已发送',
-            successDesc:'我们已向您的联系邮箱发送验证邮件。请点击邮件中的确认链接以继续注销账号。该链接将在 24 小时后失效。',
+            reviewAccount:'账号', reviewTimeline:'生效时间',
+            reviewTimelineVal:'立即',
+            reviewNote:'点击下面的按钮后账号立即注销，没有撤销机会，也没有等待期。',
+            btnBack:'返回', btnDelete:'注销我的账号',
+            successTitle:'账号已注销',
+            successDesc:'该账号已无法再登录，名下的心愿、任务、时光胶囊和照片已被删除。如果之后还想使用「人生清单」，重新安装 App 注册一个新账号即可。',
             fPrivacy:'隐私政策', fTerms:'服务条款', fContact:'联系我们',
             submitting:'处理中…', errorGeneric:'出错了，请重试。',
-            reasonNone:'未填写',
         },
     };
 
@@ -1141,7 +1108,10 @@
         document.getElementById('footerCopy').textContent = `© 2026 ${brandName}`;
         if (c.privacyUrl)  document.getElementById('linkPrivacy').href = c.privacyUrl;
         if (c.termsUrl)    document.getElementById('linkTerms').href   = c.termsUrl;
-        if (c.contactEmail) document.getElementById('linkContact').href = `mailto:${c.contactEmail}`;
+        // 没配对外邮箱就把「联系我们」藏掉，别在合规页面上留死链
+        const contact = document.getElementById('linkContact');
+        if (c.contactEmail) contact.href = `mailto:${c.contactEmail}`;
+        else contact.remove();
 
         let langs = (Array.isArray(c.languages) ? c.languages : ['en']).filter(l => L[l]);
         if (!langs.length) langs = ['en'];
@@ -1153,29 +1123,26 @@
     }
 
     // ═══ 站点配置：按需修改 ═══
+    const API_HOST = 'https://renshengqingdan-d8feva5q55d12bab-1258070735.ap-shanghai.app.tcloudbase.com';
     applyConfig({
         brandName: '人生清单',
-        logo: '',                                  // 例：'logo.png' 或 data URI
-        privacyUrl: '#',
-        termsUrl: '#',
-        contactEmail: 'support@example.com',
+        logo: 'logo.png',
+        privacyUrl: `${API_HOST}/api/privacy`,
+        termsUrl: `${API_HOST}/api/terms`,
+        contactEmail: '',                          // 暂无对外邮箱，留空则隐藏「联系我们」
         languages: ['zh-CN', 'en'],
         defaultLang: 'zh-CN',
     });
 
     // Form
     const $acc = document.getElementById('accountInput');
-    const $email = document.getElementById('emailInput');
+    const $pwd = document.getElementById('pwdInput');
     const $agree = document.getElementById('agreeCheck');
     const $next = document.getElementById('btnNext');
 
     function validate() {
-        const ok = $acc.value.trim() && $email.value.trim() && $agree.checked;
+        const ok = $acc.value.trim() && $pwd.value && $agree.checked;
         $next.disabled = !ok;
-    }
-
-    function isValidEmail(s) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
     }
 
     $acc.addEventListener('input', () => {
@@ -1183,9 +1150,9 @@
         $acc.classList.remove('has-error');
         validate();
     });
-    $email.addEventListener('input', () => {
-        document.getElementById('emailError').classList.remove('show');
-        $email.classList.remove('has-error');
+    $pwd.addEventListener('input', () => {
+        document.getElementById('pwdError').classList.remove('show');
+        $pwd.classList.remove('has-error');
         validate();
     });
     $agree.addEventListener('change', validate);
@@ -1214,18 +1181,14 @@
             $acc.classList.add('has-error');
             hasErr = true;
         }
-        if (!$email.value.trim() || !isValidEmail($email.value.trim())) {
-            document.getElementById('emailError').classList.add('show');
-            $email.classList.add('has-error');
+        if (!$pwd.value) {
+            document.getElementById('pwdError').classList.add('show');
+            $pwd.classList.add('has-error');
             hasErr = true;
         }
         if (hasErr) return;
 
-        const sel = document.getElementById('reasonSelect');
         document.getElementById('sumAccount').textContent = $acc.value.trim();
-        document.getElementById('sumEmail').textContent = $email.value.trim();
-        document.getElementById('sumReason').textContent =
-            sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent : L[lang].reasonNone;
 
         setStep(2);
         show('view-confirm');
@@ -1242,18 +1205,15 @@
         $btn.innerHTML = `<span class="spinner"></span> ${L[lang].submitting}`;
 
         try {
-            const res = await requestDeletion(
-                $acc.value.trim(),
-                $email.value.trim(),
-                document.getElementById('reasonSelect').value
-            );
-            if (res.code === 0) {
-                if (res.data?.refId) document.getElementById('refNum').textContent = res.data.refId;
-                document.getElementById('successEmail').textContent = $email.value.trim();
+            const account = $acc.value.trim();
+            const res = await deleteAccount(account, $pwd.value);
+            if (res.deleted) {
+                document.getElementById('successAccount').textContent = account;
+                $pwd.value = '';                       // 删完了别把密码留在 DOM 里
                 setStep(3);
                 show('view-success');
             } else {
-                alert(res.message || L[lang].errorGeneric);
+                alert(res.error === 'invalid_credentials' ? L[lang].deleteFail : L[lang].errorGeneric);
                 $btn.disabled = false;
                 $btn.innerHTML = `<span>${L[lang].btnDelete}</span>`;
             }

@@ -4,10 +4,17 @@
 //
 // ⚠️ 运营主体信息目前是占位——企业资质申请下来之后，把下面 ENTITY 换成
 // 企业名称，正文里「个人开发者」的措辞也要一并改成企业名义，别忘了。
-import { Res } from '../http';
+import { getDb } from '../db';
+import { json, Req, Res } from '../http';
+import { verifyPassword } from '../password';
 
 const ENTITY = '「人生清单」开发者（个人开发者，企业主体申请中，資質下来后更新本页）';
 const UPDATED = '2026-08-17';
+/** 网页版注销页（静态托管，源码在仓库 delete/index.html）。
+ * Google Play「数据安全」表单里的账号删除网址填的就是这个地址，
+ * App Store Connect 的 Account Deletion URL 同。改地址要一起改那两处后台配置。 */
+const DELETION_PAGE_URL =
+  'https://renshengqingdan-d8feva5q55d12bab-1258070735.tcloudbaseapp.com/account-deletion/';
 
 const STYLE = `
   body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -138,25 +145,58 @@ SDK；唯一使用的第三方组件见下方"第三方 SDK 目录"。
 <h2>六、你的权利</h2>
 <ul>
   <li><b>查看和修改</b>：昵称、头像、性别、生日都可以在"我的"页面随时改</li>
-  <li><b>注销账号</b>：可以在 App 内注销（我的 → 注销账号），注销后你的账号和数据会被标记删除、
-    停止展示；已经卸载了 App 的话，重新安装登录后仍可走这个入口，也可以通过下方联系方式找我们代为处理</li>
+  <li><b>注销账号</b>：可以在 App 内注销（我的 → 注销账号）；已经卸载了 App 的话，
+    也可以在网页上注销：<a href="${DELETION_PAGE_URL}">注销账号</a>（验证账号密码后立即生效）</li>
   <li><b>管理定位/相册/通知权限</b>：随时可以在系统设置里关闭，关闭后对应功能会受限但不影响其它功能</li>
   <li><b>联系我们</b>：对隐私问题有疑问，可以通过 App 内"意见反馈"联系我们</li>
 </ul>
 
-<h2>七、未成年人保护</h2>
+<h2>七、数据保留</h2>
+<p>你注销账号后，我们会删除你的账号记录和你创建的内容（心愿、任务、时光胶囊、你上传的照片），
+这些内容不再能被登录访问、也不再对任何人展示。</p>
+<p>出于安全审计、故障排查和法律法规要求，下列信息会在注销后继续保留一段时间，
+之后随例行清理一并删除：登录日志（设备型号、IP、时间）、崩溃与异常记录、
+你提交过的意见反馈内容、匿名化的使用行为事件（不含你的心愿内容）。
+这些记录不会用于识别你的身份，也不会用于任何商业用途。</p>
+
+<h2>八、未成年人保护</h2>
 <p>本 App 不主动收集未成年人的身份信息。如果你是未成年人，请在监护人指导下使用本 App。
 监护人如发现未成年人在未经同意的情况下使用了本 App 并提供了个人信息，可通过"意见反馈"联系我们协助处理。</p>
 
-<h2>八、政策的更新</h2>
+<h2>九、政策的更新</h2>
 <p>我们可能会不定期修订本政策，重大变更会在 App 内以公告形式提示你。
 继续使用本 App 即代表你同意更新后的政策。</p>
 
-<h2>九、联系我们</h2>
+<h2>十、联系我们</h2>
 <p>对本政策或你的个人信息有任何问题，欢迎通过 App 内「我的 → 意见反馈」联系我们，
 我们会尽快处理。</p>
 `,
   );
+}
+
+/** POST /account-deletion —— 给静态托管上的注销页用（网页版删除链接，
+ * 见 DELETION_PAGE_URL）。校验账号密码后走跟 App 内「注销账号」完全相同的
+ * 那条路径（softDeleteUser）。公开路由，密码就是这里的身份凭证——攻击面跟
+ * /auth/login 一样（知道密码的人本来也能登进去自己删）。
+ *
+ * ⚠️ 不要改成「不验证凭据就提示删除成功」：Google Play 要求这个链接真的能
+ * 删账号和关联数据，App Store 审核也会照着走一遍。 */
+export async function accountDeletionSubmit(req: Req): Promise<Res> {
+  const b = req.body ?? {};
+  const account = String(b.account ?? '').trim().toLowerCase();
+  const password = String(b.password ?? '');
+  if (!account || !password) return json(400, { error: 'missing_fields' });
+
+  const db = getDb();
+  const user = await db.getUserByAccount(account);
+  // 已注销的账号 getUserByAccount 本来就查不到，走同一个错误分支——
+  // 不告诉调用方「这个账号存在但密码错」还是「这个账号不存在」
+  if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+    return json(401, { error: 'invalid_credentials' });
+  }
+  // 被封禁的账号照样允许注销：删除权不该因为封禁被剥夺
+  await db.softDeleteUser(user._id);
+  return json(200, { deleted: true });
 }
 
 export async function termsPage(): Promise<Res> {
