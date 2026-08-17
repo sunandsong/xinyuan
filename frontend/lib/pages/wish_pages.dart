@@ -25,9 +25,15 @@ class _CrowdStatsLineState extends State<CrowdStatsLine> {
   int _wanted = 0;
   int _done = 0;
 
+  /// 跟排行榜同一套显隐条件
+  bool get _visible => AppData.I.signedIn && AppData.I.showRank;
+
   @override
   void initState() {
     super.initState();
+    // 跟心愿页右上角的排行榜入口同进同出：没登录 or 管理端关了都不显示，
+    // 连请求都不发——藏起来还照发请求没意义（没登录时这个接口本来也是 401）
+    if (!_visible) return;
     RankApi.wishStats(widget.title).then((r) {
       if (!mounted) return;
       setState(() {
@@ -39,7 +45,7 @@ class _CrowdStatsLineState extends State<CrowdStatsLine> {
 
   @override
   Widget build(BuildContext context) {
-    if (_wanted == 0) return const SizedBox.shrink();
+    if (!_visible || _wanted == 0) return const SizedBox.shrink();
     final parts = [
       '$_wanted 人也想做',
       if (_done > 0) '$_done 人已实现',

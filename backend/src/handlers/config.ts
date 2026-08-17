@@ -7,6 +7,9 @@ import { ok, Req } from '../http';
 const LIMIT = 1000;
 /** announcements 集合里存最低版本号的特殊文档 id，不是一条真公告 */
 const MIN_VERSION_ID = 'sys_min_version';
+/** 同上，存功能开关的特殊文档 id。目前只有 showRank（排行榜显隐）：
+ * 应用商店送审期间关掉，审核员就看不到榜单里的演示数据；过审后打开，不用发版。 */
+const FEATURES_ID = 'sys_features';
 
 /** 取一个集合里 enabled != false 的全部文档，按 sort 升序；
  * 单集合查询失败给空数组顶上——config 必须尽量返回，App 有内置兜底数据。 */
@@ -37,6 +40,19 @@ async function fetchMinVersion(): Promise<string> {
   }
 }
 
+/** 功能开关。查不到就按「全开」处理——配置文档还没建过时不能把功能锁死。 */
+async function fetchFeatures(): Promise<{ showRank: boolean }> {
+  try {
+    const { items } = await getDb().listDocs('announcements', {
+      where: { _id: FEATURES_ID },
+      limit: 1,
+    });
+    return { showRank: items[0]?.showRank !== false };
+  } catch {
+    return { showRank: true };
+  }
+}
+
 export async function getConfig(_req: Req) {
   const [
     presetWishes,
@@ -51,6 +67,7 @@ export async function getConfig(_req: Req) {
     spots,
     announcements,
     minVersion,
+    features,
   ] = await Promise.all([
     listActive('preset_wishes'),
     listActive('preset_steps'),
@@ -64,6 +81,7 @@ export async function getConfig(_req: Req) {
     listActive('spots'),
     listActive('announcements'),
     fetchMinVersion(),
+    fetchFeatures(),
   ]);
 
   const now = Date.now();
@@ -97,10 +115,12 @@ export async function getConfig(_req: Req) {
       .filter(
         (d) =>
           d._id !== MIN_VERSION_ID &&
+          d._id !== FEATURES_ID &&
           (d.startAt ?? -Infinity) <= now &&
           now <= (d.endAt ?? Infinity),
       )
       .map((d) => ({ title: String(d.title ?? ''), body: String(d.body ?? '') })),
     minVersion,
+    features,
   });
 }

@@ -1161,6 +1161,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, String>> announcements = [];
   String minVersion = '';
 
+  /// 排行榜显隐开关（管理端「公告与版本 → 功能开关」下发）。
+  /// 应用商店送审期间关掉，审核员看不到榜单里的演示数据；过审后打开，不用发版。
+  /// 默认 true：拉不到配置（未登录/没网/后端挂了）时不该把已有功能锁死。
+  bool showRank = true;
+
   /// 「心愿达成」弹窗的背景图 URL（管理端 poster_done 表下发，运营换图不用发版）。
   /// 空 = 还没拉到 / 拉失败 / 未登录，调用方回退到内置的 assets/posters/done*.jpg。
   List<String> donePosters = [];
@@ -1185,6 +1190,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           },
       ];
       minVersion = j['minVersion']?.toString() ?? '';
+      showRank = j['showRank'] as bool? ?? true;
       donePosters = _posterUrls(j['donePosters']);
       declareCovers = _posterUrls(j['declareCovers']);
       doneCovers = _posterUrls(j['doneCovers']);
@@ -1223,6 +1229,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
           },
       ];
       minVersion = r['minVersion']?.toString() ?? '';
+      showRank = ((r['features'] as Map?)?['showRank'] as bool?) ?? true;
       donePosters = _posterUrls((r['posters'] as Map?)?['done']);
       declareCovers = _posterUrls(r['coverDeclare']);
       doneCovers = _posterUrls(r['coverDone']);
@@ -1235,6 +1242,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
             jsonEncode({
               'announcements': announcements,
               'minVersion': minVersion,
+              'showRank': showRank,
               // 只缓存 url 列表，下次启动没网也能用上次的图（图本身走图片缓存）
               'donePosters': donePosters,
               'declareCovers': declareCovers,

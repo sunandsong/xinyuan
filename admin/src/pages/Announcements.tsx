@@ -5,6 +5,7 @@ import {
   Input,
   Popconfirm,
   Space,
+  Switch,
   Tag,
   message,
 } from 'antd';
@@ -22,6 +23,8 @@ import { fmtTime, usePagedList } from '../paged';
 
 /** announcements 集合里存最低版本号的特殊文档 id（跟后端 config.ts 约定一致） */
 const MIN_VERSION_ID = 'sys_min_version';
+/** 同上，存功能开关的特殊文档 id */
+const FEATURES_ID = 'sys_features';
 
 interface Ann {
   _id: string;
@@ -45,7 +48,8 @@ export default function Announcements() {
     '/admin/content/announcements',
     {},
   );
-  const list = items.filter((a) => a._id !== MIN_VERSION_ID);
+  // 两个 sys_ 文档是配置不是公告，不进列表
+  const list = items.filter((a) => a._id !== MIN_VERSION_ID && a._id !== FEATURES_ID);
 
   const [editing, setEditing] = useState<Editing | null>(null);
   const [saving, setSaving] = useState(false);
@@ -55,13 +59,40 @@ export default function Announcements() {
   const [mvLoaded, setMvLoaded] = useState(false);
   const [mvSaving, setMvSaving] = useState(false);
 
+  // 功能开关卡：排行榜显隐（送审期间关掉，审核员就看不到榜单里的演示数据）
+  const [showRank, setShowRank] = useState(true);
+  const [featLoaded, setFeatLoaded] = useState(false);
+  const [featSaving, setFeatSaving] = useState(false);
+
   useEffect(() => {
     api
       .get(`/admin/content/announcements?f__id=${MIN_VERSION_ID}`)
       .then((d) => setMinVersion(String(d.items[0]?.value ?? '')))
       .catch(() => {})
       .finally(() => setMvLoaded(true));
+    api
+      .get(`/admin/content/announcements?f__id=${FEATURES_ID}`)
+      // 查不到就是还没配过，按「开」处理，跟后端 fetchFeatures 的兜底一致
+      .then((d) => setShowRank(d.items[0]?.showRank !== false))
+      .catch(() => {})
+      .finally(() => setFeatLoaded(true));
   }, []);
+
+  async function saveShowRank(next: boolean) {
+    setFeatSaving(true);
+    try {
+      await api.post('/admin/content/announcements', {
+        id: FEATURES_ID,
+        doc: { showRank: next, enabled: false }, // enabled:false 免得被当公告下发
+      });
+      setShowRank(next);
+      message.success(next ? '排行榜已对用户开放' : '排行榜已隐藏');
+    } catch (e: any) {
+      message.error(`保存失败：${e.message}`);
+    } finally {
+      setFeatSaving(false);
+    }
+  }
 
   async function saveMinVersion() {
     setMvSaving(true);
@@ -136,6 +167,18 @@ export default function Announcements() {
               保存
             </Button>
             <span style={{ color: MUTED, fontSize: 12 }}>留空 = 不强更</span>
+          </Space>
+          <div style={{ fontWeight: 600, margin: '20px 0 12px' }}>功能开关</div>
+          <Space wrap>
+            <Switch
+              checked={showRank}
+              disabled={!featLoaded || featSaving}
+              onChange={saveShowRank}
+            />
+            <span>对用户显示排行榜</span>
+            <span style={{ color: MUTED, fontSize: 12 }}>
+              应用商店送审期间建议关掉（榜单含演示数据），过审后再打开，改完用户切后台再回来即生效
+            </span>
           </Space>
         </ContentCard>
       }

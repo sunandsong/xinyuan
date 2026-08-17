@@ -87,27 +87,31 @@ class WishesTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                // 右上角第二个：排行榜
-                Positioned(
-                  top: topInset + 8,
-                  right: 60,
-                  child: GestureDetector(
-                    onTap: () => showRankSheet(context),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: .2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.leaderboard_rounded,
-                        size: 18,
-                        color: Colors.white,
+                // 右上角第二个：排行榜。两个条件都满足才显示：
+                // ① 已登录——没登录既上不了榜、点了也只是弹登录，不如不给入口；
+                //   而且 /config 挂在登录路由下，没登录也读不到下面那个开关
+                // ② 管理端开关打开——送审期间关掉，审核员看不到榜单里的演示数据
+                if (AppData.I.signedIn && AppData.I.showRank)
+                  Positioned(
+                    top: topInset + 8,
+                    right: 60,
+                    child: GestureDetector(
+                      onTap: () => showRankSheet(context),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: .2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.leaderboard_rounded,
+                          size: 18,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
-                ),
                 // 右上角：分享成绩单海报（和任务页同一套）
                 Positioned(
                   top: topInset + 8,
