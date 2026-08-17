@@ -10,10 +10,12 @@ import { verifyPassword } from '../password';
 
 const ENTITY = '「人生清单」开发者（个人开发者，企业主体申请中，資質下来后更新本页）';
 const UPDATED = '2026-08-17';
-/** 忘记密码 / 验证不通过时的兜底申请渠道，填腾讯问卷、金数据这类表单的链接即可
- * ——Google Play 明确认可「a form for submitting deletion requests」，允许人工处理，
- * 见 support.google.com/googleplay/android-developer/answer/13327111。
- * ⚠️ 留空时页面直接不显示这一段（宁可没有，也别在公开页面上露占位文案）。 */
+/** 可选的逃生口：忘记密码的人验证不过去，本页主流程走不通，除此之外没有别的路。
+ * 想补的话填个腾讯问卷/金数据的表单链接即可（Google Play 认可人工处理的申请表单，
+ * 见 support.google.com/googleplay/android-developer/answer/13327111）。
+ * 注意这只是边角补充——本页的主体是上面那个「验证密码 → 当场注销」的表单，
+ * 别把它整个改成填问卷，那样注销就从「点一下就完事」退化成「等人工」。
+ * 留空时这一段不渲染，不会在公开页面上露占位文案。 */
 const FALLBACK_FORM_URL = '';
 
 const STYLE = `
