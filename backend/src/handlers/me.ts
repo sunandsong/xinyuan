@@ -29,6 +29,7 @@ export function pickProfilePatch(b: any): Record<string, unknown> {
   if (b?.birthday === null || (typeof b?.birthday === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.birthday))) {
     patch.birthday = b.birthday;
   }
+  if (typeof b?.hideFromRank === 'boolean') patch.hideFromRank = b.hideFromRank;
   for (const k of ['doneCount', 'taskCount', 'achvCount', 'placeCount'] as const) {
     if (typeof b?.[k] === 'number' && b[k] >= 0) {
       patch[k] = Math.min(Math.floor(b[k]), 100000);

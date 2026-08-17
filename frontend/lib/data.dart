@@ -561,6 +561,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         }
         _saveAvatarLocal();
         gender = profile['gender'] as String? ?? gender;
+        hideFromRank = profile['hideFromRank'] as bool? ?? false;
         final bd = profile['birthday'] as String?;
         if (bd != null && bd.isNotEmpty) birthday = _dayParse(bd);
         accountCreatedAt = _fromMs(profile['createdAt'] as num?);
@@ -967,6 +968,17 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   DateTime? accountCreatedAt; // 账号创建时间（后端 profile.createdAt），未登录时为 null
+
+  /// 「不上榜」隐私开关：开了之后排行榜、热度穿透名单里都不出现自己。
+  /// 跟随 profile 云端同步，换设备也生效。
+  bool hideFromRank = false;
+
+  void setHideFromRank(bool v) {
+    hideFromRank = v;
+    notifyListeners();
+    if (signedIn) unawaited(_pushProfile(hideFromRank: v));
+  }
+
   void updateProfile({String? nickname, String? gender, DateTime? birthday}) {
     if (nickname != null && nickname.isNotEmpty) this.nickname = nickname;
     if (gender != null) this.gender = gender;
@@ -1122,6 +1134,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     Map<String, int>? checkins,
     String? gender,
     String? birthday,
+    bool? hideFromRank,
   }) async {
     try {
       await AuthApi.updateProfile(
@@ -1131,6 +1144,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
         checkins: checkins,
         gender: gender,
         birthday: birthday,
+        hideFromRank: hideFromRank,
       );
     } catch (_) {
       // 静默失败：资料改动仍留在本地，下次改资料时会一并再推
@@ -1311,6 +1325,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     avatarUrl = null;
     _saveAvatarLocal(); // 清掉本地存的头像
     gender = null;
+    hideFromRank = false;
     birthday = null;
     achvUnlocked = {};
     _saveAchvLocal();

@@ -284,7 +284,8 @@ class CloudDb implements Db {
   async topUsers(field: string, limit: number): Promise<UserProfile[]> {
     const r = await this.db
       .collection(COL.users)
-      .where({ deleted: this.cmd.neq(true), [field]: this.cmd.gt(0) })
+      // hideFromRank：用户自选「不上榜」，榜单和名次计算都跳过
+      .where({ deleted: this.cmd.neq(true), hideFromRank: this.cmd.neq(true), [field]: this.cmd.gt(0) })
       .orderBy(field, 'desc')
       .limit(limit)
       .get();
@@ -294,7 +295,7 @@ class CloudDb implements Db {
   async countAbove(field: string, value: number): Promise<number> {
     const r = await this.db
       .collection(COL.users)
-      .where({ deleted: this.cmd.neq(true), [field]: this.cmd.gt(value) })
+      .where({ deleted: this.cmd.neq(true), hideFromRank: this.cmd.neq(true), [field]: this.cmd.gt(value) })
       .count();
     return r.total ?? 0;
   }
@@ -370,7 +371,7 @@ class CloudDb implements Db {
     if (uids.length === 0) return [];
     const ur = await this.db
       .collection(COL.users)
-      .where({ _id: this.cmd.in(uids), deleted: this.cmd.neq(true) })
+      .where({ _id: this.cmd.in(uids), deleted: this.cmd.neq(true), hideFromRank: this.cmd.neq(true) })
       .limit(QUERY_LIMIT)
       .get();
     return (ur.data ?? []).map((u: any) => ({
@@ -387,6 +388,7 @@ class CloudDb implements Db {
       .collection(COL.users)
       .where({
         deleted: this.cmd.neq(true),
+        hideFromRank: this.cmd.neq(true),
         [`checkins.${place}`]: this.cmd.exists(true),
       })
       .limit(limit)

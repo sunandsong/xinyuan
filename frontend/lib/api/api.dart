@@ -163,6 +163,7 @@ class AuthApi {
     Map<String, int>? checkins,
     String? gender,
     String? birthday,
+    bool? hideFromRank,
   }) {
     final body = <String, dynamic>{};
     if (nickname != null) body['nickname'] = nickname;
@@ -171,6 +172,7 @@ class AuthApi {
     if (checkins != null) body['checkins'] = checkins;
     if (gender != null) body['gender'] = gender;
     if (birthday != null) body['birthday'] = birthday;
+    if (hideFromRank != null) body['hideFromRank'] = hideFromRank;
     return ApiClient.I.patch('/me', body);
   }
 

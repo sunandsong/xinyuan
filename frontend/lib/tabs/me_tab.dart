@@ -89,6 +89,8 @@ class MeTab extends StatelessWidget {
                               : _showLogin(context),
                           scale: s,
                         ),
+                        // 「不上榜」隐私开关：只对登录用户显示——未登录本来就不在榜上
+                        if (data.signedIn) _rankSwitchRow(data, scale: s),
                         _row(
                           context,
                           '用户协议',
@@ -437,6 +439,38 @@ class MeTab extends StatelessWidget {
   }
 
   /// 跟 _row 同一种排版的静态信息行——不能点，所以没有 TapRow 和 chevron
+  /// 「不上榜」隐私开关行：开了之后排行榜和热度穿透名单里都不出现自己
+  Widget _rankSwitchRow(AppData data, {double scale = 1}) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 6 * scale),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: T.field)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('排行榜隐身', style: TextStyle(fontSize: 16.5 * scale)),
+                SizedBox(height: 2 * scale),
+                Text(
+                  '开启后不出现在任何榜单里',
+                  style: TextStyle(fontSize: 12 * scale, color: T.faint),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: data.hideFromRank,
+            activeThumbColor: T.accent,
+            onChanged: (v) => data.setHideFromRank(v),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _infoRow(
     String title,
     String value, {

@@ -22,6 +22,7 @@ export interface UserProfile {
   lastLoginAt?: number;
   lastActiveAt?: number;
   banned?: boolean; // 管理端封禁（Task 5）
+  hideFromRank?: boolean; // 用户自选「不上榜」：排行榜/热度穿透都不出现（隐私开关）
   isDemo?: boolean; // 演示账号标记（Task 6）
 }
 
