@@ -420,6 +420,7 @@ class WishDetailPage extends StatelessWidget {
         ? stepTemplateFor(wish.title)
         : const <String>[];
     return SheetCard(
+      solid: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -601,6 +602,7 @@ class WishDetailPage extends StatelessWidget {
   Widget _notes(BuildContext context) {
     final notes = wish.notes;
     return SheetCard(
+      solid: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -763,6 +765,7 @@ class WishDetailPage extends StatelessWidget {
     final active = tasks.where((t) => !t.done).toList();
     final done = tasks.where((t) => t.done).toList();
     return SheetCard(
+      solid: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -878,6 +881,7 @@ class WishDetailPage extends StatelessWidget {
     final photos = wish.photos;
     final uploading = AppData.I.photoUploadingWishId == wish.id;
     return SheetCard(
+      solid: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1455,6 +1459,7 @@ class _CompleteWishPageState extends State<CompleteWishPage> {
                   padding: EdgeInsets.zero,
                   children: [
                     SheetCard(
+                      solid: true,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -1900,6 +1905,7 @@ class DoneWishPage extends StatelessWidget {
   // ---------- 当时写下的那句话 ----------
   Widget _quoteCard() {
     return SheetCard(
+      solid: true,
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1985,6 +1991,7 @@ class DoneWishPage extends StatelessWidget {
         if (s.done && s.doneAt != null) (s.doneAt!, s.title),
     ]..sort((a, b) => a.$1.compareTo(b.$1));
     return SheetCard(
+      solid: true,
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2066,6 +2073,7 @@ class DoneWishPage extends StatelessWidget {
   // ---------- 过程笔记 ----------
   Widget _notesCard() {
     return SheetCard(
+      solid: true,
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

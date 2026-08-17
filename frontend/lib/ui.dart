@@ -292,35 +292,42 @@ class PlusBtn extends StatelessWidget {
 
 /// 毛玻璃卡片
 class SheetCard extends StatelessWidget {
-  const SheetCard({super.key, required this.child, this.padding});
+  const SheetCard({super.key, required this.child, this.padding, this.solid = false});
   final Widget child;
   final EdgeInsets? padding;
+  /// true = 纯白不透明，不做毛玻璃虚化（心愿详情页那几张卡改用这个，
+  /// 底下渐变透出来太杂，纯白更干净）
+  final bool solid;
   @override
   Widget build(BuildContext context) {
+    final content = Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: solid ? Colors.white : Colors.white.withValues(alpha: .55),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: solid ? T.line : Colors.white.withValues(alpha: .65),
+          width: 1,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14243A66),
+            blurRadius: 20,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: child,
+    );
+    if (solid) {
+      return ClipRRect(borderRadius: BorderRadius.circular(20), child: content);
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          width: double.infinity,
-          padding: padding ?? const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .55),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: .65),
-              width: 1,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x14243A66),
-                blurRadius: 20,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
+        child: content,
       ),
     );
   }
