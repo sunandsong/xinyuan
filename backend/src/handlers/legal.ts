@@ -4,6 +4,7 @@
 //
 // ⚠️ 运营主体信息目前是占位——企业资质申请下来之后，把下面 ENTITY 换成
 // 企业名称，正文里「个人开发者」的措辞也要一并改成企业名义，别忘了。
+import { COL } from '../config';
 import { getDb } from '../db';
 import { json, Req, Res } from '../http';
 import { verifyPassword } from '../password';
@@ -145,8 +146,9 @@ SDK；唯一使用的第三方组件见下方"第三方 SDK 目录"。
 <h2>六、你的权利</h2>
 <ul>
   <li><b>查看和修改</b>：昵称、头像、性别、生日都可以在"我的"页面随时改</li>
-  <li><b>注销账号</b>：可以在 App 内注销（我的 → 注销账号）；已经卸载了 App 的话，
-    也可以在网页上注销：<a href="${DELETION_PAGE_URL}">注销账号</a>（验证账号密码后立即生效）</li>
+  <li><b>注销账号</b>：可以在 App 内注销（我的 → 注销账号，立即生效）；已经卸载了 App 的话，
+    也可以在网页上提交注销申请：<a href="${DELETION_PAGE_URL}">注销账号</a>
+    （验证账号密码确认是本人后受理，我们在 15 个工作日内完成注销）</li>
   <li><b>管理定位/相册/通知权限</b>：随时可以在系统设置里关闭，关闭后对应功能会受限但不影响其它功能</li>
   <li><b>联系我们</b>：对隐私问题有疑问，可以通过 App 内"意见反馈"联系我们</li>
 </ul>
@@ -175,12 +177,17 @@ SDK；唯一使用的第三方组件见下方"第三方 SDK 目录"。
 }
 
 /** POST /account-deletion —— 给静态托管上的注销页用（网页版删除链接，
- * 见 DELETION_PAGE_URL）。校验账号密码后走跟 App 内「注销账号」完全相同的
- * 那条路径（softDeleteUser）。公开路由，密码就是这里的身份凭证——攻击面跟
- * /auth/login 一样（知道密码的人本来也能登进去自己删）。
+ * 见 DELETION_PAGE_URL）。**只登记申请，不当场注销**：真正的注销由管理端
+ * 「注销申请」页人工执行（走 POST /admin/users/:uid/delete，同一个
+ * softDeleteUser）。Google Play 认可人工处理的申请渠道。
  *
- * ⚠️ 不要改成「不验证凭据就提示删除成功」：Google Play 要求这个链接真的能
- * 删账号和关联数据，App Store 审核也会照着走一遍。 */
+ * 仍然校验密码：账号没绑邮箱手机号，管理员事后没有任何办法核实申请人是不是
+ * 号主，所以身份核实必须在这里做完，不能只填个账号名就受理——否则等于给了
+ * 任何人一个删别人账号的按钮。
+ *
+ * ⚠️ 页面文案说的是「申请已提交，X 个工作日内完成」，不是「已注销」。
+ * 别改成后者：用户会以为数据删了，而账号其实还能登录，那是在删除权上撒谎。
+ * 也别反过来把密码校验拆掉，见上一段。 */
 export async function accountDeletionSubmit(req: Req): Promise<Res> {
   const b = req.body ?? {};
   const account = String(b.account ?? '').trim().toLowerCase();
@@ -194,9 +201,29 @@ export async function accountDeletionSubmit(req: Req): Promise<Res> {
   if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
     return json(401, { error: 'invalid_credentials' });
   }
-  // 被封禁的账号照样允许注销：删除权不该因为封禁被剥夺
-  await db.softDeleteUser(user._id);
-  return json(200, { deleted: true });
+  // 被封禁的账号照样允许提交：删除权不该因为封禁被剥夺
+  try {
+    await db.ensureCollection(COL.deletionRequests);
+    // 同一个账号重复提交不再堆记录，管理端列表只需要看到一条待处理
+    const { items } = await db.listDocs(COL.deletionRequests, {
+      where: { uid: user._id },
+      limit: 1,
+      excludeTrue: ['handled'],
+    });
+    if (items.length === 0) {
+      await db.upsertDoc(COL.deletionRequests, undefined, {
+        uid: user._id,
+        account: user.account,
+        nickname: user.nickname ?? '',
+        handled: false,
+        createdAt: Date.now(),
+      });
+    }
+  } catch (e) {
+    // 登记失败必须让用户知道，不能回 received 让人以为已经排上队了
+    return json(500, { error: 'internal_error', message: String((e as any)?.message ?? e) });
+  }
+  return json(200, { received: true });
 }
 
 export async function termsPage(): Promise<Res> {

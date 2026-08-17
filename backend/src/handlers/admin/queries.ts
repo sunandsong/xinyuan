@@ -311,3 +311,26 @@ export async function crashList(req: Req) {
     return ok({ items: [], total: 0 });
   }
 }
+
+/** GET /admin/deletion-requests?handled=&skip= —— 网页版提交的注销申请，新的在前。
+ * 集合可能还没建过（一条申请都没有），按空表返回别 500。 */
+export async function deletionRequestList(req: Req) {
+  const q = req.query ?? {};
+  const skip = Math.max(0, Number(q.skip) || 0);
+  const where: Record<string, unknown> = {};
+  if (q.handled === 'true') where.handled = true;
+  try {
+    const { items, total } = await getDb().listDocs(COL.deletionRequests, {
+      skip,
+      limit: pageLimit(q),
+      where,
+      orderBy: 'createdAt',
+      orderDir: 'desc',
+      // 只看待处理时用 !=true：早期记录可能压根没有 handled 字段
+      excludeTrue: q.handled === 'false' ? ['handled'] : undefined,
+    });
+    return ok({ items, total });
+  } catch {
+    return ok({ items: [], total: 0 });
+  }
+}

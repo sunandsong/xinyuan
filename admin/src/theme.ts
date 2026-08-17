@@ -127,5 +127,6 @@ export const PAGE_META: Record<string, { title: string; parent?: string }> = {
   '/blocked-words': { title: '屏蔽词', parent: '内容配置' },
   '/announcements': { title: '公告与版本', parent: '内容配置' },
   '/demo-users': { title: '演示用户', parent: '内容配置' },
+  '/deletion-requests': { title: '注销申请' },
   '/audit-log': { title: '操作日志' },
 };

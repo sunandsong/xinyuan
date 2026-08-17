@@ -40,4 +40,5 @@ export const COL = {
   logins: 'logins',
   events: 'events',
   crashes: 'crashes',
+  deletionRequests: 'deletion_requests',
 } as const;

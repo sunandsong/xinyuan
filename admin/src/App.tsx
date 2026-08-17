@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Button, Layout, Menu, type MenuProps } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import { Badge, Button, Layout, Menu, type MenuProps } from 'antd';
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -7,6 +7,7 @@ import {
   LoginOutlined,
   ThunderboltOutlined,
   BugOutlined,
+  UserDeleteOutlined,
   DatabaseOutlined,
   StarOutlined,
   CheckSquareOutlined,
@@ -24,7 +25,7 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { clearKey, useKey } from './api';
+import { api, clearKey, useKey } from './api';
 import BrandLogo from './components/BrandLogo';
 import Gate from './Gate';
 import Overview from './pages/Overview';
@@ -45,6 +46,7 @@ import Announcements from './pages/Announcements';
 import DemoUsers from './pages/DemoUsers';
 import AuditLog from './pages/AuditLog';
 import Crashes from './pages/Crashes';
+import DeletionRequests from './pages/DeletionRequests';
 import { BG, GRADIENT, INK, LINE, MUTED, PAGE_META } from './theme';
 
 const menuItems: MenuProps['items'] = [
@@ -54,6 +56,7 @@ const menuItems: MenuProps['items'] = [
   { key: '/login-logs', icon: <LoginOutlined />, label: '登录日志' },
   { key: '/events', icon: <ThunderboltOutlined />, label: '行为事件' },
   { key: '/crashes', icon: <BugOutlined />, label: '崩溃' },
+  { key: '/deletion-requests', icon: <UserDeleteOutlined />, label: '注销申请' },
   {
     key: 'group-data',
     icon: <DatabaseOutlined />,
@@ -96,9 +99,38 @@ const GROUP_OF: Record<string, string> = {
   '/demo-users': 'group-content',
 };
 
+/** 待处理注销申请数：进后台拉一次，之后每次切页重拉（处理完角标会自己消失） */
+function usePendingDeletions(dep: string): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    api
+      .get('/admin/deletion-requests?handled=false&limit=1')
+      .then((d) => setN(Number(d.total) || 0))
+      .catch(() => {});
+  }, [dep]);
+  return n;
+}
+
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const pendingDeletions = usePendingDeletions(location.pathname);
+  const items = useMemo(
+    () =>
+      (menuItems ?? []).map((it) =>
+        it && 'key' in it && it.key === '/deletion-requests' && pendingDeletions > 0
+          ? {
+              ...it,
+              label: (
+                <Badge count={pendingDeletions} size="small" offset={[10, 0]}>
+                  注销申请
+                </Badge>
+              ),
+            }
+          : it,
+      ),
+    [pendingDeletions],
+  );
   const [openKeys, setOpenKeys] = useState<string[]>(() => {
     const g = GROUP_OF[location.pathname];
     return g ? [g] : [];
@@ -139,7 +171,7 @@ function AdminLayout() {
           selectedKeys={[location.pathname]}
           openKeys={openKeys}
           onOpenChange={(keys) => setOpenKeys(keys)}
-          items={menuItems}
+          items={items}
           onClick={({ key }) => navigate(key)}
           style={{ borderInlineEnd: 'none' }}
         />
@@ -183,6 +215,7 @@ function AdminLayout() {
             <Route path="/announcements" element={<Announcements />} />
             <Route path="/demo-users" element={<DemoUsers />} />
             <Route path="/crashes" element={<Crashes />} />
+            <Route path="/deletion-requests" element={<DeletionRequests />} />
             <Route path="/audit-log" element={<AuditLog />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

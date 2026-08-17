@@ -797,7 +797,7 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <h1 data-i18n="sideTitle">Delete your account</h1>
-            <p data-i18n="sideDesc">Delete your account and all associated data. Verify your password and it takes effect immediately.</p>
+            <p data-i18n="sideDesc">Request deletion of your account and all associated data. Verify your password to submit.</p>
 
             <div class="steps-vertical">
                 <div class="vstep active" id="vs-1">
@@ -823,7 +823,7 @@
                         <div class="vstep-dot">&#10003;</div>
                     </div>
                     <div class="vstep-info">
-                        <div class="vstep-label" data-i18n="step3">Deleted</div>
+                        <div class="vstep-label" data-i18n="step3">Submitted</div>
                     </div>
                 </div>
             </div>
@@ -840,7 +840,7 @@
                     <ul>
                         <li data-i18n="alert1">Your profile, wishes, tasks, time capsule letters and uploaded photos will be deleted</li>
                         <li data-i18n="alert2">Your nickname and avatar will stop appearing on leaderboards, place check-ins and your public profile</li>
-                        <li data-i18n="alert3">This action takes effect immediately and cannot be undone</li>
+                        <li data-i18n="alert3">Deletion is carried out after we verify your request, within 15 business days, and cannot be undone</li>
                         <li data-i18n="alert4">Login logs, crash records and feedback are kept for a while for security and troubleshooting, then removed — see our Privacy Policy</li>
                     </ul>
                 </div>
@@ -883,7 +883,7 @@
                                 <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
                             </span>
                             <span class="check-text" data-i18n="agreeText">
-                                I understand this action is <strong>immediate and irreversible</strong>. My account will no longer be able to sign in, and my wishes, tasks, time capsule letters and photos will be deleted.
+                                I understand this request is <strong>irreversible once carried out</strong>. My account will no longer be able to sign in, and my wishes, tasks, time capsule letters and photos will be deleted.
                             </span>
                         </label>
                     </div>
@@ -911,13 +911,13 @@
                                 <td id="sumAccount">—</td>
                             </tr>
                             <tr>
-                                <td data-i18n="reviewTimeline">Takes effect</td>
-                                <td data-i18n="reviewTimelineVal">Immediately</td>
+                                <td data-i18n="reviewTimeline">Completed within</td>
+                                <td data-i18n="reviewTimelineVal">15 business days</td>
                             </tr>
                         </table>
                     </div>
                     <div class="review-note" data-i18n="reviewNote">
-                        Once you confirm, the account is deleted right away. There is no undo and no waiting period.
+                        Submitting registers your deletion request. Your account keeps working normally until we carry it out.
                     </div>
                 </div>
 
@@ -927,7 +927,7 @@
                         <span data-i18n="btnBack">Back</span>
                     </button>
                     <button class="btn btn-red btn-fill" id="btnDelete" onclick="submitDeletion()">
-                        <span data-i18n="btnDelete">Delete my account</span>
+                        <span data-i18n="btnDelete">Submit deletion request</span>
                     </button>
                 </div>
             </div>
@@ -942,8 +942,8 @@
                                           stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                         </div>
-                        <h2 data-i18n="successTitle">Account deleted</h2>
-                        <p data-i18n="successDesc">This account can no longer sign in, and its wishes, tasks, time capsule letters and photos have been deleted.</p>
+                        <h2 data-i18n="successTitle">Request submitted</h2>
+                        <p data-i18n="successDesc">We have your deletion request. Your account and its data will be deleted within 15 business days.</p>
                         <div class="ref-tag" id="successAccount"></div>
                     </div>
                 </div>
@@ -975,19 +975,21 @@
     /**
      * POST {baseUrl}{endpoint}
      * Body: { account, password }
-     * Response: 200 { deleted: true } / 401 { error: 'invalid_credentials' }
-     *           / 400 { error: 'missing_fields' }
-     * 校验通过就当场注销了，没有「申请」这一步——Google Play 要求这个链接
-     * 真的能删账号，App Store 审核也会照着走一遍。
+     * Response: 200 { received: true } / 401 { error: 'invalid_credentials' }
+     *           / 400 { error: 'missing_fields' } / 500 { error: 'internal_error' }
+     * 密码只用来证明是本人：校验通过后申请进管理端队列，由人工执行注销。
+     * 所以成功页说的是「申请已提交」，不是「已注销」——别写反。
      */
-    async function deleteAccount(account, password) {
+    async function submitDeletionRequest(account, password) {
         const res = await fetch(`${API.baseUrl}${API.endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ account, password }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok && res.status !== 400 && res.status !== 401) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok && res.status !== 400 && res.status !== 401 && res.status !== 500) {
+            throw new Error(`HTTP ${res.status}`);
+        }
         return data;
     }
     // ═══════════════════════════════════════════════════
@@ -997,12 +999,12 @@
         en: {
             headerPage:'Account Deletion',
             sideTitle:'Delete your account',
-            sideDesc:'Delete your {brand} account and all associated data. Verify your password and it takes effect immediately.',
-            step1:'Verify identity', step2:'Review & confirm', step3:'Deleted',
+            sideDesc:'Request deletion of your {brand} account and all associated data. Verify your password to submit.',
+            step1:'Verify identity', step2:'Review & confirm', step3:'Submitted',
             alertTitle:'Before you proceed',
             alert1:'Your profile, wishes, tasks, time capsule letters and uploaded photos will be deleted',
             alert2:'Your nickname and avatar will stop appearing on leaderboards, place check-ins and your public profile',
-            alert3:'This action takes effect immediately and cannot be undone',
+            alert3:'Deletion is carried out after we verify your request, within 15 business days, and cannot be undone',
             alert4:'Login logs, crash records and feedback are kept for a while for security and troubleshooting, then removed — see our Privacy Policy',
             formTitle:'Verify your identity',
             accountLabel:'Account name', accountPlaceholder:'The username you sign in with',
@@ -1011,28 +1013,29 @@
             pwdLabel:'Password', pwdPlaceholder:'Your {brand} password',
             pwdError:'Please enter your password',
             pwdHint:'Used only to confirm it is really you. We never store what you type here.',
-            agreeText:'I understand this action is <strong>immediate and irreversible</strong>. My account will no longer be able to sign in, and my wishes, tasks, time capsule letters and photos will be deleted.',
+            agreeText:'I understand this request is <strong>irreversible once carried out</strong>. My account will no longer be able to sign in, and my wishes, tasks, time capsule letters and photos will be deleted.',
             btnNext:'Continue',
             deleteFail:'Wrong account name or password',
+            submitFail:'Could not submit your request. Please try again later.',
             reviewTitle:'Review your request',
-            reviewAccount:'Account', reviewTimeline:'Takes effect',
-            reviewTimelineVal:'Immediately',
-            reviewNote:'Once you confirm, the account is deleted right away. There is no undo and no waiting period.',
-            btnBack:'Back', btnDelete:'Delete my account',
-            successTitle:'Account deleted',
-            successDesc:'This account can no longer sign in, and its wishes, tasks, time capsule letters and photos have been deleted. If you reinstall the app you will need to register a new account.',
+            reviewAccount:'Account', reviewTimeline:'Completed within',
+            reviewTimelineVal:'15 business days',
+            reviewNote:'Submitting registers your deletion request. Your account keeps working normally until we carry it out.',
+            btnBack:'Back', btnDelete:'Submit deletion request',
+            successTitle:'Request submitted',
+            successDesc:'We have your deletion request and your password confirmed it is really you. Your account and its data will be deleted within 15 business days, and it keeps working normally until then. If you change your mind, simply keep using the app and contact us through in-app feedback.',
             fPrivacy:'Privacy Policy', fTerms:'Terms of Service', fContact:'Contact',
             submitting:'Processing\u2026', errorGeneric:'Something went wrong. Please try again.',
         },
         'zh-CN': {
             headerPage:'注销账号',
             sideTitle:'注销您的账号',
-            sideDesc:'注销您的 {brand} 账号并删除相关数据。验证密码后立即生效。',
-            step1:'验证身份', step2:'核对并确认', step3:'已注销',
+            sideDesc:'申请注销您的 {brand} 账号并删除相关数据。验证密码即可提交申请。',
+            step1:'验证身份', step2:'核对并确认', step3:'已提交',
             alertTitle:'继续之前请注意',
             alert1:'您的个人资料、心愿、任务、时光胶囊信件和上传的照片将被删除',
             alert2:'您的昵称和头像不再出现在排行榜、地点打卡和个人主页上',
-            alert3:'此操作立即生效，且无法撤销',
+            alert3:'我们核对后执行注销，最长 15 个工作日，执行后无法撤销',
             alert4:'登录日志、崩溃记录和意见反馈出于安全和排查需要会保留一段时间后清理，详见《隐私政策》',
             formTitle:'验证身份',
             accountLabel:'账号名', accountPlaceholder:'您登录时使用的账号名',
@@ -1041,16 +1044,17 @@
             pwdLabel:'密码', pwdPlaceholder:'您的 {brand} 登录密码',
             pwdError:'请输入密码',
             pwdHint:'仅用于确认是本人操作，我们不会保存您在这里输入的内容。',
-            agreeText:'我已了解此操作<strong>立即生效且不可撤销</strong>。注销后我将无法再用该账号登录，我的心愿、任务、时光胶囊和照片会被删除。',
+            agreeText:'我已了解此申请<strong>一经执行便不可撤销</strong>。注销后我将无法再用该账号登录，我的心愿、任务、时光胶囊和照片会被删除。',
             btnNext:'继续',
             deleteFail:'账号名或密码不对',
+            submitFail:'申请提交失败，请稍后重试。',
             reviewTitle:'核对您的申请',
-            reviewAccount:'账号', reviewTimeline:'生效时间',
-            reviewTimelineVal:'立即',
-            reviewNote:'点击下面的按钮后账号立即注销，没有撤销机会，也没有等待期。',
-            btnBack:'返回', btnDelete:'注销我的账号',
-            successTitle:'账号已注销',
-            successDesc:'该账号已无法再登录，名下的心愿、任务、时光胶囊和照片已被删除。如果之后还想使用「人生清单」，重新安装 App 注册一个新账号即可。',
+            reviewAccount:'账号', reviewTimeline:'完成时限',
+            reviewTimelineVal:'15 个工作日内',
+            reviewNote:'提交后我们会登记这份注销申请。在执行完成之前，您的账号仍可正常使用。',
+            btnBack:'返回', btnDelete:'提交注销申请',
+            successTitle:'申请已提交',
+            successDesc:'我们已收到您的注销申请，密码验证也已确认是本人操作。您的账号及相关数据将在 15 个工作日内删除，在此之前账号仍可正常使用。如果改变主意，继续使用即可，或通过 App 内「意见反馈」联系我们。',
             fPrivacy:'隐私政策', fTerms:'服务条款', fContact:'联系我们',
             submitting:'处理中…', errorGeneric:'出错了，请重试。',
         },
@@ -1206,14 +1210,15 @@
 
         try {
             const account = $acc.value.trim();
-            const res = await deleteAccount(account, $pwd.value);
-            if (res.deleted) {
+            const res = await submitDeletionRequest(account, $pwd.value);
+            if (res.received) {
                 document.getElementById('successAccount').textContent = account;
                 $pwd.value = '';                       // 删完了别把密码留在 DOM 里
                 setStep(3);
                 show('view-success');
             } else {
-                alert(res.error === 'invalid_credentials' ? L[lang].deleteFail : L[lang].errorGeneric);
+                alert(res.error === 'invalid_credentials' ? L[lang].deleteFail
+                    : res.error === 'internal_error' ? L[lang].submitFail : L[lang].errorGeneric);
                 $btn.disabled = false;
                 $btn.innerHTML = `<span>${L[lang].btnDelete}</span>`;
             }
