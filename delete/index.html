@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注销账号</title>
+    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" id="favicon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --white: #FFFFFF;
+            --bg: #F5F5F7;
+            --surface: #FFFFFF;
+            --text: #111111;
+            --text-2: #555555;
+            --text-3: #999999;
+            --brand: #7B52E0;
+            --brand-hover: #6940C6;
+            --brand-soft: rgba(123,82,224,0.08);
+            --red: #D63031;
+            --red-bg: #FFF5F5;
+            --red-border: #FDD;
+            --red-text: #8B1A1A;
+            --green: #00A67D;
+            --green-bg: #EEFBF6;
+            --border: #E5E5E5;
+            --border-dark: #D4D4D4;
+            --input-bg: #F8F8F8;
+            --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Header ── */
+        header {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .brand-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            background: var(--brand);
+            display: grid;
+            place-items: center;
+        }
+
+        .brand-icon span {
+            font-size: 14px;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .brand-name {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .brand-sep {
+            color: var(--border-dark);
+            font-weight: 300;
+            font-size: 18px;
+            margin: 0 2px;
+        }
+
+        .brand-page {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-2);
+        }
+
+        .lang-group {
+            display: flex;
+            gap: 1px;
+            background: var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .lang-group button {
+            padding: 6px 14px;
+            border: none;
+            background: var(--white);
+            font-family: var(--font);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-3);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .lang-group button.active {
+            background: var(--text);
+            color: var(--white);
+        }
+
+        .lang-group button:not(.active):hover {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        /* ── Layout ── */
+        .layout {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 32px 24px 64px;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 32px;
+            align-items: start;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            position: sticky;
+            top: 88px;
+        }
+
+        .sidebar h1 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            line-height: 1.3;
+            margin-bottom: 12px;
+        }
+
+        .sidebar p {
+            font-size: 14px;
+            color: var(--text-2);
+            line-height: 1.65;
+            margin-bottom: 24px;
+        }
+
+        .steps-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .vstep {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            position: relative;
+        }
+
+        .vstep-track {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .vstep-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            background: var(--white);
+            display: grid;
+            place-items: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-3);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .vstep.active .vstep-dot {
+            border-color: var(--brand);
+            background: var(--brand);
+            color: #fff;
+        }
+
+        .vstep.done .vstep-dot {
+            border-color: var(--green);
+            background: var(--green);
+            color: #fff;
+        }
+
+        .vstep-line {
+            width: 2px;
+            height: 28px;
+            background: var(--border);
+            transition: background 0.3s ease;
+        }
+
+        .vstep.done .vstep-line {
+            background: var(--green);
+        }
+
+        .vstep-info {
+            padding: 2px 0 28px;
+        }
+
+        .vstep-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-3);
+            transition: color 0.3s ease;
+        }
+
+        .vstep.active .vstep-label { color: var(--text); }
+        .vstep.done .vstep-label { color: var(--green); }
+
+        /* ── Content area ── */
+        .content {}
+
+        .view {
+            display: none;
+            animation: slideIn 0.35s ease;
+        }
+
+        .view.active { display: block; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .card + .card {
+            margin-top: 16px;
+        }
+
+        .card-head {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            font-size: 15px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-head .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .card-head .dot-red { background: var(--red); }
+        .card-head .dot-brand { background: var(--brand); }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        /* ── Alert ── */
+        .alert {
+            background: var(--red-bg);
+            border: 1px solid var(--red-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .alert-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--red);
+            margin-bottom: 10px;
+        }
+
+        .alert ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .alert li {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--red-text);
+            padding-left: 16px;
+            position: relative;
+        }
+
+        .alert li::before {
+            content: '\2022';
+            position: absolute;
+            left: 0;
+            color: var(--red);
+            font-weight: bold;
+        }
+
+        .alert li + li {
+            margin-top: 4px;
+        }
+
+        /* ── Form ── */
+        .field {
+            margin-bottom: 20px;
+        }
+
+        .field:last-child {
+            margin-bottom: 0;
+        }
+
+        .field-label {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .field-label .optional {
+            font-weight: 400;
+            color: var(--text-3);
+        }
+
+        .field-label .required {
+            color: var(--red);
+        }
+
+        .input {
+            width: 100%;
+            height: 44px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0 14px;
+            font-family: var(--font);
+            font-size: 14px;
+            color: var(--text);
+            background: var(--white);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input::placeholder {
+            color: var(--text-3);
+        }
+
+        .input:focus {
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px var(--brand-soft);
+        }
+
+        .input.has-error {
+            border-color: var(--red);
+            box-shadow: 0 0 0 3px rgba(214,48,49,0.08);
+        }
+
+        .select {
+            width: 100%;
+            height: 44px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0 36px 0 14px;
+            font-family: var(--font);
+            font-size: 14px;
+            color: var(--text);
+            background: var(--white);
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .select:focus {
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px var(--brand-soft);
+        }
+
+        .field-hint {
+            font-size: 12px;
+            color: var(--text-3);
+            margin-top: 6px;
+        }
+
+        .field-error {
+            font-size: 12px;
+            color: var(--red);
+            margin-top: 6px;
+            display: none;
+        }
+
+        .field-error.show { display: block; }
+
+        /* ── Checkbox ── */
+        .check-label {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            cursor: pointer;
+            user-select: none;
+            padding: 16px 0 0;
+            border-top: 1px solid var(--border);
+            margin-top: 20px;
+        }
+
+        .check-label input { display: none; }
+
+        .check-box {
+            width: 20px;
+            height: 20px;
+            border: 1.5px solid var(--border-dark);
+            border-radius: 5px;
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+            transition: all 0.2s ease;
+            margin-top: 1px;
+        }
+
+        .check-label input:checked + .check-box {
+            background: var(--brand);
+            border-color: var(--brand);
+        }
+
+        .check-label input:checked + .check-box svg {
+            opacity: 1;
+        }
+
+        .check-box svg {
+            width: 12px;
+            height: 12px;
+            fill: none;
+            stroke: #fff;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .check-text {
+            font-size: 13px;
+            line-height: 1.55;
+            color: var(--text-2);
+        }
+
+        .check-text strong {
+            color: var(--red);
+            font-weight: 600;
+        }
+
+        /* ── Actions ── */
+        .actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            height: 44px;
+            border: none;
+            border-radius: 8px;
+            font-family: var(--font);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 20px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-fill {
+            flex: 1;
+        }
+
+        .btn-brand {
+            background: var(--brand);
+            color: #fff;
+        }
+
+        .btn-brand:hover:not(:disabled) {
+            background: var(--brand-hover);
+        }
+
+        .btn-brand:disabled {
+            background: var(--border);
+            color: var(--text-3);
+            cursor: not-allowed;
+        }
+
+        .btn-red {
+            background: var(--red);
+            color: #fff;
+        }
+
+        .btn-red:hover:not(:disabled) {
+            background: #B82828;
+        }
+
+        .btn-red:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-outline {
+            background: var(--white);
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg);
+            border-color: var(--border-dark);
+            color: var(--text);
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.5s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Review table ── */
+        .review-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .review-table tr {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .review-table tr:last-child {
+            border-bottom: none;
+        }
+
+        .review-table td {
+            padding: 14px 0;
+            font-size: 14px;
+            vertical-align: top;
+        }
+
+        .review-table td:first-child {
+            color: var(--text-3);
+            width: 140px;
+            padding-right: 16px;
+        }
+
+        .review-table td:last-child {
+            font-weight: 600;
+            color: var(--text);
+            word-break: break-all;
+        }
+
+        .review-note {
+            padding: 16px 24px;
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--text-2);
+            line-height: 1.6;
+        }
+
+        /* ── Success ── */
+        .success-content {
+            text-align: center;
+            padding: 48px 32px;
+        }
+
+        .success-check {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--green-bg);
+            display: grid;
+            place-items: center;
+            margin: 0 auto 20px;
+            animation: pop 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.1s both;
+        }
+
+        @keyframes pop {
+            from { opacity: 0; transform: scale(0.3); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .success-check svg {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: var(--green);
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .success-content h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .success-content p {
+            font-size: 14px;
+            color: var(--text-2);
+            line-height: 1.65;
+            max-width: 380px;
+            margin: 0 auto 20px;
+        }
+
+        .ref-tag {
+            display: inline-block;
+            padding: 6px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-2);
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            letter-spacing: 0.3px;
+        }
+
+        /* ── Footer ── */
+        .page-footer {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 24px 40px;
+        }
+
+        .footer-bar {
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-3);
+        }
+
+        .footer-bar a {
+            color: var(--text-2);
+            text-decoration: none;
+        }
+
+        .footer-bar a:hover { color: var(--brand); }
+
+        .footer-links {
+            display: flex;
+            gap: 16px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 720px) {
+            .layout {
+                grid-template-columns: 1fr;
+                gap: 24px;
+                padding: 24px 16px 48px;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .steps-vertical {
+                flex-direction: row;
+                gap: 0;
+                align-items: center;
+            }
+
+            .vstep {
+                flex-direction: column;
+                align-items: center;
+                flex: 1;
+            }
+
+            .vstep-track {
+                flex-direction: row;
+                width: 100%;
+                align-items: center;
+            }
+
+            .vstep-line {
+                width: auto;
+                flex: 1;
+                height: 2px;
+            }
+
+            .vstep:last-child .vstep-line {
+                display: none;
+            }
+
+            .vstep-info {
+                padding: 6px 0 0;
+                text-align: center;
+            }
+
+            .header-inner {
+                padding: 0 16px;
+            }
+
+            .card-body {
+                padding: 20px 16px;
+            }
+
+            .card-head {
+                padding: 16px;
+            }
+
+            .review-table td:first-child {
+                width: 100px;
+            }
+
+            .review-note {
+                padding: 12px 16px;
+            }
+
+            .page-footer {
+                padding: 0 16px 32px;
+            }
+
+            .footer-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .brand-page { display: none; }
+            .brand-sep { display: none; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-inner">
+            <a class="brand" href="#">
+                <img class="brand-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" alt="" style="border-radius:7px;" id="brandIcon">
+                <span class="brand-name" id="brandName"></span>
+                <span class="brand-sep">/</span>
+                <span class="brand-page" data-i18n="headerPage">Account Deletion</span>
+            </a>
+            <div class="lang-group" id="langGroup"></div>
+        </div>
+    </header>
+
+    <div class="layout">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <h1 data-i18n="sideTitle">Delete your account</h1>
+            <p data-i18n="sideDesc">Submit a request to permanently delete your account and all associated data.</p>
+
+            <div class="steps-vertical">
+                <div class="vstep active" id="vs-1">
+                    <div class="vstep-track">
+                        <div class="vstep-dot">1</div>
+                        <div class="vstep-line"></div>
+                    </div>
+                    <div class="vstep-info">
+                        <div class="vstep-label" data-i18n="step1">Fill in details</div>
+                    </div>
+                </div>
+                <div class="vstep" id="vs-2">
+                    <div class="vstep-track">
+                        <div class="vstep-dot">2</div>
+                        <div class="vstep-line"></div>
+                    </div>
+                    <div class="vstep-info">
+                        <div class="vstep-label" data-i18n="step2">Review & confirm</div>
+                    </div>
+                </div>
+                <div class="vstep" id="vs-3">
+                    <div class="vstep-track">
+                        <div class="vstep-dot">&#10003;</div>
+                    </div>
+                    <div class="vstep-info">
+                        <div class="vstep-label" data-i18n="step3">Submitted</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Content -->
+        <div class="content">
+
+            <!-- Step 1 -->
+            <div class="view active" id="view-form">
+
+                <div class="alert">
+                    <div class="alert-title" data-i18n="alertTitle">Before you proceed</div>
+                    <ul>
+                        <li data-i18n="alert1">Your profile, wishes, tasks, time capsule letters and uploaded photos will be permanently deleted</li>
+                        <li data-i18n="alert2">Your nickname and avatar will stop appearing on leaderboards, place check-ins and your public profile</li>
+                        <li data-i18n="alert3">This action cannot be undone once processed</li>
+                        <li data-i18n="alert4">Deletion will be completed within 60 days</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <span class="dot dot-brand"></span>
+                        <span data-i18n="formTitle">Account information</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="field">
+                            <label class="field-label">
+                                <span data-i18n="accountLabel">Account name</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" class="input" id="accountInput"
+                                   data-i18n-placeholder="accountPlaceholder"
+                                   placeholder="The username you sign in with"
+                                   autocomplete="off" spellcheck="false">
+                            <div class="field-error" id="accountError" data-i18n="accountError">This field is required</div>
+                            <div class="field-hint" data-i18n="accountHint">The username you chose when registering — 3-20 letters, digits or underscores. Not your nickname.</div>
+                        </div>
+
+                        <div class="field">
+                            <label class="field-label">
+                                <span data-i18n="emailLabel">Contact email</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input type="email" class="input" id="emailInput"
+                                   data-i18n-placeholder="emailPlaceholder"
+                                   placeholder="you@example.com"
+                                   autocomplete="email">
+                            <div class="field-error" id="emailError" data-i18n="emailError">Please enter a valid email address</div>
+                            <div class="field-hint" data-i18n="emailHint">We will send a verification email to this address. You must confirm via the link before deletion begins.</div>
+                        </div>
+
+                        <div class="field">
+                            <label class="field-label">
+                                <span data-i18n="reasonLabel">Reason</span>
+                                <span class="optional" data-i18n="optionalTag">optional</span>
+                            </label>
+                            <select class="select" id="reasonSelect">
+                                <option value="" data-i18n="reasonDefault">Select a reason</option>
+                                <option value="no_longer_use" data-i18n="reason1">I no longer use this app</option>
+                                <option value="privacy" data-i18n="reason2">Privacy concerns</option>
+                                <option value="notifications" data-i18n="reason3">Too many notifications</option>
+                                <option value="alternative" data-i18n="reason4">Switched to another app</option>
+                                <option value="experience" data-i18n="reason5">Poor experience</option>
+                                <option value="other" data-i18n="reason6">Other</option>
+                            </select>
+                        </div>
+
+                        <label class="check-label">
+                            <input type="checkbox" id="agreeCheck">
+                            <span class="check-box">
+                                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                            </span>
+                            <span class="check-text" data-i18n="agreeText">
+                                I understand this action is <strong>permanent and irreversible</strong>. All my data, including my wishes, tasks, time capsule letters and photos, will be permanently erased.
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-brand btn-fill" id="btnNext" disabled onclick="goToConfirm()">
+                        <span data-i18n="btnNext">Continue</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="view" id="view-confirm">
+                <div class="card">
+                    <div class="card-head">
+                        <span class="dot dot-red"></span>
+                        <span data-i18n="reviewTitle">Review your request</span>
+                    </div>
+                    <div class="card-body">
+                        <table class="review-table">
+                            <tr>
+                                <td data-i18n="reviewAccount">Account</td>
+                                <td id="sumAccount">—</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="reviewEmail">Contact email</td>
+                                <td id="sumEmail">—</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="reviewReason">Reason</td>
+                                <td id="sumReason">—</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="reviewTimeline">Timeline</td>
+                                <td data-i18n="reviewTimelineVal">Up to 60 days</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="review-note" data-i18n="reviewNote">
+                        After you submit, we will send a verification email to your contact address. Your account will only be deleted after you confirm through the link in that email.
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-outline btn-fill" onclick="goBack()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                        <span data-i18n="btnBack">Back</span>
+                    </button>
+                    <button class="btn btn-red btn-fill" id="btnDelete" onclick="submitDeletion()">
+                        <span data-i18n="btnDelete">Submit request</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="view" id="view-success">
+                <div class="card">
+                    <div class="success-content">
+                        <div class="success-check" style="background: #EEF2FF;">
+                            <svg viewBox="0 0 24 24" style="stroke: var(--brand);">
+                                <rect x="2" y="4" width="20" height="16" rx="2" fill="none" stroke-width="2"/>
+                                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" fill="none" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <h2 data-i18n="successTitle">Verification email sent</h2>
+                        <p data-i18n="successDesc">We have sent a verification email to your contact address. Please click the confirmation link in the email to proceed with account deletion. The link will expire in 24 hours.</p>
+                        <div class="ref-tag" id="successEmail" style="margin-bottom: 10px;"></div>
+                        <div class="ref-tag" id="refNum">REF-0000000000</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <footer class="page-footer">
+        <div class="footer-bar">
+            <span id="footerCopy">&copy; 2026</span>
+            <div class="footer-links">
+                <a href="#" target="_blank" rel="noopener" data-i18n="fPrivacy" id="linkPrivacy">Privacy Policy</a>
+                <a href="#" target="_blank" rel="noopener" data-i18n="fTerms" id="linkTerms">Terms of Service</a>
+                <a href="#" data-i18n="fContact" id="linkContact">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+    // ═══════════════════════════════════════════════════
+    //  API — replace mock with real endpoint
+    // ═══════════════════════════════════════════════════
+    const API = {
+        baseUrl: '',
+        endpoint: '/api/account/cancel',
+    };
+
+    /**
+     * POST {baseUrl}{endpoint}
+     * Body: { account, contactEmail, reason? }
+     * Response: { code: 0, message: 'success', data: { refId } }
+     */
+    async function requestDeletion(account, contactEmail, reason) {
+        const res = await fetch(`${API.baseUrl}${API.endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account, contactEmail, reason: reason || undefined }),
+        });
+        if (!res.ok && res.status !== 400) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    }
+    // ═══════════════════════════════════════════════════
+
+    // i18n
+    const L = {
+        en: {
+            headerPage:'Account Deletion',
+            sideTitle:'Delete your account',
+            sideDesc:'Submit a request to permanently delete your {brand} account and all associated data.',
+            step1:'Fill in details', step2:'Review & confirm', step3:'Submitted',
+            alertTitle:'Before you proceed',
+            alert1:'Your profile, wishes, tasks, time capsule letters and uploaded photos will be permanently deleted',
+            alert2:'Your nickname and avatar will stop appearing on leaderboards, place check-ins and your public profile',
+            alert3:'This action cannot be undone once processed',
+            alert4:'Deletion will be completed within 60 days',
+            formTitle:'Account information',
+            accountLabel:'Account name', accountPlaceholder:'The username you sign in with',
+            accountError:'This field is required',
+            accountHint:'The username you chose when registering your {brand} account — 3-20 letters, digits or underscores. Not your nickname.',
+            emailLabel:'Contact email', emailPlaceholder:'you@example.com',
+            emailError:'Please enter a valid email address',
+            emailHint:'We will send a verification email to this address. You must confirm via the link before deletion begins.',
+            reasonLabel:'Reason', optionalTag:'optional',
+            reasonDefault:'Select a reason',
+            reason1:'I no longer use this app', reason2:'Privacy concerns',
+            reason3:'Too many notifications', reason4:'Switched to another app',
+            reason5:'Poor experience', reason6:'Other',
+            agreeText:'I understand this action is <strong>permanent and irreversible</strong>. All my data, including my wishes, tasks, time capsule letters and photos, will be permanently erased.',
+            btnNext:'Continue',
+            reviewTitle:'Review your request',
+            reviewAccount:'Account', reviewEmail:'Contact email',
+            reviewReason:'Reason', reviewTimeline:'Timeline',
+            reviewTimelineVal:'Up to 60 days',
+            reviewNote:'After you submit, we will send a verification email to your contact address. Your account will only be deleted after you confirm through the link in that email.',
+            btnBack:'Back', btnDelete:'Submit request',
+            successTitle:'Verification email sent',
+            successDesc:'We have sent a verification email to your contact address. Please click the confirmation link in the email to proceed with account deletion. The link will expire in 24 hours.',
+            fPrivacy:'Privacy Policy', fTerms:'Terms of Service', fContact:'Contact',
+            submitting:'Processing\u2026', errorGeneric:'Something went wrong. Please try again.',
+            reasonNone:'Not specified',
+        },
+        'zh-CN': {
+            headerPage:'注销账号',
+            sideTitle:'注销您的账号',
+            sideDesc:'提交申请，永久删除您的 {brand} 账号及所有相关数据。',
+            step1:'填写信息', step2:'核对并确认', step3:'已提交',
+            alertTitle:'继续之前请注意',
+            alert1:'您的个人资料、心愿、任务、时光胶囊信件和上传的照片将被永久删除',
+            alert2:'您的昵称和头像不再出现在排行榜、地点打卡和个人主页上',
+            alert3:'一经处理，此操作无法撤销',
+            alert4:'删除将在 60 天内完成',
+            formTitle:'账号信息',
+            accountLabel:'账号名', accountPlaceholder:'您登录时使用的账号名',
+            accountError:'此项为必填',
+            accountHint:'您注册 {brand} 账号时设置的登录名，3-20 位字母、数字或下划线，不是昵称',
+            emailLabel:'联系邮箱', emailPlaceholder:'you@example.com',
+            emailError:'请输入有效的邮箱地址',
+            emailHint:'我们会向该地址发送验证邮件。您需通过邮件中的链接确认后，删除流程才会开始。',
+            reasonLabel:'原因', optionalTag:'选填',
+            reasonDefault:'请选择原因',
+            reason1:'我不再使用该应用', reason2:'隐私顾虑',
+            reason3:'通知太多', reason4:'已改用其他应用',
+            reason5:'使用体验不佳', reason6:'其他',
+            agreeText:'我已了解此操作<strong>永久且不可撤销</strong>。我的全部数据，包括心愿、任务、时光胶囊和照片，都将被永久清除。',
+            btnNext:'继续',
+            reviewTitle:'核对您的申请',
+            reviewAccount:'账号', reviewEmail:'联系邮箱',
+            reviewReason:'原因', reviewTimeline:'处理时限',
+            reviewTimelineVal:'最长 60 天',
+            reviewNote:'提交后，我们会向您的联系邮箱发送验证邮件。只有在您通过邮件中的链接确认后，账号才会被删除。',
+            btnBack:'返回', btnDelete:'提交申请',
+            successTitle:'验证邮件已发送',
+            successDesc:'我们已向您的联系邮箱发送验证邮件。请点击邮件中的确认链接以继续注销账号。该链接将在 24 小时后失效。',
+            fPrivacy:'隐私政策', fTerms:'服务条款', fContact:'联系我们',
+            submitting:'处理中…', errorGeneric:'出错了，请重试。',
+            reasonNone:'未填写',
+        },
+    };
+
+    // Language display names shown on the header buttons
+    const LANG_NAMES = { 'zh-CN':'简中', en:'EN' };
+
+    let lang = 'zh-CN';
+    let brandName = '';
+
+    function switchLang(l) {
+        if (!L[l]) return;
+        lang = l;
+        const tr = k => (L[l][k] != null ? String(L[l][k]) : '').replace(/\{brand\}/g, brandName);
+        document.querySelectorAll('#langGroup button').forEach(b =>
+            b.classList.toggle('active', b.getAttribute('data-lang') === l));
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const k = el.getAttribute('data-i18n');
+            if (L[l][k] != null) el.innerHTML = tr(k);
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const k = el.getAttribute('data-i18n-placeholder');
+            if (L[l][k] != null) el.placeholder = tr(k);
+        });
+        document.querySelectorAll('select option[data-i18n]').forEach(el => {
+            const k = el.getAttribute('data-i18n');
+            if (L[l][k] != null) el.textContent = tr(k);
+        });
+        document.documentElement.lang = l;
+        if (brandName) document.title = `${tr('headerPage')} — ${brandName}`;
+    }
+
+    function buildLangButtons(langs) {
+        const group = document.getElementById('langGroup');
+        group.innerHTML = '';
+        langs.forEach(l => {
+            if (!L[l]) return;                 // skip languages with no dictionary
+            const btn = document.createElement('button');
+            btn.textContent = LANG_NAMES[l] || l;
+            btn.setAttribute('data-lang', l);
+            btn.addEventListener('click', () => switchLang(l));
+            group.appendChild(btn);
+        });
+    }
+
+    function applyConfig(c) {
+        brandName = c.brandName || '';
+        const icon = document.getElementById('brandIcon');
+        if (c.logo) icon.src = c.logo;
+        icon.alt = brandName;
+        const fav = document.getElementById('favicon');
+        if (fav && c.logo) fav.href = c.logo;
+        document.getElementById('brandName').textContent = brandName;
+        document.getElementById('footerCopy').textContent = `© 2026 ${brandName}`;
+        if (c.privacyUrl)  document.getElementById('linkPrivacy').href = c.privacyUrl;
+        if (c.termsUrl)    document.getElementById('linkTerms').href   = c.termsUrl;
+        if (c.contactEmail) document.getElementById('linkContact').href = `mailto:${c.contactEmail}`;
+
+        let langs = (Array.isArray(c.languages) ? c.languages : ['en']).filter(l => L[l]);
+        if (!langs.length) langs = ['en'];
+        buildLangButtons(langs);
+        const def = langs.includes(c.defaultLang) ? c.defaultLang : langs[0];
+        switchLang(def);
+
+        document.body.classList.add('ready');
+    }
+
+    // ═══ 站点配置：按需修改 ═══
+    applyConfig({
+        brandName: '人生清单',
+        logo: '',                                  // 例：'logo.png' 或 data URI
+        privacyUrl: '#',
+        termsUrl: '#',
+        contactEmail: 'support@example.com',
+        languages: ['zh-CN', 'en'],
+        defaultLang: 'zh-CN',
+    });
+
+    // Form
+    const $acc = document.getElementById('accountInput');
+    const $email = document.getElementById('emailInput');
+    const $agree = document.getElementById('agreeCheck');
+    const $next = document.getElementById('btnNext');
+
+    function validate() {
+        const ok = $acc.value.trim() && $email.value.trim() && $agree.checked;
+        $next.disabled = !ok;
+    }
+
+    function isValidEmail(s) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+    }
+
+    $acc.addEventListener('input', () => {
+        document.getElementById('accountError').classList.remove('show');
+        $acc.classList.remove('has-error');
+        validate();
+    });
+    $email.addEventListener('input', () => {
+        document.getElementById('emailError').classList.remove('show');
+        $email.classList.remove('has-error');
+        validate();
+    });
+    $agree.addEventListener('change', validate);
+
+    // Steps
+    function setStep(n) {
+        [1,2,3].forEach(i => {
+            const el = document.getElementById(`vs-${i}`);
+            el.classList.remove('active','done');
+            if (i === n) el.classList.add('active');
+            else if (i < n) el.classList.add('done');
+        });
+    }
+
+    function show(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goToConfirm() {
+        let hasErr = false;
+
+        if (!$acc.value.trim()) {
+            document.getElementById('accountError').classList.add('show');
+            $acc.classList.add('has-error');
+            hasErr = true;
+        }
+        if (!$email.value.trim() || !isValidEmail($email.value.trim())) {
+            document.getElementById('emailError').classList.add('show');
+            $email.classList.add('has-error');
+            hasErr = true;
+        }
+        if (hasErr) return;
+
+        const sel = document.getElementById('reasonSelect');
+        document.getElementById('sumAccount').textContent = $acc.value.trim();
+        document.getElementById('sumEmail').textContent = $email.value.trim();
+        document.getElementById('sumReason').textContent =
+            sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent : L[lang].reasonNone;
+
+        setStep(2);
+        show('view-confirm');
+    }
+
+    function goBack() {
+        setStep(1);
+        show('view-form');
+    }
+
+    async function submitDeletion() {
+        const $btn = document.getElementById('btnDelete');
+        $btn.disabled = true;
+        $btn.innerHTML = `<span class="spinner"></span> ${L[lang].submitting}`;
+
+        try {
+            const res = await requestDeletion(
+                $acc.value.trim(),
+                $email.value.trim(),
+                document.getElementById('reasonSelect').value
+            );
+            if (res.code === 0) {
+                if (res.data?.refId) document.getElementById('refNum').textContent = res.data.refId;
+                document.getElementById('successEmail').textContent = $email.value.trim();
+                setStep(3);
+                show('view-success');
+            } else {
+                alert(res.message || L[lang].errorGeneric);
+                $btn.disabled = false;
+                $btn.innerHTML = `<span>${L[lang].btnDelete}</span>`;
+            }
+        } catch {
+            alert(L[lang].errorGeneric);
+            $btn.disabled = false;
+            $btn.innerHTML = `<span>${L[lang].btnDelete}</span>`;
+        }
+    }
+    </script>
+</body>
+</html>
