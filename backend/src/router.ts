@@ -27,12 +27,7 @@ import { leaderboard } from './handlers/leaderboard';
 import * as me from './handlers/me';
 import { getPublicProfile } from './handlers/profile';
 import { releasesPage } from './handlers/releases';
-import {
-  accountDeletionPage,
-  accountDeletionSubmit,
-  privacyPage,
-  termsPage,
-} from './handlers/legal';
+import { privacyPage, termsPage } from './handlers/legal';
 import * as share from './handlers/share';
 import * as sync from './handlers/sync';
 import { photoUrls, upload } from './handlers/upload';
@@ -47,8 +42,6 @@ const publicRoutes = [
   route('GET', '/releases', () => releasesPage()),
   route('GET', '/privacy', () => privacyPage()),
   route('GET', '/terms', () => termsPage()),
-  route('GET', '/account-deletion', () => accountDeletionPage()),
-  route('POST', '/account-deletion', (r) => accountDeletionSubmit(r)),
   // 崩溃上报不要求登录：崩在登录之前的那批才是最该看到的
   route('POST', '/crash', (r) => crash.report(r)),
 ];

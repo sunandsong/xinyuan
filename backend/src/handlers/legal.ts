@@ -4,19 +4,10 @@
 //
 // ⚠️ 运营主体信息目前是占位——企业资质申请下来之后，把下面 ENTITY 换成
 // 企业名称，正文里「个人开发者」的措辞也要一并改成企业名义，别忘了。
-import { getDb } from '../db';
-import { json, Req, Res } from '../http';
-import { verifyPassword } from '../password';
+import { Res } from '../http';
 
 const ENTITY = '「人生清单」开发者（个人开发者，企业主体申请中，資質下来后更新本页）';
 const UPDATED = '2026-08-17';
-/** 可选的逃生口：忘记密码的人验证不过去，本页主流程走不通，除此之外没有别的路。
- * 想补的话填个腾讯问卷/金数据的表单链接即可（Google Play 认可人工处理的申请表单，
- * 见 support.google.com/googleplay/android-developer/answer/13327111）。
- * 注意这只是边角补充——本页的主体是上面那个「验证密码 → 当场注销」的表单，
- * 别把它整个改成填问卷，那样注销就从「点一下就完事」退化成「等人工」。
- * 留空时这一段不渲染，不会在公开页面上露占位文案。 */
-const FALLBACK_FORM_URL = '';
 
 const STYLE = `
   body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -29,25 +20,6 @@ const STYLE = `
   li { margin-bottom: 4px; }
   a { color: #3EA983; }
   .tip { background: #E2F1EA; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; color: #2B7A5C; margin: 16px 0; }
-  .warn { background: #FDECEC; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; color: #A33; margin: 16px 0; line-height: 1.7; }
-  form { margin: 16px 0 8px; }
-  label { display: block; font-size: 13.5px; color: #3A3C46; margin: 14px 0 6px; }
-  label .hint { color: #8A8C98; font-size: 12.5px; }
-  input[type=text], input[type=password] {
-    width: 100%; box-sizing: border-box; padding: 11px 12px; font-size: 15px;
-    border: 1px solid #E6E7EC; border-radius: 10px; background: #FAFAFB; color: #1C1C21;
-  }
-  input[type=text]:focus, input[type=password]:focus { outline: none; border-color: #3EA983; background: #fff; }
-  label.chk { display: flex; align-items: flex-start; gap: 8px; margin: 18px 0 4px; cursor: pointer; }
-  label.chk input { margin-top: 2px; flex-shrink: 0; }
-  button {
-    width: 100%; margin-top: 16px; padding: 13px; font-size: 15.5px; font-weight: 600;
-    color: #fff; background: #E05A5A; border: none; border-radius: 10px; cursor: pointer;
-  }
-  button:disabled { background: #E9B4B4; cursor: default; }
-  #msg { margin-top: 14px; font-size: 14px; line-height: 1.7; }
-  #msg.err { color: #C33; }
-  #msg.done { background: #E2F1EA; border-radius: 10px; padding: 12px 14px; color: #2B7A5C; }
 `;
 
 function page(title: string, body: string): Res {
@@ -167,7 +139,7 @@ SDK；唯一使用的第三方组件见下方"第三方 SDK 目录"。
 <ul>
   <li><b>查看和修改</b>：昵称、头像、性别、生日都可以在"我的"页面随时改</li>
   <li><b>注销账号</b>：可以在 App 内注销（我的 → 注销账号），注销后你的账号和数据会被标记删除、
-    停止展示；已卸载 App 的话见<a href="/api/account-deletion">《注销账号说明》</a></li>
+    停止展示；已经卸载了 App 的话，重新安装登录后仍可走这个入口，也可以通过下方联系方式找我们代为处理</li>
   <li><b>管理定位/相册/通知权限</b>：随时可以在系统设置里关闭，关闭后对应功能会受限但不影响其它功能</li>
   <li><b>联系我们</b>：对隐私问题有疑问，可以通过 App 内"意见反馈"联系我们</li>
 </ul>
@@ -185,120 +157,6 @@ SDK；唯一使用的第三方组件见下方"第三方 SDK 目录"。
 我们会尽快处理。</p>
 `,
   );
-}
-
-/** 注销账号说明页。公开可访问，给两类人用：
- * ① 应用商店（Google Play 的「数据删除」网址字段要填一个公网可达的地址；
- *    App Store Connect 也有个选填的 Account Deletion URL）
- * ② 已经卸载 App、没法走 App 内入口的用户
- *
- * ⚠️ 文案照实写，不承诺「永久抹除全部数据」——当前后端 softDeleteUser 是软删
- * （users/wishes/tasks/letters 打 deleted 标记，logins/events/crashes/feedback
- * 未处理）。等哪天真做了物理删除，这页和隐私政策的措辞要一起改。
- */
-export async function accountDeletionPage(): Promise<Res> {
-  return page(
-    '注销账号',
-    `
-<p>在这里可以直接注销你的「人生清单」账号。为确认是本人操作，需要验证账号密码。</p>
-
-<div class="warn">
-  <b>注销是不可撤销的。</b>注销后你将无法再用该账号登录，创建的心愿、任务、时光胶囊
-  都不会再展示给你。如果这些内容对你有纪念意义，建议先在 App 里保存（比如用分享卡片
-  存图）再注销。
-</div>
-
-<h2>验证并注销</h2>
-<form id="f" autocomplete="off">
-  <label>账号名<span class="hint">（注册时设的登录名，不是昵称）</span></label>
-  <input id="acc" type="text" autocapitalize="off" autocorrect="off" spellcheck="false">
-  <label>密码</label>
-  <input id="pwd" type="password">
-  <label class="chk">
-    <input id="ok" type="checkbox">
-    <span>我已了解注销不可撤销，确认注销这个账号</span>
-  </label>
-  <button id="btn" type="submit">注销账号</button>
-</form>
-<div id="msg"></div>
-
-<h2>也可以在 App 内注销</h2>
-<p>打开「人生清单」→ 底部「我的」→ 页面底部「注销账号」，效果和这里一样。</p>
-
-${
-      FALLBACK_FORM_URL
-        ? `<h2>忘记密码 / 验证不通过</h2>
-<p>如果你想不起密码、或者上面的验证一直过不去，可以
-<a href="${FALLBACK_FORM_URL}" target="_blank" rel="noopener">提交注销申请</a>，
-填写你的账号名和联系方式，我们会核对身份后代为处理，并在 15 个工作日内回复你。</p>`
-        : ''
-    }
-<h2>其它</h2>
-<p>注销后我们对相关信息的处理方式，见<a href="/api/privacy">《隐私政策》</a>。</p>
-
-<script>
-(function () {
-  var f = document.getElementById('f');
-  var btn = document.getElementById('btn');
-  var msg = document.getElementById('msg');
-  function show(text, kind) {
-    msg.textContent = text;
-    msg.className = kind;
-  }
-  f.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var account = document.getElementById('acc').value.trim();
-    var password = document.getElementById('pwd').value;
-    if (!account || !password) return show('请填写账号名和密码', 'err');
-    if (!document.getElementById('ok').checked) return show('请先勾选确认', 'err');
-    btn.disabled = true;
-    show('处理中…', '');
-    fetch(location.pathname, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ account: account, password: password }),
-    })
-      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-      .then(function (r) {
-        if (r.ok && r.d.deleted) {
-          f.style.display = 'none';
-          show('账号「' + account + '」已注销。你已无法再用它登录，相关内容不再展示。', 'done');
-        } else {
-          btn.disabled = false;
-          var m = { invalid_credentials: '账号名或密码不对', missing_fields: '请填写账号名和密码' };
-          show(m[r.d.error] || ('注销失败：' + (r.d.error || '请稍后重试')), 'err');
-        }
-      })
-      .catch(function () {
-        btn.disabled = false;
-        show('网络异常，请稍后重试', 'err');
-      });
-  });
-})();
-</script>
-`,
-  );
-}
-
-/** POST /account-deletion —— 网页注销：校验账号密码后走跟 App 内「注销账号」
- * 完全相同的那条路径（softDeleteUser）。公开路由，密码就是这里的身份凭证——
- * 攻击面跟 /auth/login 一样（知道密码的人本来也能登进去自己删）。 */
-export async function accountDeletionSubmit(req: Req): Promise<Res> {
-  const b = req.body ?? {};
-  const account = String(b.account ?? '').trim().toLowerCase();
-  const password = String(b.password ?? '');
-  if (!account || !password) return json(400, { error: 'missing_fields' });
-
-  const db = getDb();
-  const user = await db.getUserByAccount(account);
-  // 已注销的账号 getUserByAccount 本来就查不到，走同一个错误分支——
-  // 不告诉调用方「这个账号存在但密码错」还是「这个账号不存在」
-  if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
-    return json(401, { error: 'invalid_credentials' });
-  }
-  // 被封禁的账号照样允许注销：删除权不该因为封禁被剥夺
-  await db.softDeleteUser(user._id);
-  return json(200, { deleted: true });
 }
 
 export async function termsPage(): Promise<Res> {
