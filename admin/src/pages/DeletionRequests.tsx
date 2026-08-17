@@ -84,7 +84,7 @@ export default function DeletionRequests() {
         showIcon
         style={{ marginBottom: 12 }}
         message="申请人已经在网页上通过密码验证，身份不用再核实，点「执行注销」即可"
-        description="页面上向用户承诺的是 15 个工作日内完成。申请堆着不处理会违反 Google Play 的账号删除要求，也可能导致下架。"
+        description="页面上向用户承诺的是 30 天内完成。申请堆着不处理会违反 Google Play 的账号删除要求，也可能导致下架。"
       />
       <AdminTable<DeletionRow>
         rowKey="_id"

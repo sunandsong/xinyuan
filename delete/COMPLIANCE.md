@@ -5,7 +5,7 @@
 
 **流程**：网页填账号 + 密码 → 密码校验通过后登记进 `deletion_requests` →
 管理端「注销申请」页人工点「执行注销」（`POST /admin/users/:uid/delete`，即 `softDeleteUser`）。
-页面向用户承诺 **15 个工作日内完成**，执行前账号仍可正常使用。
+页面向用户承诺 **30 天内完成**，执行前账号仍可正常使用。
 密码校验不能拆：账号没绑邮箱手机，事后没有任何办法核实申请人是不是号主。
 
 核对日期：2026-08-17
@@ -30,7 +30,7 @@
 | "Make the account deletion option easy to find in your app. Typically, it's included in the app's account settings." | ✓ 在「我的」页底部 |
 | "Offer to delete the entire account record, along with associated personal data. You may include additional options, but only offering to temporarily deactivate or disable an account is insufficient." | ✓ 管理端执行 `softDeleteUser`：账号 + 心愿 + 任务 + 时光胶囊都删；保留项见下 |
 | "If people need to visit a website to finish deleting their account, include a link directly to the page on your website where they can complete the process." | ✓ 不需要——App 内就能删完，本站是并行入口 |
-| "Keep users informed. If the deletion request will take additional time to complete, let them know. If your app supports in-app purchases, help people understand how billing and cancellations will be handled." | ✓ 页面明确写了「最长 15 个工作日」「执行前账号仍可正常使用」；本 App 没有内购 |
+| "Keep users informed. If the deletion request will take additional time to complete, let them know. If your app supports in-app purchases, help people understand how billing and cancellations will be handled." | ✓ 页面明确写了「最长 30 天」「执行前账号仍可正常使用」；本 App 没有内购 |
 | "Apps not operating in highly regulated industries should not require people to make a phone call, send an email, or go through other support flows." | ✓ 网页填账号 + 密码即可，不需要打电话、发邮件或走客服；App 内那条路径是立即生效的 |
 | "Apps that support Sign in with Apple should use the Sign in with Apple REST API to revoke user tokens." | — 未接 Sign in with Apple |
 
@@ -56,7 +56,7 @@
 政策不禁止人工处理，但「受理了却不执行」直接违反上面那条 must。降低风险的措施：
 
 - 管理端侧边栏「注销申请」带未处理数量角标（[admin/src/App.tsx](../admin/src/App.tsx) 的 `usePendingDeletions`），一进后台就能看见
-- 承诺写的是 15 个工作日，留了余量
+- 承诺写的是 30 天，留了余量
 - 没有邮件/推送提醒，**仍然依赖你自己定期看管理端**
 
 ## 实际删除范围
@@ -70,7 +70,7 @@
 ## 待办
 
 - [ ] Play Console「数据安全」表单里填本站地址 + 回答账号删除相关问题
-- [ ] 定期看管理端「注销申请」页，别让申请超过 15 个工作日
+- [ ] 定期看管理端「注销申请」页，别让申请超过 30 天
 - [ ] App Store Connect 的 Account Deletion URL 也填本站地址（选填项，填了少一个被问的理由）
 - [ ] 商店列表上的应用名跟 `brandName` 核对一致
 - [ ] 有对外邮箱之后填 `applyConfig` 的 `contactEmail`（现在留空，页脚不显示「联系我们」）
