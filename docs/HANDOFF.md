@@ -1,4 +1,4 @@
-# 交接/续点文档（最后更新 2026-08-16）
+# 交接/续点文档（最后更新 2026-08-18）
 
 > 给下一台电脑上的 Claude：读完这份就能无缝接着干，不要重做已完成的部分。
 
@@ -48,6 +48,26 @@
   拷过去之后 `python3 -c "import json;print(list(json.load(open('backend/cloudbaserc.json'))['functions'][0]['envVariables']))"` 核对一下有没有少。
 - 可选：`.claude/settings.local.json`（权限偏好 bypassPermissions，重建也行）。
 
+### 网页版注销页（2026-08-17/18 做完）
+
+源码 `delete/index.html`（静态页，不进构建）+ 后端 `POST /api/account-deletion` + 管理端「注销申请」页。
+政策对照见 `delete/COMPLIANCE.md`（里面有 Apple/Google 原文逐条核对结论，别重新研究一遍）。
+
+- 线上：<https://renshengqingdan-d8feva5q55d12bab-1258070735.tcloudbaseapp.com/account-deletion/>
+  —— **这个地址要填进 Play Console 数据安全表单和 App Store Connect**
+- 部署：`tcb hosting deploy delete account-deletion -e renshengqingdan-d8feva5q55d12bab`
+  ⚠️ 别直接传 `delete/` 目录，`COMPLIANCE.md` 会被一起推成公网可访问的；先拷 index.html + logo.png 到临时目录再传
+- 流程：网页填账号 + 密码 → 校验通过登记进 `deletion_requests` → **管理端「注销申请」页人工点「执行注销」**
+  （承诺 30 天内完成）。密码校验不能拆：账号没绑邮箱手机，事后无法核实申请人是不是号主
+- **申请堆着不处理就是违反 Google Play 的删除要求**，管理端侧边栏有未处理角标
+
+### 🔴 待办：崩溃页也要一个未处理提醒（2026-08-18 记下，换电脑后继续）
+
+注销申请那页已经有角标了（`admin/src/App.tsx` 的 `usePendingDeletions` + `Badge`，照抄即可），
+崩溃页还没有——现在崩溃全靠自己想起来进后台翻。要做的话得先想清楚「未处理」怎么定义：
+crashes 集合按指纹聚合，没有 handled 字段，可能需要加一个「已忽略/已修复」标记才有意义。
+同一批还可以顺手做的：把这两个提醒做成首页总览上的待办卡片，比角标更难忽略。
+
 ### 其他挂起事项
 
 - **⚠️ 待办：腾讯位置服务要做实名认证，否则地点搜索用不了。** 管理端选点地图 2026-08-15 从高德换成腾讯地图，`TMAP_KEY` 已申请并配好部署（key 在 cloudbaserc.json，gitignored）。当天实测：
@@ -57,6 +77,10 @@
   - 没配 key 时 `mapConfig` 返回 `available:false`，管理端退化成手填经纬度，不影响其它功能。
 - 用户手机/模拟器因 2026-08-11 JWT 密钥轮换需重新登录一次。
 - 测试账号 `stabtest02` / `test123456`（稳定性测试时注册的，云端有 12 条已完成心愿，验证分享卡/达成弹窗很方便）。
+- **隐私政策承诺了但没实现**：第七节写了 `logins`/`crashes`/`events`/`feedback` 会「保留一段时间后清理」，
+  目前没有任何清理逻辑（2026-08-18 加的承诺）。需要 CloudBase 定时触发器 + 按时间批删的 handler。
+- `/api/releases` 下载页没有兜底：GitHub API 一不通整页就 500（2026-08-18 实测本机直连 GitHub 也 504），
+  合伙人的唯一下载入口就挂了。缓存上次成功结果或直接给云存储链接即可。
 - 上线前待办：恢复本地缓存+增量拉取（见 CLAUDE.md 产品原则与 specs 里的记录）——「云为权威 + 缓存加速 + 失败明示」三件套。
 
 ## 图片资源体系（2026-08-15/16 做完，路线外插入项）
