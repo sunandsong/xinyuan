@@ -45,13 +45,30 @@ class _CrowdStatsLineState extends State<CrowdStatsLine> {
       if (_done > 0) '$_done 人已实现',
     ];
     return Padding(
-      padding: const EdgeInsets.only(left: 2, bottom: 11),
-      child: Text(
-        '🌏 ${parts.join(' · ')}',
-        style: const TextStyle(
-          fontSize: 12.5,
-          color: T.muted,
-          fontWeight: FontWeight.w600,
+      padding: const EdgeInsets.only(bottom: 11),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14243A66),
+                blurRadius: 10,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Text(
+            '🌏 ${parts.join(' · ')}',
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: T.muted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ),
     );
@@ -339,25 +356,42 @@ class WishDetailPage extends StatelessWidget {
 
   Widget _statDivider() => Container(width: 1, height: 24, color: T.line);
 
-  /// 目标日期：没设时是个"+ 设个期限"的胶囊，设了之后显示倒计时，点 x 清掉
+  /// 目标日期：没设时是个"+ 设个期限"的胶囊，设了之后显示倒计时，点 x 清掉。
+  /// 两个状态都给了白底+投影，跟页面里其它卡片同一套质感，不再是贴在
+  /// 背景上的一块死板色块。
   Widget _targetTag(BuildContext context) {
     final target = wish.targetAt;
     if (target == null) {
       return GestureDetector(
         onTap: () => _pickTarget(context),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: T.field,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: wish.color.withValues(alpha: .3)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14243A66),
+                blurRadius: 10,
+                offset: Offset(0, 3),
+              ),
+            ],
           ),
-          child: const Text(
-            '+ 设个期限',
-            style: TextStyle(
-              fontSize: 13.5,
-              color: T.muted,
-              fontWeight: FontWeight.w600,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_rounded, size: 15, color: wish.color),
+              const SizedBox(width: 3),
+              Text(
+                '设个期限',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: wish.color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -375,6 +409,13 @@ class WishDetailPage extends StatelessWidget {
         decoration: BoxDecoration(
           color: wish.color.withValues(alpha: .14),
           borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: wish.color.withValues(alpha: .22),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
