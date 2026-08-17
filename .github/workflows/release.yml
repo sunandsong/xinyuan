@@ -30,7 +30,13 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          # 锁死版本，不用 channel: stable——Flutter 3.47.0 在 2026-08-12 发布，
+          # 内置 Kotlin 变更（AGP 9+ 移除 Kotlin Gradle Plugin 支持）导致本项目
+          # 的 Gradle 8.12/AGP 8.9.1/Kotlin 2.1.0 组合从那天起无差别构建失败
+          # 10 次，静默挂了 5 天没人发现。3.44.8 是本地和干净克隆都验证过能
+          # 正常出包的版本。要升 Flutter 得先把 Gradle/AGP/Kotlin 一起升上去，
+          # 真机验证过了再解锁（不是简单调这一行）。
+          flutter-version: 3.44.8
           cache: true
 
       - name: 打包 APK（只打 arm64，包体从 ~74MB 瘦到 ~28MB；debug 签名可直接安装）
