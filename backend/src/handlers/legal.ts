@@ -10,9 +10,11 @@ import { verifyPassword } from '../password';
 
 const ENTITY = '「人生清单」开发者（个人开发者，企业主体申请中，資質下来后更新本页）';
 const UPDATED = '2026-08-17';
-/** ⚠️ 占位：注销账号页要留一个「卸载了 App 也能联系上」的渠道，App 内的意见反馈
- * 顶不了这个场景（人都把 App 删了）。企业邮箱下来后换掉，别拿个人邮箱长期顶着。 */
-const CONTACT = '（待补充：客服邮箱）';
+/** 忘记密码 / 验证不通过时的兜底申请渠道，填腾讯问卷、金数据这类表单的链接即可
+ * ——Google Play 明确认可「a form for submitting deletion requests」，允许人工处理，
+ * 见 support.google.com/googleplay/android-developer/answer/13327111。
+ * ⚠️ 留空时页面直接不显示这一段（宁可没有，也别在公开页面上露占位文案）。 */
+const FALLBACK_FORM_URL = '';
 
 const STYLE = `
   body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -221,9 +223,15 @@ export async function accountDeletionPage(): Promise<Res> {
 <h2>也可以在 App 内注销</h2>
 <p>打开「人生清单」→ 底部「我的」→ 页面底部「注销账号」，效果和这里一样。</p>
 
+${
+      FALLBACK_FORM_URL
+        ? `<h2>忘记密码 / 验证不通过</h2>
+<p>如果你想不起密码、或者上面的验证一直过不去，可以
+<a href="${FALLBACK_FORM_URL}" target="_blank" rel="noopener">提交注销申请</a>，
+填写你的账号名和联系方式，我们会核对身份后代为处理，并在 15 个工作日内回复你。</p>`
+        : ''
+    }
 <h2>其它</h2>
-<p>忘记密码、或者验证一直不通过，可以联系我们代为处理：${CONTACT}
-（请写明账号名，我们可能会再核对一些信息确认是本人）。</p>
 <p>注销后我们对相关信息的处理方式，见<a href="/api/privacy">《隐私政策》</a>。</p>
 
 <script>
