@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'api/api.dart' show ApiConfig;
 import 'data.dart';
 import 'theme.dart';
 
@@ -528,11 +530,16 @@ Future<void> showAppSheet(BuildContext context, Widget child) {
   );
 }
 
-/// 居中弹层外壳（背景高斯模糊 + 居中白卡），用于登录等需要专注的场景
-Future<void> showBlurDialog(BuildContext context, Widget child) {
-  return showGeneralDialog(
+/// 居中弹层外壳（背景高斯模糊 + 居中白卡），用于登录等需要专注的场景。
+/// [barrierDismissible] 传 false 用于隐私合规弹窗这类必须选一个按钮才能关掉的场景。
+Future<R?> showBlurDialog<R>(
+  BuildContext context,
+  Widget child, {
+  bool barrierDismissible = true,
+}) {
+  return showGeneralDialog<R>(
     context: context,
-    barrierDismissible: true,
+    barrierDismissible: barrierDismissible,
     barrierLabel: '',
     barrierColor: Colors.black.withValues(alpha: .18),
     transitionDuration: const Duration(milliseconds: 220),
@@ -585,6 +592,36 @@ Future<void> showBlurDialog(BuildContext context, Widget child) {
     ),
   );
 }
+
+/// 权限场景说明：在系统权限弹窗之前先说清楚"为什么要这个权限"，符合国内应用商店/
+/// MIIT 关于"场景化申请权限"的要求，不能一上来就甩系统弹窗。
+/// 用户点"去授权"才返回 true，调用方拿到 true 后再去触发真正的系统权限请求。
+Future<bool> explainPermission(BuildContext context, {required String body}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('需要权限'),
+      content: Text(body, style: const TextStyle(fontSize: 14.5, height: 1.5)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消', style: TextStyle(color: T.muted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('去授权'),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
+
+/// 打开隐私政策/用户协议页面（后端静态 HTML）
+void openLegalPage(String path) => launchUrl(
+      Uri.parse('${ApiConfig.base}$path'),
+      mode: LaunchMode.externalApplication,
+    );
 
 /// 小图标按钮（用于工具栏按钮）
 Widget toolIconBtn(IconData icon, VoidCallback onTap) {

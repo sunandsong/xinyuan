@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'consent.dart';
 import 'crash_reporter.dart';
 import 'data.dart';
 import 'pages/splash_page.dart';
@@ -10,7 +11,10 @@ import 'ui.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // 崩溃钩子要尽早挂：initSession 里要是崩了，也得记下来
+  // 同意状态要在崩溃上报之前读出来：flush() 联网发送前会查这个标记
+  await ConsentState.I.load();
+  // 崩溃钩子要尽早挂：initSession 里要是崩了，也得记下来（本地落盘不受同意状态限制，
+  // 联网发送才受限——见 CrashReporter.flush()）
   await CrashReporter.I.init();
   await AppData.I.initSession();
   _installFrameWatchdog();

@@ -666,7 +666,17 @@ class WorldPage extends StatelessWidget {
       return;
     }
     var perm = await Geolocator.checkPermission();
+    if (!context.mounted) return;
     if (perm == LocationPermission.denied) {
+      // 系统权限弹窗之前先说明场景，符合国内应用商店对"场景化申请权限"的要求——
+      // 不能上来就甩系统弹窗。已经问过一次、系统还记得结果的情况下不会再弹这个。
+      final proceed = await explainPermission(
+        context,
+        body: '为了帮你确认当前所在的打卡地点，需要访问你的位置信息，仅在你主动点击'
+            '"打卡"时获取一次，不会在后台持续定位。',
+      );
+      if (!proceed) return;
+      if (!context.mounted) return;
       perm = await Geolocator.requestPermission();
     }
     if (perm == LocationPermission.denied ||

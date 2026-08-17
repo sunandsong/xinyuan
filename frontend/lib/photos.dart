@@ -4,6 +4,7 @@ import 'dart:io' show Directory, File;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'api/api.dart';
 import 'data.dart';
 import 'ui.dart';
@@ -187,6 +188,22 @@ Future<String?> pickAndUploadPhoto(
   if (!AppData.I.signedIn) {
     snack(context, '登录后才能上传照片');
     return null;
+  }
+  // 系统权限弹窗之前先说明场景；相机和相册是两个不同的系统权限，各自只问一次，
+  // 问过就不再打扰（系统自己会记住授权结果，这个提示只是补场景说明）。
+  final prefs = await SharedPreferences.getInstance();
+  final explainedKey = fromCamera ? 'camera_perm_explained' : 'photo_perm_explained';
+  if (!(prefs.getBool(explainedKey) ?? false)) {
+    if (!context.mounted) return null;
+    final proceed = await explainPermission(
+      context,
+      body: fromCamera
+          ? '为了拍摄心愿封面/头像照片，需要访问你的相机。'
+          : '为了选取心愿封面/头像图片，需要访问你的照片。',
+    );
+    if (!proceed) return null;
+    await prefs.setBool(explainedKey, true);
+    if (!context.mounted) return null;
   }
   XFile? file;
   try {

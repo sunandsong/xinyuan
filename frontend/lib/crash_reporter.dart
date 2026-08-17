@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/api.dart';
+import 'consent.dart';
 import 'version.dart';
 
 /// 崩溃上报，三层覆盖：
@@ -211,7 +212,10 @@ class CrashReporter {
   bool _sending = false;
 
   /// 把本地攒的崩溃发出去，成功才清。发失败留着下次启动再试。
+  /// 联网发送前必须过隐私同意——本地落盘（_record）不受此限制，现场不会丢，
+  /// 只是同意之前先不联网；同意的那一刻会立刻补发一次（见 consent.dart）。
   Future<void> flush() async {
+    if (!ConsentState.I.consented) return;
     if (_sending) return;
     _sending = true;
     try {

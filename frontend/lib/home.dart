@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api/api.dart' show ApiConfig;
+import 'consent.dart';
 import 'data.dart';
 import 'pages/share_page.dart' show FireworksPainter;
 import 'pages/login_page.dart';
@@ -50,6 +52,11 @@ class _HomeShellState extends State<HomeShell>
     AppData.I.addListener(_checkForceUpdate);
     _loadDismissedAnnouncement();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForceUpdate());
+    // 首次启动的隐私合规弹窗：已经同意过的话 ensureConsent 直接返回，不会打断。
+    // 不同意就留在本地预览态，不联网、不采集，下次进来还会再问一次。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(ensureConsent(context));
+    });
   }
 
   /// 后台同步撞见 401 时（见 AppData._handleUnauthorized）弹一次提示 + 登录框，

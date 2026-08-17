@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xinyuan/api/api.dart';
+import 'package:xinyuan/consent.dart';
 import 'package:xinyuan/data.dart';
 import 'package:xinyuan/home.dart';
 import 'package:xinyuan/pages/login_page.dart';
@@ -18,9 +19,12 @@ http.Response _json(Map<String, dynamic> body, [int code = 200]) =>
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  SharedPreferences.setMockInitialValues({});
 
   testWidgets('登录成功后弹层自动关闭', (tester) async {
+    // 登录会先过隐私合规弹窗（未同意时），这两个用例测的是登录成功后弹层怎么关，
+    // 不是合规弹窗本身——直接标记成已同意，跳过那一步
+    SharedPreferences.setMockInitialValues({'privacy_consented_v1': true});
+    await ConsentState.I.load();
     ApiClient.http_ = MockClient((req) async {
       final path = req.url.path;
       if (path.endsWith('/auth/login')) {
@@ -69,7 +73,9 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    SharedPreferences.setMockInitialValues({'achv_seeded': true});
+    SharedPreferences.setMockInitialValues(
+        {'achv_seeded': true, 'privacy_consented_v1': true});
+    await ConsentState.I.load();
     AppData.I.signedIn = false;
     AppData.I.wishes.clear();
     ApiClient.http_ = MockClient((req) async {

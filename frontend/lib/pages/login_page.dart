@@ -1,16 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../api/api.dart';
+import '../consent.dart';
 import '../data.dart';
 import '../theme.dart';
 import '../ui.dart';
-
-/// 打开隐私政策/用户协议页面（后端静态 HTML，登录页和「我的」设置页共用）
-void openLegalPage(String path) => launchUrl(
-      Uri.parse('${ApiConfig.base}$path'),
-      mode: LaunchMode.externalApplication,
-    );
 
 /// 账号密码登录 / 注册表单：既用作弹层（我的页“登录/注册”），也用作 [LoginPage] 整页强制登录
 class LoginForm extends StatefulWidget {
@@ -48,6 +42,12 @@ class _LoginFormState extends State<LoginForm> {
     if (_register && _pwd.text != _pwd2.text) {
       setState(() => _error = '两次输入的密码不一致');
       return;
+    }
+    // 登录/注册都要联网，是同意隐私政策的触发点之一（另一个是首次启动）。
+    // 没在首次启动那次同意过的人，到这里再补一次，不同意就不继续。
+    if (!ConsentState.I.consented) {
+      final ok = await ensureConsent(context);
+      if (!ok || !mounted) return;
     }
     setState(() {
       _loading = true;
