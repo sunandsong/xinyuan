@@ -397,6 +397,10 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  /// 外部触发一次通知重排。同意隐私政策之后要调一次：通知权限申请被挡在
+  /// 「同意之后」，不补这一下，得等到下次数据变动才轮得到申请。
+  void refreshNotifications() => _scheduleNotifRefresh();
+
   /// 通知重排跟云推送是两回事：未登录的本地预览模式也该有通知，
   /// 不能借用只在 signedIn 时才启动的 _pushTimer。
   void _scheduleNotifRefresh() {

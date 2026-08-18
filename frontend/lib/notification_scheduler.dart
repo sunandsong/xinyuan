@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'consent.dart';
 import 'data.dart';
 import 'notifications.dart';
 
@@ -18,6 +19,11 @@ class NotificationScheduler {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+
+  /// 弹系统权限框之前，先由界面层解释一句"要通知权限干嘛"。
+  /// 由 HomePage 注入（这个类里没有 BuildContext，也不该有）。
+  /// 返回 false = 用户不想开，那就连系统框都别弹。
+  Future<bool> Function()? permissionExplainer;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -48,9 +54,23 @@ class NotificationScheduler {
   }
 
   Future<bool> _ensurePermission() async {
+    // 没同意隐私政策之前，一个系统权限框都不许弹。
+    // 2026-08-18 在 Android 模拟器上实测：冷启动时通知权限框会盖在隐私同意弹窗
+    // **前面**——用户还没看到隐私政策就先被要权限。「同意前不得申请权限」是国内
+    // 审核的红线之一，这里必须挡住。同意之后数据一有变动就会重新排程，会再走到这。
+    if (!ConsentState.I.consented) return false;
+
     final p = await SharedPreferences.getInstance();
     final asked = p.getBool(_kAskedKey) ?? false;
     if (asked) return true; // 问过了，不管结果如何都不再拦
+
+    // 裸弹系统权限框同样过不了审，要先有场景说明。
+    // 说明都被拒了就别再弹系统框，也别下次再问——反复纠缠比不问更招人烦。
+    final explain = permissionExplainer;
+    if (explain != null && !await explain()) {
+      await p.setBool(_kAskedKey, true);
+      return false;
+    }
     var granted = true;
     final ios = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();

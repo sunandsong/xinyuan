@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'api/api.dart' show ApiConfig;
 import 'consent.dart';
 import 'data.dart';
+import 'notification_scheduler.dart';
 import 'pages/share_page.dart' show FireworksPainter;
 import 'pages/login_page.dart';
 import 'pages/tree_page.dart' show achievements, Achv, showTrophyDialog;
@@ -52,10 +53,23 @@ class _HomeShellState extends State<HomeShell>
     AppData.I.addListener(_checkForceUpdate);
     _loadDismissedAnnouncement();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForceUpdate());
+    // 通知权限的场景说明。挂在这里而不是 scheduler 里，是因为那个类没有
+    // BuildContext；scheduler 会在真要弹系统权限框之前回调这个函数。
+    NotificationScheduler.I.permissionExplainer = () async {
+      if (!mounted) return false;
+      return explainPermission(
+        context,
+        body: '开启通知后，任务到期、心愿期限临近、时光胶囊可以拆开时，'
+            '「人生清单」会提醒你一下。不开也不影响记录和同步，'
+            '之后可以在「我的 → 提醒设置」里随时改。',
+      );
+    };
     // 首次启动的隐私合规弹窗：已经同意过的话 ensureConsent 直接返回，不会打断。
     // 不同意就留在本地预览态，不联网、不采集，下次进来还会再问一次。
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(ensureConsent(context));
+    // 同意之后补排一次通知——权限申请被挡在同意之后，这次才轮得到它弹。
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (await ensureConsent(context)) AppData.I.refreshNotifications();
     });
   }
 

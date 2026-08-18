@@ -117,11 +117,43 @@ letters = [
 
 accepted = api("/sync/push", {"tasks": tasks, "letters": letters}, "POST", token)["accepted"]
 
+def upload_avatar() -> str:
+    """生成一张头像图并直传云存储，返回可访问的 URL。
+
+    走的是 App 自己的两步直传：先找后端换一次性凭证（云函数网关请求体只有约 100KB，
+    图片本体过不去），再把字节 PUT 给云存储。
+    """
+    from io import BytesIO
+    from PIL import Image, ImageDraw
+
+    size = 256
+    img = Image.new("RGB", (size, size), (74, 158, 120))  # 跟 App 主题绿一个色系
+    d = ImageDraw.Draw(img)
+    # 画一株简笔小苗：一根茎两片叶。不用字体，免得机器上没有中文字体渲染出方块
+    d.line([(128, 200), (128, 110)], fill=(240, 248, 243), width=9)
+    d.ellipse([60, 96, 128, 140], fill=(240, 248, 243))
+    d.ellipse([128, 118, 196, 162], fill=(214, 234, 222))
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    data = buf.getvalue()
+
+    t = api("/upload", {"mime": "image/png"}, "POST", token)
+    put = urllib.request.Request(t["url"], data=data, method="PUT",
+                                 headers={**t.get("headers", {}), "content-type": "image/png"})
+    urllib.request.urlopen(put)
+    return t["downloadUrl"]
+
+
+avatar_url = upload_avatar()
+
 # 打卡点挑得南北东西都有，地图缩到全国也看得出点亮了几处
 spots = {"故宫": now - DAY * 400, "西湖": now - DAY * 300, "黄山": now - DAY * 200,
          "鼓浪屿": now - DAY * 150, "泰山": now - DAY * 90, "九寨沟": now - DAY * 30}
 profile = api("/me", {
-    "gender": "男", "birthday": "1995-06-18", "avatarEmoji": "🌱",
+    "gender": "男", "birthday": "1995-06-18",
+    # 注意别在这里写 avatarEmoji：后端 pickProfilePatch 收这个字段，但**前端一处都没用**，
+    # 设了等于没设（实测过，「我的」页还是默认灰头像）。头像走 avatarUrl，见下面 upload_avatar()
+    "avatarUrl": avatar_url,
     "checkins": spots, "placeCount": len(spots),
     # 不上榜。这账号的数据是脚本填的，已完成任务比榜首真人还多（实测 75 vs 44），
     # 不挡掉它一登录就双榜第一——一个测试账号霸榜正是「虚假繁荣」那个审核风险点本身。
@@ -143,6 +175,7 @@ if stale:
     print(f"            清掉上一轮遗留 {len(stale)} 条")
 print(f"时光胶囊  : {len(ls)} 封（可开启 {sum(1 for l in ls if l.get('openAt', 0) <= now)} 封）")
 print(f"地图打卡  : {len(profile.get('checkins') or {})} 处")
+print(f"头像      : {'已上传' if profile.get('avatarUrl') else '⚠️ 没有'}")
 print(f"成就勋章  : {len(profile.get('achievements') or {})} 枚")
 print(f"排行榜    : {'已挡掉，不污染真实榜单' if profile.get('hideFromRank') else '⚠️ 参与中'}")
 print(f"本次写入  : {accepted}")
