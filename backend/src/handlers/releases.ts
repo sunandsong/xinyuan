@@ -1,7 +1,8 @@
 // App 版本下载页：读 GitHub Releases（CI 每次 push 自动打包上传），
 // 渲染成手机友好的 HTML 给合伙人直接下载安装。公开路由，不用登录。
 // CI 若把 APK 同步传到了云存储（releases/ 目录），优先给国内高速链接。
-import { ENV_ID } from '../config';
+import { COL, ENV_ID } from '../config';
+import { getDb } from '../db';
 import { Res, serverError } from '../http';
 
 const REPO = 'sunandsong/xinyuan';
@@ -10,6 +11,53 @@ const MIRROR = 'https://gh-proxy.com/';
 
 let cache: { at: number; html: string } | null = null;
 let bucket: string | null = null; // 云存储桶名，跑一次探测后缓存
+
+/** 版本列表快照存在库里的文档 id。
+ * 为什么不只用上面那个内存 cache：云函数是无状态的，容器一回收内存就空了，
+ * 冷启动撞上 GitHub 不通照样是白屏。这是合伙人唯一的下载入口，不能这么脆。 */
+const SNAPSHOT_ID = 'releases';
+
+/** render() 真正用到的字段，只存这些——GitHub 原始响应一个版本就好几 KB，
+ * 20 个版本全存进去没必要。 */
+function trim(list: any[]): any[] {
+  return list.slice(0, 20).map((r) => ({
+    name: r.name,
+    tag_name: r.tag_name,
+    published_at: r.published_at,
+    body: String(r.body ?? '').slice(0, 2000),
+    assets: (r.assets ?? []).map((a: any) => ({
+      name: a.name,
+      size: a.size,
+      browser_download_url: a.browser_download_url,
+    })),
+  }));
+}
+
+async function saveSnapshot(list: any[]): Promise<void> {
+  try {
+    const db = getDb();
+    await db.ensureCollection(COL.sysCache);
+    // 用 createDoc（.set 语义）而不是 upsertDoc：后者带 id 时走 .update()，
+    // 文档还不存在的第一次写入会失败。快照本来就是整份替换，.set 正合适。
+    await db.createDoc(COL.sysCache, SNAPSHOT_ID, { list: trim(list), at: Date.now() });
+  } catch (e) {
+    console.error('save releases snapshot failed', e); // 存不上不影响本次正常返回
+  }
+}
+
+async function loadSnapshot(): Promise<{ list: any[]; at: number } | null> {
+  try {
+    const { items } = await getDb().listDocs(COL.sysCache, {
+      where: { _id: SNAPSHOT_ID },
+      limit: 1,
+    });
+    const doc = items[0];
+    if (!doc || !Array.isArray(doc.list) || doc.list.length === 0) return null;
+    return { list: doc.list, at: Number(doc.at) || 0 };
+  } catch {
+    return null;
+  }
+}
 
 /** 云存储里 releases/ 下这些文件的临时下载链接（不存在的返回不了就没有）*/
 async function fastUrls(names: string[]): Promise<Record<string, string>> {
@@ -47,32 +95,55 @@ async function fastUrls(names: string[]): Promise<Record<string, string>> {
   return out;
 }
 
+/** 版本列表 → 页面。云存储链接是临时签名的（几小时过期），所以每次渲染都现换一批，
+ * 不能跟着快照一起存——存下来第二天拿出来用，下载按钮就是死链。 */
+async function renderWithFastUrls(list: any[], staleAt = 0): Promise<string> {
+  const fast = await fastUrls(
+    list
+      .slice(0, 5) // 只查最近 5 个版本，老的没必要
+      .map((x) => x.assets?.find((a: any) => a.name.endsWith('.apk'))?.name)
+      .filter(Boolean),
+  );
+  return render(list, fast, staleAt);
+}
+
+function html(body: string): Res {
+  return {
+    statusCode: 200,
+    headers: { 'content-type': 'text/html; charset=utf-8' },
+    body,
+  };
+}
+
 export async function releasesPage(): Promise<Res> {
+  // 5 分钟内存缓存：别每次打开页面都打 GitHub API（有匿名限流）
+  if (cache && Date.now() - cache.at <= 5 * 60_000) return html(cache.html);
+
   try {
-    // 5 分钟缓存：别每次打开页面都打 GitHub API（有匿名限流）
-    if (!cache || Date.now() - cache.at > 5 * 60_000) {
-      const r = await fetch(
-        `https://api.github.com/repos/${REPO}/releases?per_page=20`,
-        { headers: { 'user-agent': 'xinyuan-releases' } },
-      );
-      if (!r.ok) throw new Error(`github ${r.status}`);
-      const list = (await r.json()) as any[];
-      const fast = await fastUrls(
-        list
-          .slice(0, 5) // 只查最近 5 个版本，老的没必要
-          .map((x) => x.assets?.find((a: any) => a.name.endsWith('.apk'))?.name)
-          .filter(Boolean),
-      );
-      cache = { at: Date.now(), html: render(list, fast) };
-    }
-    return {
-      statusCode: 200,
-      headers: { 'content-type': 'text/html; charset=utf-8' },
-      body: cache.html,
-    };
+    const r = await fetch(
+      `https://api.github.com/repos/${REPO}/releases?per_page=20`,
+      { headers: { 'user-agent': 'xinyuan-releases' } },
+    );
+    if (!r.ok) throw new Error(`github ${r.status}`);
+    const list = (await r.json()) as any[];
+    if (!Array.isArray(list) || list.length === 0) throw new Error('empty list');
+
+    const page = await renderWithFastUrls(list);
+    cache = { at: Date.now(), html: page };
+    await saveSnapshot(list);
+    return html(page);
   } catch (e) {
-    console.error('releases page failed', e);
-    return serverError('releases_unavailable');
+    // GitHub 不通（国内很常见）：用库里的快照顶上。云存储链接是现换的，
+    // 所以退化状态下下载照样能用，只是版本列表可能旧一点。
+    console.error('releases page: github failed, falling back to snapshot', e);
+    const snap = await loadSnapshot();
+    if (!snap) return serverError('releases_unavailable');
+    try {
+      return html(await renderWithFastUrls(snap.list, snap.at));
+    } catch (e2) {
+      console.error('releases page: snapshot render failed', e2);
+      return serverError('releases_unavailable');
+    }
   }
 }
 
@@ -92,7 +163,8 @@ function fmtSize(b: number): string {
   return b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${(b / 1024).toFixed(0)} KB`;
 }
 
-function render(list: any[], fast: Record<string, string>): string {
+/** staleAt > 0 表示这是 GitHub 不通时用库里快照渲染的，页面上要明说 */
+function render(list: any[], fast: Record<string, string>, staleAt = 0): string {
   const items = list
     .filter((r) => (r.assets ?? []).length > 0)
     .map((r, i) => {
@@ -141,11 +213,19 @@ function render(list: any[], fast: Record<string, string>): string {
   .alt { display: block; margin-top: 10px; color: #8a93a6; font-size: 12px; text-decoration: none; }
   .tip { max-width: 560px; margin: 18px auto 0; color: #8a93a6; font-size: 12.5px; line-height: 1.7; }
   .empty { text-align: center; color: #8a93a6; padding: 60px 0; }
+  .stale { max-width: 560px; margin: 0 auto 14px; background: #fff6e5; color: #8a6a1f; font-size: 12.5px; line-height: 1.6; padding: 10px 14px; border-radius: 12px; }
 </style>
 </head>
 <body>
   <h1>人生清单</h1>
   <div class="sub">安卓安装包 · 每次代码更新自动打包</div>
+  ${
+    staleAt
+      ? `<div class="stale">暂时连不上 GitHub，当前显示的是 ${fmtDate(
+          new Date(staleAt).toISOString(),
+        )} 的版本列表，下载依然可用。如果刚发了新版本这里还没有，过一会儿再刷新。</div>`
+      : ''
+  }
   ${items || '<div class="empty">还没有发布的版本，推一次代码就有了</div>'}
   <div class="tip">
     安装提示：下载后打开 APK，系统若提示「不允许安装未知应用」，

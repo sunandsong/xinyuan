@@ -161,8 +161,15 @@ crashes 集合按指纹聚合，没有 handled 字段，可能需要加一个「
   - 没配 key 时 `mapConfig` 返回 `available:false`，管理端退化成手填经纬度，不影响其它功能。
 - 用户手机/模拟器因 2026-08-11 JWT 密钥轮换需重新登录一次。
 - 测试账号 `stabtest02` / `test123456`（稳定性测试时注册的，云端有 12 条已完成心愿，验证分享卡/达成弹窗很方便）。
-- `/api/releases` 下载页没有兜底：GitHub API 一不通整页就 500（2026-08-18 实测本机直连 GitHub 也 504），
-  合伙人的唯一下载入口就挂了。缓存上次成功结果或直接给云存储链接即可。
+- ~~`/api/releases` 下载页没有兜底~~ ✅ 2026-08-18：版本列表快照存进 `sys_cache/releases`
+  文档，GitHub 不通时用快照渲染并在页面顶部挂黄条说明。存的是原始列表不是渲染好的 HTML
+  ——云存储链接是临时签名的（几小时过期），每次渲染现换一批，否则退化状态下按钮是死链。
+  实测方式：临时把 `REPO` 改成不存在的仓库重新部署，确认页面仍 200 且列表完整。
+- 🟡 **CI 从没把 APK 传上云存储**（`tcb storage list releases` 是空的）：
+  `.github/workflows/release.yml` 的上传步骤要 `TCB_SECRET_ID`/`TCB_SECRET_KEY` 两个
+  仓库 secret，没配就直接 skip。后果是下载页的按钮永远指向 GitHub 镜像
+  （gh-proxy），**GitHub 真挂的时候页面能打开、但包还是下不动**。
+  去 GitHub 仓库 Settings → Secrets 补上这两个值，兜底才算完整。
 - 上线前待办：恢复本地缓存+增量拉取（见 CLAUDE.md 产品原则与 specs 里的记录）——「云为权威 + 缓存加速 + 失败明示」三件套。
 
 ## 图片资源体系（2026-08-15/16 做完，路线外插入项）

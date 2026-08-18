@@ -41,4 +41,6 @@ export const COL = {
   events: 'events',
   crashes: 'crashes',
   deletionRequests: 'deletion_requests',
+  /** 服务端内部缓存（目前只有下载页的版本列表快照，见 handlers/releases.ts） */
+  sysCache: 'sys_cache',
 } as const;
