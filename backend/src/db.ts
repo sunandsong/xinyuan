@@ -138,6 +138,9 @@ function unionMerge(
 const QUERY_LIMIT = 1000;
 /** 批量 upsert 每批条数，必须 <= QUERY_LIMIT，否则查不全存在性会误当新记录覆盖 */
 const UPSERT_BATCH = 500;
+/** 全表扫描最多翻多少页。这是防呆上限不是设计容量——真到两万条，
+ * 「拉全量到内存里算」这个做法本身就该换成数据库侧聚合了。 */
+const MAX_SCAN_PAGES = 20;
 
 // ---------------- cloud（CloudBase 文档库）----------------
 // 说明：CloudBase Node SDK 的 database API —— db.collection(x).where(...).get()/update()/add()，
@@ -582,50 +585,47 @@ class CloudDb implements Db {
   // ---- 管理端查询聚合（Task 4）----
   // 这几个都是「拉一次全量、内存里算」——沿用 topWishTitles/topPlaces 的单次
   // limit(QUERY_LIMIT) 查询风格，量级是百级用户，不需要多页扫描。
+  /** 翻页拉全量。以前这些 all* 方法都是单次 .limit(1000)，超过一千条就**静默截断**——
+   * 不报错，只是统计数字悄悄变小，等发现时根本不知道从哪天开始不准的。
+   * 现在翻页拉到底；撞到 MAX_SCAN_PAGES 上限会打日志，起码留个痕迹。 */
+  private async fetchAll<T>(col: string, where?: Record<string, unknown>): Promise<T[]> {
+    const out: T[] = [];
+    for (let page = 0; page < MAX_SCAN_PAGES; page++) {
+      const q = where ? this.db.collection(col).where(where) : this.db.collection(col);
+      const r = await q.skip(page * QUERY_LIMIT).limit(QUERY_LIMIT).get();
+      const batch = r.data ?? [];
+      out.push(...batch);
+      if (batch.length < QUERY_LIMIT) return out; // 没拉满就是到底了
+    }
+    console.warn(
+      `[db] ${col} 扫描撞到 ${MAX_SCAN_PAGES} 页上限（${MAX_SCAN_PAGES * QUERY_LIMIT} 条），` +
+        '统计结果可能不完整。到这个量级就该把内存聚合改成数据库侧聚合了。',
+    );
+    return out;
+  }
+
   async allUsers(): Promise<UserProfile[]> {
-    const r = await this.db
-      .collection(COL.users)
-      .where({ deleted: this.cmd.neq(true) })
-      .limit(QUERY_LIMIT)
-      .get();
-    return r.data ?? [];
+    return this.fetchAll<UserProfile>(COL.users, { deleted: this.cmd.neq(true) });
   }
 
   async allWishes(): Promise<Wish[]> {
-    const r = await this.db
-      .collection(COL.wishes)
-      .where({ deleted: this.cmd.neq(true) })
-      .limit(QUERY_LIMIT)
-      .get();
-    return r.data ?? [];
+    return this.fetchAll<Wish>(COL.wishes, { deleted: this.cmd.neq(true) });
   }
 
   async allTasks(): Promise<Task[]> {
-    const r = await this.db
-      .collection(COL.tasks)
-      .where({ deleted: this.cmd.neq(true) })
-      .limit(QUERY_LIMIT)
-      .get();
-    return r.data ?? [];
+    return this.fetchAll<Task>(COL.tasks, { deleted: this.cmd.neq(true) });
   }
 
   async allLetters(): Promise<Letter[]> {
-    const r = await this.db
-      .collection(COL.letters)
-      .where({ deleted: this.cmd.neq(true) })
-      .limit(QUERY_LIMIT)
-      .get();
-    return r.data ?? [];
+    return this.fetchAll<Letter>(COL.letters, { deleted: this.cmd.neq(true) });
   }
 
   async allLogins(): Promise<Array<{ uid: string; at: number }>> {
-    const r = await this.db.collection(COL.logins).limit(QUERY_LIMIT).get();
-    return r.data ?? [];
+    return this.fetchAll(COL.logins);
   }
 
   async allEvents(): Promise<Array<{ uid: string; event: string; at: number }>> {
-    const r = await this.db.collection(COL.events).limit(QUERY_LIMIT).get();
-    return r.data ?? [];
+    return this.fetchAll(COL.events);
   }
 
   async countActive(col: string, excludeUids: string[]): Promise<number> {
@@ -658,4 +658,10 @@ let _db: Db | null = null;
 export function getDb(): Db {
   if (!_db) _db = new CloudDb();
   return _db;
+}
+
+/** 测试用：换掉数据层实现。传 null 还原成真实的 CloudDb。
+ * 生产代码不要调——CloudDb 的构造函数会连真库，测试里必须替掉。 */
+export function setDbForTest(db: Db | null): void {
+  _db = db;
 }
