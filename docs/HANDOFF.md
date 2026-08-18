@@ -165,11 +165,12 @@ crashes 集合按指纹聚合，没有 handled 字段，可能需要加一个「
   文档，GitHub 不通时用快照渲染并在页面顶部挂黄条说明。存的是原始列表不是渲染好的 HTML
   ——云存储链接是临时签名的（几小时过期），每次渲染现换一批，否则退化状态下按钮是死链。
   实测方式：临时把 `REPO` 改成不存在的仓库重新部署，确认页面仍 200 且列表完整。
-- 🟡 **CI 从没把 APK 传上云存储**（`tcb storage list releases` 是空的）：
-  `.github/workflows/release.yml` 的上传步骤要 `TCB_SECRET_ID`/`TCB_SECRET_KEY` 两个
-  仓库 secret，没配就直接 skip。后果是下载页的按钮永远指向 GitHub 镜像
-  （gh-proxy），**GitHub 真挂的时候页面能打开、但包还是下不动**。
-  去 GitHub 仓库 Settings → Secrets 补上这两个值，兜底才算完整。
+- CI 从没把 APK 传上云存储（`tcb storage list releases` 是空的）：
+  `.github/workflows/release.yml` 的上传步骤要 `TCB_SECRET_ID`/`TCB_SECRET_KEY`
+  两个仓库 secret，没配就直接 skip，所以下载按钮永远指向 GitHub 镜像。
+  **不打算修**（2026-08-18 决定）：这个下载页只是上架前给合伙人内测用的临时通道，
+  上了应用商店就不用了，不值得为它配密钥。页面兜底已经做了，GitHub 抽风时
+  至少能打开、能看到列表，够用。别再花时间研究这条。
 - 上线前待办：恢复本地缓存+增量拉取（见 CLAUDE.md 产品原则与 specs 里的记录）——「云为权威 + 缓存加速 + 失败明示」三件套。
 
 ## 图片资源体系（2026-08-15/16 做完，路线外插入项）
