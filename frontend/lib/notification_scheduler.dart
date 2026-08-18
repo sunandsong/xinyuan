@@ -54,6 +54,9 @@ class NotificationScheduler {
   }
 
   Future<bool> _ensurePermission() async {
+    // 管理端把通知功能整个关了：连权限都不该要。
+    if (!AppData.I.showNotif) return false;
+
     // 没同意隐私政策之前，一个系统权限框都不许弹。
     // 2026-08-18 在 Android 模拟器上实测：冷启动时通知权限框会盖在隐私同意弹窗
     // **前面**——用户还没看到隐私政策就先被要权限。「同意前不得申请权限」是国内
@@ -95,6 +98,12 @@ class NotificationScheduler {
   }) async {
     try {
       await init();
+      // 功能被管理端关掉：不光不排新的，还得把之前排好的清干净——
+      // 否则用户那边开关虽然"关了"，旧提醒到点照样弹出来
+      if (!AppData.I.showNotif) {
+        await _plugin.cancelAll();
+        return;
+      }
       final cats = await _enabledCategories();
       final now = DateTime.now();
       final planned = [

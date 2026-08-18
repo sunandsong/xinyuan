@@ -72,14 +72,16 @@ class MeTab extends StatelessWidget {
                           () => _push(context, const CapsulePage()),
                           scale: s,
                         ),
-                        _row(
-                          context,
-                          '通知提醒',
-                          '',
-                          () =>
-                              _push(context, const NotificationSettingsPage()),
-                          scale: s,
-                        ),
+                        // 通知提醒：管理端开关关掉时整个入口不出现（首发就是关的）
+                        if (data.showNotif)
+                          _row(
+                            context,
+                            '通知提醒',
+                            '',
+                            () =>
+                                _push(context, const NotificationSettingsPage()),
+                            scale: s,
+                          ),
                         _row(
                           context,
                           '意见反馈',
@@ -89,8 +91,11 @@ class MeTab extends StatelessWidget {
                               : _showLogin(context),
                           scale: s,
                         ),
-                        // 「不上榜」隐私开关：只对登录用户显示——未登录本来就不在榜上
-                        if (data.signedIn) _rankSwitchRow(data, scale: s),
+                        // 「不上榜」隐私开关：只对登录用户显示——未登录本来就不在榜上；
+                        // 还要跟着 showRank 走——排行榜整个关着的时候（首发就是这样），
+                        // 摆一个「不出现在任何榜单里」的开关只会让人问"哪来的榜单"
+                        if (data.signedIn && data.showRank)
+                          _rankSwitchRow(data, scale: s),
                         _row(
                           context,
                           '用户协议',

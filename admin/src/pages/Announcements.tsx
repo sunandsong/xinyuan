@@ -61,6 +61,9 @@ export default function Announcements() {
 
   // 功能开关卡：排行榜显隐（送审期间关掉，审核员就看不到榜单里的演示数据）
   const [showRank, setShowRank] = useState(true);
+  // 通知提醒显隐。首发不带这个功能，关掉之后 App 里连入口都不出现，
+  // 也不会申请通知权限；哪天想放出来再打开，不用发版
+  const [showNotif, setShowNotif] = useState(true);
   // 数据留存清理总开关。默认关，跟后端 cleanupEnabled() 的兜底一致——
   // 这是会物理删数据的自动任务，配置读不到时宁可不跑
   const [cleanupOn, setCleanupOn] = useState(false);
@@ -78,6 +81,7 @@ export default function Announcements() {
       .then((d) => {
         // 排行榜查不到就是还没配过，按「开」处理，跟后端 fetchFeatures 的兜底一致
         setShowRank(d.items[0]?.showRank !== false);
+        setShowNotif(d.items[0]?.showNotif !== false);
         // 清理开关相反，必须显式为 true 才算开
         setCleanupOn(d.items[0]?.cleanupEnabled === true);
       })
@@ -110,6 +114,22 @@ export default function Announcements() {
       });
       setShowRank(next);
       message.success(next ? '排行榜已对用户开放' : '排行榜已隐藏');
+    } catch (e: any) {
+      message.error(`保存失败：${e.message}`);
+    } finally {
+      setFeatSaving(false);
+    }
+  }
+
+  async function saveShowNotif(next: boolean) {
+    setFeatSaving(true);
+    try {
+      await api.post('/admin/content/announcements', {
+        id: FEATURES_ID,
+        doc: { showNotif: next, enabled: false }, // enabled:false 免得被当公告下发
+      });
+      setShowNotif(next);
+      message.success(next ? '通知提醒已对用户开放' : '通知提醒已隐藏');
     } catch (e: any) {
       message.error(`保存失败：${e.message}`);
     } finally {
@@ -203,6 +223,19 @@ export default function Announcements() {
               应用商店送审期间建议关掉（榜单含演示数据），过审后再打开，改完用户切后台再回来即生效
             </span>
           </Space>
+          <div style={{ marginTop: 12 }}>
+            <Space wrap>
+              <Switch
+                checked={showNotif}
+                disabled={!featLoaded || featSaving}
+                onChange={saveShowNotif}
+              />
+              <span>对用户显示通知提醒</span>
+              <span style={{ color: MUTED, fontSize: 12 }}>
+                关掉后「我的」里不出现通知设置入口，也不再申请通知权限、不排提醒
+              </span>
+            </Space>
+          </div>
           <div style={{ marginTop: 12 }}>
             <Space wrap>
               <Switch

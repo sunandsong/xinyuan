@@ -1170,6 +1170,11 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   /// 默认 true：拉不到配置（未登录/没网/后端挂了）时不该把已有功能锁死。
   bool showRank = true;
 
+  /// 通知提醒显隐开关（同一处下发）。关掉后「我的」里不出现通知设置入口，
+  /// 也不排程、不申请通知权限——首发不带这个功能，想放出来时打开即可，不用发版。
+  /// 同样默认 true：读不到配置时把已有功能藏掉，比露出来更像事故。
+  bool showNotif = true;
+
   /// 「心愿达成」弹窗的背景图 URL（管理端 poster_done 表下发，运营换图不用发版）。
   /// 空 = 还没拉到 / 拉失败 / 未登录，调用方回退到内置的 assets/posters/done*.jpg。
   List<String> donePosters = [];
@@ -1195,6 +1200,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       ];
       minVersion = j['minVersion']?.toString() ?? '';
       showRank = j['showRank'] as bool? ?? true;
+      showNotif = j['showNotif'] as bool? ?? true;
       donePosters = _posterUrls(j['donePosters']);
       declareCovers = _posterUrls(j['declareCovers']);
       doneCovers = _posterUrls(j['doneCovers']);
@@ -1234,6 +1240,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       ];
       minVersion = r['minVersion']?.toString() ?? '';
       showRank = ((r['features'] as Map?)?['showRank'] as bool?) ?? true;
+      showNotif = ((r['features'] as Map?)?['showNotif'] as bool?) ?? true;
       donePosters = _posterUrls((r['posters'] as Map?)?['done']);
       declareCovers = _posterUrls(r['coverDeclare']);
       doneCovers = _posterUrls(r['coverDone']);
@@ -1247,6 +1254,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
               'announcements': announcements,
               'minVersion': minVersion,
               'showRank': showRank,
+              'showNotif': showNotif,
               // 只缓存 url 列表，下次启动没网也能用上次的图（图本身走图片缓存）
               'donePosters': donePosters,
               'declareCovers': declareCovers,

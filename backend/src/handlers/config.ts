@@ -7,8 +7,10 @@ import { ok, Req } from '../http';
 const LIMIT = 1000;
 /** announcements 集合里存最低版本号的特殊文档 id，不是一条真公告 */
 const MIN_VERSION_ID = 'sys_min_version';
-/** 同上，存功能开关的特殊文档 id。目前只有 showRank（排行榜显隐）：
- * 应用商店送审期间关掉，审核员就看不到榜单里的演示数据；过审后打开，不用发版。 */
+/** 同上，存功能开关的特殊文档 id。目前两个开关，都是「送审期间关掉、过审再打开」用的：
+ * - showRank：排行榜显隐。关掉审核员就看不到榜单里的演示数据。
+ * - showNotif：通知提醒显隐。关掉则「我的」里不出现通知设置入口，也不排程、
+ *   不申请通知权限——首发不带这个功能，等要用了再打开，都不用发版。 */
 const FEATURES_ID = 'sys_features';
 
 /** 取一个集合里 enabled != false 的全部文档，按 sort 升序；
@@ -40,16 +42,21 @@ async function fetchMinVersion(): Promise<string> {
   }
 }
 
-/** 功能开关。查不到就按「全开」处理——配置文档还没建过时不能把功能锁死。 */
-async function fetchFeatures(): Promise<{ showRank: boolean }> {
+/** 功能开关。查不到就按「全开」处理——配置文档还没建过时不能把功能锁死。
+ * 注意跟 cleanup 那个开关的兜底方向相反：那个会删数据，读不到就什么都不做；
+ * 这里只是显隐，读不到时把功能藏了反而是事故。 */
+async function fetchFeatures(): Promise<{ showRank: boolean; showNotif: boolean }> {
   try {
     const { items } = await getDb().listDocs('announcements', {
       where: { _id: FEATURES_ID },
       limit: 1,
     });
-    return { showRank: items[0]?.showRank !== false };
+    return {
+      showRank: items[0]?.showRank !== false,
+      showNotif: items[0]?.showNotif !== false,
+    };
   } catch {
-    return { showRank: true };
+    return { showRank: true, showNotif: true };
   }
 }
 
