@@ -100,6 +100,15 @@
   - **TC_SECRET_ID / TC_SECRET_KEY** —— 腾讯云 API（额度监控）
   - MODE / CLOUDBASE_ENV_ID —— 非密钥，丢了也能照着仓库补
   拷过去之后 `python3 -c "import json;print(list(json.load(open('backend/cloudbaserc.json'))['functions'][0]['envVariables']))"` 核对一下有没有少。
+- `frontend/android/upload-keystore.jks` + `frontend/android/key.properties` ——
+  **安卓上架签名密钥（2026-08-18 生成）**。之前发布构建用的是 debug 签名，Google Play
+  会直接拒收；现在 `build.gradle.kts` 会读 key.properties，读不到就退回 debug 签名
+  （构建不会失败，但打出来的包不能上架，注意别拿这种包去提交）。
+  - **务必单独备份到 git 以外的地方**。这两个文件丢了，就再也不能给已上架的 App 发更新。
+  - 用了 Google Play App Signing 的话，这把只是「上传密钥」，丢了还能向 Google 申请重置；
+    国内安卓商店没有这个机制，丢了就是丢了。
+  - 密钥库指纹 SHA256 `F0:C1:F6:33:...:CC:DF`，alias `upload`，有效期到 2054 年。
+    密码在 key.properties 里（随机生成的 28 位）。
 - 可选：`.claude/settings.local.json`（权限偏好 bypassPermissions，重建也行）。
 
 ### 网页版注销页（2026-08-17/18 做完）

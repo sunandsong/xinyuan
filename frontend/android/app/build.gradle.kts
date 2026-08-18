@@ -1,3 +1,15 @@
+import java.util.Properties
+import java.io.FileInputStream
+
+// 上传签名配置。key.properties 和 .jks 都在 .gitignore 里，不进仓库——
+// 换电脑必须自己拷过去，否则打出来的还是 debug 签名的包，商店直接拒收。
+// 文件不存在时不报错、退回 debug 签名，好让 CI 和本地 `flutter run --release` 照常跑。
+val keystorePropsFile = rootProject.file("key.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) load(FileInputStream(keystorePropsFile))
+}
+val hasUploadKey = keystorePropsFile.exists()
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -31,11 +43,25 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasUploadKey) {
+            create("upload") {
+                keyAlias = keystoreProps["keyAlias"] as String
+                keyPassword = keystoreProps["keyPassword"] as String
+                // 用 rootProject.file：storeFile 写的是相对 android/ 的路径，
+                // 直接用 file() 会按 android/app/ 解析，找不到密钥库
+                storeFile = rootProject.file(keystoreProps["storeFile"] as String)
+                storePassword = keystoreProps["storePassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // 有 key.properties 就用正式上传签名；没有就退回 debug，
+            // 这样缺文件时是「打出来不能上架」，而不是「构建直接失败」
+            signingConfig = if (hasUploadKey) signingConfigs.getByName("upload")
+                            else signingConfigs.getByName("debug")
         }
     }
 }
