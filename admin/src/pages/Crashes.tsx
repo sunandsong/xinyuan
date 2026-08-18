@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Select, Space, Tag, Typography } from 'antd';
+import { Select, Space, Tag, Typography, message } from 'antd';
+import { api } from '../api';
 import AdminTable from '../components/AdminTable';
 import EmptyState from '../components/EmptyState';
+import { ActionBtn, TableActions } from '../components/TableActions';
 import TablePage from '../components/TablePage';
 import { MUTED } from '../theme';
 import { fmtTime, usePagedList } from '../paged';
@@ -20,12 +22,29 @@ interface CrashRow {
   lastPlatform: string;
   lastOsVersion: string;
   account?: string;
+  resolved?: boolean;
 }
 
 export default function Crashes() {
   const [kind, setKind] = useState('');
   const [days, setDays] = useState('');
-  const { items, pagination, loading } = usePagedList<CrashRow>('/admin/crashes', { kind, days });
+  // 默认只看未处理的——侧边栏角标数的就是这个，点进来该直接看到那几条
+  const [resolved, setResolved] = useState('false');
+  const { items, pagination, loading, reload } = usePagedList<CrashRow>('/admin/crashes', {
+    kind,
+    days,
+    resolved,
+  });
+
+  async function mark(fp: string, next: boolean) {
+    try {
+      await api.post(`/admin/crashes/${fp}/resolve`, { resolved: next });
+      message.success(next ? '已标记处理' : '已重新打开');
+      reload();
+    } catch (e: any) {
+      message.error(`操作失败：${e.message}`);
+    }
+  }
 
   return (
     <TablePage
@@ -43,6 +62,16 @@ export default function Crashes() {
             ]}
           />
           <Select
+            value={resolved}
+            style={{ width: 130 }}
+            onChange={setResolved}
+            options={[
+              { value: 'false', label: '未处理' },
+              { value: 'true', label: '已处理' },
+              { value: '', label: '全部' },
+            ]}
+          />
+          <Select
             value={days}
             style={{ width: 120 }}
             onChange={setDays}
@@ -52,7 +81,9 @@ export default function Crashes() {
               { value: '30', label: '近 30 天' },
             ]}
           />
-          <span style={{ color: MUTED, fontSize: 13 }}>共 {pagination.total} 类崩溃（同一问题已按指纹归并）</span>
+          <span style={{ color: MUTED, fontSize: 13 }}>
+            共 {pagination.total} 类崩溃（同一问题已按指纹归并）
+          </span>
         </Space>
       }
     >
@@ -134,6 +165,22 @@ export default function Crashes() {
                 {v} · {r.lastPlatform}
               </span>
             ),
+          },
+          {
+            title: '操作',
+            width: 110,
+            render: (_, r) =>
+              r.resolved ? (
+                <TableActions>
+                  <ActionBtn onClick={() => mark(r._id, false)}>重新打开</ActionBtn>
+                </TableActions>
+              ) : (
+                <TableActions>
+                  <ActionBtn variant="primary" onClick={() => mark(r._id, true)}>
+                    标记处理
+                  </ActionBtn>
+                </TableActions>
+              ),
           },
         ]}
       />

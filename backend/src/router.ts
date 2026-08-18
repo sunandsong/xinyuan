@@ -62,6 +62,7 @@ const adminRoutes = [
   route('GET', '/admin/logins', (r) => queries.loginList(r)),
   route('GET', '/admin/events', (r) => queries.eventList(r)),
   route('GET', '/admin/crashes', (r) => queries.crashList(r)),
+  route('POST', '/admin/crashes/:fp/resolve', (r, p) => queries.crashResolve(r, p.fp)),
   route('GET', '/admin/deletion-requests', (r) => queries.deletionRequestList(r)),
   route('GET', '/admin/audit', (r) => adminAudit.list(r)),
   route('POST', '/admin/cleanup', (r) => cleanupNow(r)),

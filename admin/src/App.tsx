@@ -99,37 +99,53 @@ const GROUP_OF: Record<string, string> = {
   '/demo-users': 'group-content',
 };
 
-/** 待处理注销申请数：进后台拉一次，之后每次切页重拉（处理完角标会自己消失） */
-function usePendingDeletions(dep: string): number {
-  const [n, setN] = useState(0);
+/** 待办角标数：进后台拉一次，之后每次切页重拉（处理完角标会自己消失）。
+ * 注销申请堆着不处理就是违反 Google Play 的删除要求；崩溃堆着不看则是
+ * 「线上崩了但没人知道」——两个都得在侧边栏能一眼看见。 */
+function usePendingCounts(dep: string): { deletions: number; crashes: number } {
+  const [n, setN] = useState({ deletions: 0, crashes: 0 });
   useEffect(() => {
-    api
-      .get('/admin/deletion-requests?handled=false&limit=1')
-      .then((d) => setN(Number(d.total) || 0))
-      .catch(() => {});
+    let cancelled = false;
+    Promise.all([
+      api.get('/admin/deletion-requests?handled=false&limit=1').catch(() => null),
+      api.get('/admin/crashes?resolved=false&limit=1').catch(() => null),
+    ]).then(([d, c]) => {
+      if (cancelled) return;
+      setN({ deletions: Number(d?.total) || 0, crashes: Number(c?.total) || 0 });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [dep]);
   return n;
+}
+
+/** 给菜单项挂角标：n>0 才挂，处理完自动消失 */
+function withBadge(item: any, n: number, label: string) {
+  if (!item || n <= 0) return item;
+  return {
+    ...item,
+    label: (
+      <Badge count={n} size="small" offset={[10, 0]}>
+        {label}
+      </Badge>
+    ),
+  };
 }
 
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const pendingDeletions = usePendingDeletions(location.pathname);
+  const pending = usePendingCounts(location.pathname);
   const items = useMemo(
     () =>
-      (menuItems ?? []).map((it) =>
-        it && 'key' in it && it.key === '/deletion-requests' && pendingDeletions > 0
-          ? {
-              ...it,
-              label: (
-                <Badge count={pendingDeletions} size="small" offset={[10, 0]}>
-                  注销申请
-                </Badge>
-              ),
-            }
-          : it,
-      ),
-    [pendingDeletions],
+      (menuItems ?? []).map((it) => {
+        if (!it || !('key' in it)) return it;
+        if (it.key === '/deletion-requests') return withBadge(it, pending.deletions, '注销申请');
+        if (it.key === '/crashes') return withBadge(it, pending.crashes, '崩溃');
+        return it;
+      }),
+    [pending],
   );
   const [openKeys, setOpenKeys] = useState<string[]>(() => {
     const g = GROUP_OF[location.pathname];

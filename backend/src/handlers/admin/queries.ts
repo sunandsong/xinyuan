@@ -1,8 +1,9 @@
 // 管理查询 API：stats 总览 / 用户列表详情 / 反馈 / 登录日志 / 事件。只读，不改数据。
 import { COL } from '../../config';
 import { getDb } from '../../db';
-import { notFound, ok, Req } from '../../http';
+import { bad, notFound, ok, Req } from '../../http';
 import { UserProfile } from '../../types';
+import { audit } from './audit';
 import { pageLimit } from './paging';
 
 const DAY = 86_400_000;
@@ -296,6 +297,7 @@ export async function crashList(req: Req) {
   const skip = Math.max(0, Number(q.skip) || 0);
   const where: Record<string, unknown> = {};
   if (q.kind) where.kind = q.kind;
+  if (q.resolved === 'true') where.resolved = true;
   const days = Number(q.days) || 0;
   try {
     const { items, total } = await getDb().listDocs(COL.crashes, {
@@ -305,11 +307,26 @@ export async function crashList(req: Req) {
       orderBy: 'count',
       orderDir: 'desc',
       since: days > 0 ? { field: 'lastAt', ms: days * DAY } : undefined,
+      // 只看未处理时用 !=true：早期记录压根没有 resolved 字段，等值查 false 会漏掉
+      excludeTrue: q.resolved === 'false' ? ['resolved'] : undefined,
     });
     return ok({ items, total });
   } catch {
     return ok({ items: [], total: 0 });
   }
+}
+
+/** POST /admin/crashes/:fp/resolve  body {resolved: boolean} —— 标记崩溃已处理/重新打开。
+ * 崩溃是按指纹聚合的，一条记录代表一类问题，所以「处理」的是这类问题不是单次崩溃。
+ * 注意 resolved 只影响管理端的显示和角标，不影响上报——同一个指纹再崩，
+ * recordCrash 走的是 update 分支，不会把 resolved 重置回 false。这是有意的：
+ * 已经判定「不修了」的问题不该因为又崩一次就重新冒出来烦人。 */
+export async function crashResolve(req: Req, fp: string) {
+  const resolved = req.body?.resolved;
+  if (typeof resolved !== 'boolean') return bad('resolved_required');
+  await getDb().upsertDoc(COL.crashes, fp, { resolved });
+  await audit(resolved ? 'crash-resolve' : 'crash-reopen', COL.crashes, fp);
+  return ok({ fp, resolved });
 }
 
 /** GET /admin/deletion-requests?handled=&skip= —— 网页版提交的注销申请，新的在前。
