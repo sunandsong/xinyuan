@@ -93,6 +93,9 @@ class ApiClient {
         return '写点内容再提交吧';
       case 'banned':
         return '账号已被封禁，如有疑问请通过意见反馈联系我们';
+      case 'account_deleted':
+        // 跟「登录已过期」不一样：这个重新登录也没用，得说清楚
+        return '账号已注销，数据已删除。如需继续使用请注册新账号';
       default:
         return code;
     }

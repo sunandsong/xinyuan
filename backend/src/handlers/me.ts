@@ -1,5 +1,6 @@
 import { getDb } from '../db';
 import { bad, ok, Req } from '../http';
+import { accountBlocked } from './account_guard';
 import { UserProfile } from '../types';
 
 function pub(u: UserProfile) {
@@ -41,6 +42,9 @@ export function pickProfilePatch(b: any): Record<string, unknown> {
 export async function patchMe(req: Req, uid: string) {
   const patch = pickProfilePatch(req.body ?? {});
   if (Object.keys(patch).length === 0) return bad('nothing_to_update');
+  // 跟 pull/push 一致：注销/封禁的账号不许再改资料
+  const blocked = accountBlocked(await getDb().getProfile(uid));
+  if (blocked) return blocked;
   const profile = await getDb().upsertProfile(uid, patch);
   return ok({ profile: pub(profile) });
 }
