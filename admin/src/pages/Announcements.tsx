@@ -61,6 +61,9 @@ export default function Announcements() {
 
   // 功能开关卡：排行榜显隐（送审期间关掉，审核员就看不到榜单里的演示数据）
   const [showRank, setShowRank] = useState(true);
+  // 数据留存清理总开关。默认关，跟后端 cleanupEnabled() 的兜底一致——
+  // 这是会物理删数据的自动任务，配置读不到时宁可不跑
+  const [cleanupOn, setCleanupOn] = useState(false);
   const [featLoaded, setFeatLoaded] = useState(false);
   const [featSaving, setFeatSaving] = useState(false);
 
@@ -72,11 +75,31 @@ export default function Announcements() {
       .finally(() => setMvLoaded(true));
     api
       .get(`/admin/content/announcements?f__id=${FEATURES_ID}`)
-      // 查不到就是还没配过，按「开」处理，跟后端 fetchFeatures 的兜底一致
-      .then((d) => setShowRank(d.items[0]?.showRank !== false))
+      .then((d) => {
+        // 排行榜查不到就是还没配过，按「开」处理，跟后端 fetchFeatures 的兜底一致
+        setShowRank(d.items[0]?.showRank !== false);
+        // 清理开关相反，必须显式为 true 才算开
+        setCleanupOn(d.items[0]?.cleanupEnabled === true);
+      })
       .catch(() => {})
       .finally(() => setFeatLoaded(true));
   }, []);
+
+  async function saveCleanup(next: boolean) {
+    setFeatSaving(true);
+    try {
+      await api.post('/admin/content/announcements', {
+        id: FEATURES_ID,
+        doc: { cleanupEnabled: next, enabled: false },
+      });
+      setCleanupOn(next);
+      message.success(next ? '数据留存清理已开启（每天 04:00 自动执行）' : '数据留存清理已停止');
+    } catch (e: any) {
+      message.error(`保存失败：${e.message}`);
+    } finally {
+      setFeatSaving(false);
+    }
+  }
 
   async function saveShowRank(next: boolean) {
     setFeatSaving(true);
@@ -180,6 +203,21 @@ export default function Announcements() {
               应用商店送审期间建议关掉（榜单含演示数据），过审后再打开，改完用户切后台再回来即生效
             </span>
           </Space>
+          <div style={{ marginTop: 12 }}>
+            <Space wrap>
+              <Switch
+                checked={cleanupOn}
+                disabled={!featLoaded || featSaving}
+                onChange={saveCleanup}
+              />
+              <span>数据留存清理</span>
+              <span style={{ color: MUTED, fontSize: 12 }}>
+                每天 04:00 物理删除过期数据（登录日志/行为事件 90 天、崩溃 180 天、
+                已处理反馈 1 年、注销用户 30 天）。<b>删除不可恢复</b>，
+                隐私政策第七节已按这些天数对用户公示——长期关着等于承诺没兑现
+              </span>
+            </Space>
+          </div>
         </ContentCard>
       }
       toolbar={

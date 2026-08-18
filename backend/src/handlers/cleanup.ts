@@ -9,6 +9,25 @@ import { COL } from '../config';
 import { getDb } from '../db';
 import { ok, Req } from '../http';
 
+/** 开关存在 announcements 集合的 sys_features 文档里，跟 showRank 同一份配置
+ * （管理端「公告与版本 → 功能开关」可改）。 */
+const FEATURES_ID = 'sys_features';
+
+/** 清理总开关。**默认关**——跟 showRank 的「默认开」正好相反，是有意的：
+ * 这是个会物理删数据的自动任务，配置读不到（没网/表还没建/字段拼错）时
+ * 应该什么都不做，而不是照删不误。宁可漏删，不可错删。 */
+async function cleanupEnabled(): Promise<boolean> {
+  try {
+    const { items } = await getDb().listDocs('announcements', {
+      where: { _id: FEATURES_ID },
+      limit: 1,
+    });
+    return items[0]?.cleanupEnabled === true;
+  } catch {
+    return false;
+  }
+}
+
 /** 保留期（天）。跟隐私政策第七节写的数字必须一一对上。 */
 export const RETENTION = {
   /** 登录日志（含 IP、设备型号）：安全审计用，过期就没有排查价值了 */
@@ -33,6 +52,8 @@ const MAX_PER_RUN = 300;
 const MAX_USERS_PER_RUN = 20;
 
 export interface CleanupResult {
+  /** true = 开关关着，这次什么都没做 */
+  skipped?: boolean;
   logins: number;
   events: number;
   crashes: number;
@@ -44,10 +65,8 @@ export interface CleanupResult {
 
 /** 跑一遍清理。任何一步失败都不抛出——清理任务挂掉不该影响别的，
  * 而且下次还会再跑一遍，漏删的下次补上。 */
-export async function runCleanup(): Promise<CleanupResult> {
-  const db = getDb();
-  const now = Date.now();
-  const res: CleanupResult = {
+export async function runCleanup(force = false): Promise<CleanupResult> {
+  const base: CleanupResult = {
     logins: 0,
     events: 0,
     crashes: 0,
@@ -55,6 +74,11 @@ export async function runCleanup(): Promise<CleanupResult> {
     purgedUsers: 0,
     stampedUsers: 0,
   };
+  if (!force && !(await cleanupEnabled())) return { ...base, skipped: true };
+
+  const db = getDb();
+  const now = Date.now();
+  const res: CleanupResult = { ...base };
 
   // ---- 按时间戳过期的四类记录 ----
   res.logins = await db.removeWhere(
@@ -110,8 +134,9 @@ export async function runCleanup(): Promise<CleanupResult> {
   return res;
 }
 
-/** POST /admin/cleanup —— 手动跑一次（定时任务之外的应急/验证入口） */
-export async function cleanupNow(_req: Req) {
-  const result = await runCleanup();
+/** POST /admin/cleanup —— 手动跑一次（定时任务之外的应急/验证入口）。
+ * body 传 {force:true} 可以在总开关关着的时候也跑一次，用于验证。 */
+export async function cleanupNow(req: Req) {
+  const result = await runCleanup(req.body?.force === true);
   return ok({ ...result, retention: RETENTION });
 }
