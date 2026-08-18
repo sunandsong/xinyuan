@@ -55,7 +55,9 @@ class NotificationScheduler {
 
   Future<bool> _ensurePermission() async {
     // 管理端把通知功能整个关了：连权限都不该要。
-    if (!AppData.I.showNotif) return false;
+    // configLoaded 一起判：showNotif 默认 true，新装用户在 /config 回来之前会被
+    // 当成「功能开着」，于是权限框先弹了出来，而功能其实是关的。宁可晚一步问。
+    if (!AppData.I.configLoaded || !AppData.I.showNotif) return false;
 
     // 没同意隐私政策之前，一个系统权限框都不许弹。
     // 2026-08-18 在 Android 模拟器上实测：冷启动时通知权限框会盖在隐私同意弹窗
@@ -69,8 +71,12 @@ class NotificationScheduler {
 
     // 裸弹系统权限框同样过不了审，要先有场景说明。
     // 说明都被拒了就别再弹系统框，也别下次再问——反复纠缠比不问更招人烦。
+    // 界面层还没来得及注册解释函数（HomePage.initState 里注册）就别申请——
+    // 否则弹出去的是一个没有任何前因后果的系统权限框，正是要避免的那种。
+    // 这次跳过不记 asked，下次数据变动重排时会再走到这里。
     final explain = permissionExplainer;
-    if (explain != null && !await explain()) {
+    if (explain == null) return false;
+    if (!await explain()) {
       await p.setBool(_kAskedKey, true);
       return false;
     }

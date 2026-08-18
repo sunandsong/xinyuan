@@ -1175,6 +1175,12 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
   /// 同样默认 true：读不到配置时把已有功能藏掉，比露出来更像事故。
   bool showNotif = true;
 
+  /// 功能开关到底拿到了没有（缓存命中或 /config 拉成功都算）。
+  /// showRank/showNotif 的默认值是 true，新装用户在配置回来之前会误判成「功能开着」，
+  /// 对通知来说后果是**先把系统权限框弹出来，而功能其实是关的**——2026-08-18 在
+  /// iPhone 模拟器上实测到过。所以申请权限之前要先确认配置真的读到了。
+  bool configLoaded = false;
+
   /// 「心愿达成」弹窗的背景图 URL（管理端 poster_done 表下发，运营换图不用发版）。
   /// 空 = 还没拉到 / 拉失败 / 未登录，调用方回退到内置的 assets/posters/done*.jpg。
   List<String> donePosters = [];
@@ -1201,6 +1207,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       minVersion = j['minVersion']?.toString() ?? '';
       showRank = j['showRank'] as bool? ?? true;
       showNotif = j['showNotif'] as bool? ?? true;
+      configLoaded = true;
       donePosters = _posterUrls(j['donePosters']);
       declareCovers = _posterUrls(j['declareCovers']);
       doneCovers = _posterUrls(j['doneCovers']);
@@ -1241,6 +1248,7 @@ class AppData extends ChangeNotifier with WidgetsBindingObserver {
       minVersion = r['minVersion']?.toString() ?? '';
       showRank = ((r['features'] as Map?)?['showRank'] as bool?) ?? true;
       showNotif = ((r['features'] as Map?)?['showNotif'] as bool?) ?? true;
+      configLoaded = true;
       donePosters = _posterUrls((r['posters'] as Map?)?['done']);
       declareCovers = _posterUrls(r['coverDeclare']);
       doneCovers = _posterUrls(r['coverDone']);
