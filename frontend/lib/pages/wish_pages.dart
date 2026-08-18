@@ -1274,19 +1274,24 @@ class _CompleteWishPageState extends State<CompleteWishPage> {
       ).placemarkFromCoordinates(pos.latitude, pos.longitude);
       final m = marks.isEmpty ? null : marks.first;
       // 城市名优先，取不到就逐级退：区县 → 省 → 国家
-      final name = [
+      String? name = [
         m?.locality,
         m?.subAdministrativeArea,
         m?.administrativeArea,
         m?.country,
       ].firstWhere((s) => s?.isNotEmpty ?? false, orElse: () => null);
+      // 安卓上系统反地理编码依赖 Google 服务，国内大多数机型查不到，
+      // 上面这段会返回空。后端有腾讯位置服务的代理接口，这里兜一手。
+      name ??= await GeocodeApi.reverse(pos.latitude, pos.longitude);
       if (name == null) {
         if (!silent && mounted) snack(context, '定位到了，但认不出这是哪儿');
         return;
       }
+      // 单独拿一个 final：name 是可变局部变量，在闭包里拿不到非空提升
+      final resolved = name;
       // 自动定位不覆盖用户已经手填/选好的内容
       if (mounted && (!silent || _loc.text.isEmpty)) {
-        setState(() => _loc.text = name);
+        setState(() => _loc.text = resolved);
       }
     } catch (e) {
       debugPrint('[gps] $e');

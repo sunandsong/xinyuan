@@ -258,6 +258,24 @@ class ConfigApi {
   static Future<Map<String, dynamic>> fetch() => ApiClient.I.get('/config');
 }
 
+/// 逆地理编码兜底。系统自带的反地理编码在安卓上走 Google 服务，
+/// 国内大多数机型没装，`placemarkFromCoordinates` 会直接返回空——
+/// 后端代理腾讯位置服务顶上（key 只留在后端，不下发客户端）。
+/// 拿不到就返回 null，调用方照旧走「手动填一个」的路子。
+class GeocodeApi {
+  static Future<String?> reverse(double lat, double lng) async {
+    try {
+      final r = await ApiClient.I.get(
+        '/geocode/reverse?lat=$lat&lng=$lng',
+      );
+      final name = r['name'];
+      return name is String && name.isNotEmpty ? name : null;
+    } catch (_) {
+      return null; // 没配 key／上游抽风都不该让定位这件事炸掉
+    }
+  }
+}
+
 /// 行为埋点：批量上报，一次最多 50 条，服务端写失败也不影响返回
 class EventsApi {
   static Future<void> track(List<Map<String, dynamic>> events) =>
