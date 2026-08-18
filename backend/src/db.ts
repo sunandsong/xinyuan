@@ -70,6 +70,16 @@ export interface Db {
    * 种子脚本没灌过数据的空表，第一次 list/写入前得有表 */
   ensureCollection(col: string): Promise<void>;
 
+  /** 按条件物理删除，一次最多 limit 条，返回实删条数。
+   * 分批是为了不超云函数超时——数据留存清理天天跑，一次没删完下次接着删。 */
+  removeWhere(col: string, where: Record<string, unknown>, limit: number): Promise<number>;
+  /** 大于/小于比较条件（清理按时间戳筛，等值过滤覆盖不了） */
+  lt(value: number): unknown;
+  /** 「这个字段不存在」条件（老数据缺字段，等值查不到） */
+  fieldMissing(): unknown;
+  /** 物理删除一个用户及其全部关联数据（注销满保留期后调用，跟软删的打标记不是一回事） */
+  hardDeleteUser(uid: string, account: string): Promise<void>;
+
   /** 崩溃上报：按指纹聚合。同指纹的崩溃只累加 count 并刷新末次信息，
    * 不会一条崩溃存一条记录（否则同一个 bug 崩一万次就是一万条，没法看）。 */
   recordCrash(fp: string, info: CrashInfo): Promise<void>;
@@ -473,6 +483,58 @@ class CloudDb implements Db {
     }
   }
 
+  lt(value: number): unknown {
+    return this.cmd.lt(value);
+  }
+
+  fieldMissing(): unknown {
+    return this.cmd.exists(false);
+  }
+
+  async removeWhere(
+    col: string,
+    where: Record<string, unknown>,
+    limit: number,
+  ): Promise<number> {
+    try {
+      // 先查出这一批的 id 再按 id 删，而不是直接 where().remove()：
+      // 后者会一次删光全部命中，条数不可控，容易撞上云函数超时
+      const r = await this.db.collection(col).where(where).limit(limit).get();
+      const ids = (r.data ?? []).map((d: any) => d._id).filter(Boolean);
+      if (ids.length === 0) return 0;
+      await this.db.collection(col).where({ _id: this.cmd.in(ids) }).remove();
+      return ids.length;
+    } catch {
+      // 集合还没建过等情况：当作没有可删的，别让整个清理任务挂掉
+      return 0;
+    }
+  }
+
+  async hardDeleteUser(uid: string, account: string): Promise<void> {
+    // 用户自己的内容 + 他产生的日志，一并物理删除
+    for (const col of [COL.wishes, COL.tasks, COL.letters, COL.logins, COL.events, COL.feedback]) {
+      try {
+        await this.db.collection(col).where({ uid }).remove();
+      } catch {
+        // 某张表没有他的数据 / 表还没建过：跳过，别拖累其它表
+      }
+    }
+    // 崩溃记录按指纹聚合、不是按 uid 存的，只能按 account 字段清掉归属信息，
+    // 不能整条删——那条指纹下还聚合着其他用户的崩溃次数
+    try {
+      const r = await this.db.collection(COL.crashes).where({ account }).limit(200).get();
+      for (const d of r.data ?? []) {
+        await this.db.collection(COL.crashes).doc(d._id).update({ account: '' });
+      }
+    } catch {}
+    try {
+      await this.db.collection(COL.deletionRequests).where({ uid }).remove();
+    } catch {}
+    try {
+      await this.db.collection(COL.users).doc(uid).remove();
+    } catch {}
+  }
+
   async recordCrash(fp: string, info: CrashInfo): Promise<void> {
     const col = COL.crashes;
     // ponytail: 先读后写有并发竞争（两条同指纹崩溃同时到达可能少记一次 count）。
@@ -582,7 +644,9 @@ class CloudDb implements Db {
 
   async softDeleteUser(uid: string) {
     await Promise.all([
-      this.db.collection(COL.users).doc(uid).update({ deleted: true }),
+      // deletedAt 是保留期的起算点：满 RETENTION.deletedUserGraceDays 天后由清理任务
+      // 物理删除（handlers/cleanup.ts）。缺了它那条记录永远等不到真删。
+      this.db.collection(COL.users).doc(uid).update({ deleted: true, deletedAt: Date.now() }),
       this.db.collection(COL.wishes).where({ uid }).update({ deleted: true, updatedAt: Date.now() }),
       this.db.collection(COL.tasks).where({ uid }).update({ deleted: true, updatedAt: Date.now() }),
       this.db.collection(COL.letters).where({ uid }).update({ deleted: true, updatedAt: Date.now() }),

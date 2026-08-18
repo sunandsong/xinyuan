@@ -19,6 +19,7 @@ export interface UserProfile {
   createdAt: number;
   updatedAt: number;
   deleted?: boolean;
+  deletedAt?: number; // 注销时间：清理任务据此判断是否已过保留期，可物理删除
   lastLoginAt?: number;
   lastActiveAt?: number;
   banned?: boolean; // 管理端封禁（Task 5）

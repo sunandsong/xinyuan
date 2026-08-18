@@ -154,12 +154,39 @@ SDK；唯一使用的第三方组件见下方"第三方 SDK 目录"。
 </ul>
 
 <h2>七、数据保留</h2>
-<p>你注销账号后，我们会删除你的账号记录和你创建的内容（心愿、任务、时光胶囊、你上传的照片），
-这些内容不再能被登录访问、也不再对任何人展示。</p>
-<p>出于安全审计、故障排查和法律法规要求，下列信息会在注销后继续保留一段时间，
-之后随例行清理一并删除：登录日志（设备型号、IP、时间）、崩溃与异常记录、
-你提交过的意见反馈内容、匿名化的使用行为事件（不含你的心愿内容）。
-这些记录不会用于识别你的身份，也不会用于任何商业用途。</p>
+<p>你注销账号后，账号立即失效、无法再登录，你创建的内容（心愿、任务、时光胶囊、
+上传的照片）也立即不再展示。这些数据会在<b>注销满 30 天后由系统自动物理删除</b>，
+不可恢复——留这 30 天是为了给误操作一个挽回的余地。</p>
+<p>此外，下列信息不论你是否注销，都会在到期后由系统自动删除：</p>
+<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px">
+  <tr style="background:#F7F8FA">
+    <th style="text-align:left;padding:6px 8px;border:1px solid #E6E7EC">信息类型</th>
+    <th style="text-align:left;padding:6px 8px;border:1px solid #E6E7EC">保留期</th>
+    <th style="text-align:left;padding:6px 8px;border:1px solid #E6E7EC">为什么留这么久</th>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">登录日志（设备型号、系统、IP、时间）</td>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">90 天</td>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">识别异常登录、排查账号安全问题</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">使用行为事件（不含你的心愿内容）</td>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">90 天</td>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">了解功能使用趋势、改进产品</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">崩溃与异常记录</td>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">末次发生后 180 天</td>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">跨版本对比，确认问题是否真的修好了</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">意见反馈内容</td>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">处理完成后 1 年</td>
+    <td style="padding:6px 8px;border:1px solid #E6E7EC">万一后续有争议可以回溯</td>
+  </tr>
+</table>
+<p>清理由服务端定时任务每天自动执行，不需要你做任何操作。这些记录不会用于识别你的
+身份，也不会用于任何商业用途。如果法律法规对某类信息另有更长的留存要求，我们会依法执行。</p>
 
 <h2>八、未成年人保护</h2>
 <p>本 App 不主动收集未成年人的身份信息。如果你是未成年人，请在监护人指导下使用本 App。

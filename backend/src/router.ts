@@ -11,6 +11,7 @@ import * as queries from './handlers/admin/queries';
 import { adminPhotoUrls, adminUpload } from './handlers/admin/upload';
 import * as adminGeocode from './handlers/admin/geocode';
 import * as adminUsers from './handlers/admin/users';
+import { cleanupNow } from './handlers/cleanup';
 import { getConfig } from './handlers/config';
 import * as crash from './handlers/crash';
 import { track } from './handlers/events';
@@ -63,6 +64,7 @@ const adminRoutes = [
   route('GET', '/admin/crashes', (r) => queries.crashList(r)),
   route('GET', '/admin/deletion-requests', (r) => queries.deletionRequestList(r)),
   route('GET', '/admin/audit', (r) => adminAudit.list(r)),
+  route('POST', '/admin/cleanup', (r) => cleanupNow(r)),
   route('GET', '/admin/export', (r) => exportAll(r)),
   route('GET', '/admin/quota', (r) => quota(r)),
   route('POST', '/admin/upload', (r) => adminUpload(r)),
