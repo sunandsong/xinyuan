@@ -9,7 +9,7 @@ import { getDb } from '../db';
 import { json, Req, Res } from '../http';
 import { verifyPassword } from '../password';
 
-const ENTITY = '「人生清单」开发者（个人开发者，企业主体申请中，資質下来后更新本页）';
+const ENTITY = '「人生清单」开发者（个人开发者，企业主体申请中，资质下来后更新本页）';
 const UPDATED = '2026-08-17';
 /** 网页版注销页（静态托管，源码在仓库 delete/index.html）。
  * Google Play「数据安全」表单里的账号删除网址填的就是这个地址，

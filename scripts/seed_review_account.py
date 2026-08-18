@@ -123,6 +123,11 @@ spots = {"故宫": now - DAY * 400, "西湖": now - DAY * 300, "黄山": now - D
 profile = api("/me", {
     "gender": "男", "birthday": "1995-06-18", "avatarEmoji": "🌱",
     "checkins": spots, "placeCount": len(spots),
+    # 不上榜。这账号的数据是脚本填的，已完成任务比榜首真人还多（实测 75 vs 44），
+    # 不挡掉它一登录就双榜第一——一个测试账号霸榜正是「虚假繁荣」那个审核风险点本身。
+    # 审核期排行榜整个是关的，挡掉不影响演示；真要演示这个开关，
+    # App 里「我的 → 不参与排行榜」自己能点。
+    "hideFromRank": True,
 }, "PATCH", token)["profile"]
 
 pulled = api("/sync/pull?since=0", token=token)
@@ -139,4 +144,5 @@ if stale:
 print(f"时光胶囊  : {len(ls)} 封（可开启 {sum(1 for l in ls if l.get('openAt', 0) <= now)} 封）")
 print(f"地图打卡  : {len(profile.get('checkins') or {})} 处")
 print(f"成就勋章  : {len(profile.get('achievements') or {})} 枚")
+print(f"排行榜    : {'已挡掉，不污染真实榜单' if profile.get('hideFromRank') else '⚠️ 参与中'}")
 print(f"本次写入  : {accepted}")
